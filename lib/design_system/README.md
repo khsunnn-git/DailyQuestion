@@ -54,6 +54,7 @@
   - Insight Card: `342x197` base, 아이콘 + 제목 + 리포트 본문
   - Today's Records: `320x154`, states(`default/none`)
   - Today's Other Records: `350x205`, 본문 + 하단 작성자 라벨
+  - Item Card: `108x120`, states(`default/selected`), selected 시 `Blue500` 1px border
 
 ## Brand Themes
 - Blue (default)
