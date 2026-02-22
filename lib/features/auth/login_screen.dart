@@ -7,6 +7,8 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
     this.hasRecentSocialLogin = true,
+    this.recentSocialLoginProvider,
+    this.recentSocialLoginProviders,
     this.onLoginSuccess,
     this.onFindId,
     this.onFindPassword,
@@ -15,6 +17,8 @@ class LoginScreen extends StatefulWidget {
   });
 
   final bool hasRecentSocialLogin;
+  final String? recentSocialLoginProvider;
+  final List<String>? recentSocialLoginProviders;
   final VoidCallback? onLoginSuccess;
   final VoidCallback? onFindId;
   final VoidCallback? onFindPassword;
@@ -34,11 +38,20 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _emailFocused = false;
   bool _passwordFocused = false;
   bool _isPasswordVisible = false;
+  bool _showCredentialError = false;
 
   bool get _canSubmit {
     return _emailController.text.trim().isNotEmpty &&
         _passwordController.text.isNotEmpty;
   }
+
+  String get _emailText => _emailController.text.trim();
+  String get _passwordText => _passwordController.text;
+  bool get _hasEmailText => _emailText.isNotEmpty;
+  bool get _hasPasswordText => _passwordText.isNotEmpty;
+  bool get _isEmailValid =>
+      _emailText.contains("@") && _emailText.contains(".");
+  bool get _emailHasFormatError => _hasEmailText && !_isEmailValid;
 
   @override
   void initState() {
@@ -73,17 +86,22 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _attemptLogin() {
-    final String email = _emailController.text.trim();
-    final String password = _passwordController.text;
-    final bool emailValid = email.contains("@");
-    final bool passwordValid = password.isNotEmpty;
+    final bool emailValid = _isEmailValid;
+    final bool passwordValid = _hasPasswordText;
 
     if (emailValid && passwordValid) {
+      setState(() {
+        _showCredentialError = false;
+      });
       if (widget.onLoginSuccess != null) {
         widget.onLoginSuccess!();
       }
       return;
     }
+
+    setState(() {
+      _showCredentialError = true;
+    });
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -103,7 +121,9 @@ class _LoginScreenState extends State<LoginScreen> {
   void _clearEmail() {
     _emailController.clear();
     _emailFocusNode.requestFocus();
-    setState(() {});
+    setState(() {
+      _showCredentialError = false;
+    });
   }
 
   void _clearPassword() {
@@ -111,6 +131,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordFocusNode.requestFocus();
     setState(() {
       _isPasswordVisible = false;
+      _showCredentialError = false;
     });
   }
 
@@ -124,126 +145,198 @@ class _LoginScreenState extends State<LoginScreen> {
             return SingleChildScrollView(
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    children: <Widget>[
-                      const SizedBox(height: 80),
-                      Text(
-                        "Daily Question",
-                        style: AppTypography.headingLarge.copyWith(
-                          color: AppNeutralColors.grey900,
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 350),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            const _FieldLabel(text: "이메일"),
-                            const SizedBox(height: 6),
-                            _LoginTextField(
-                              controller: _emailController,
-                              focusNode: _emailFocusNode,
-                              hintText: "이메일 형식으로 입력해주세요.",
-                              focused: _emailFocused,
-                              keyboardType: TextInputType.emailAddress,
-                              textInputAction: TextInputAction.next,
-                              onChanged: (_) => setState(() {}),
-                              onSubmitted: (_) =>
-                                  _passwordFocusNode.requestFocus(),
-                              trailing: _emailController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.close, size: 18),
-                                      onPressed: _clearEmail,
-                                      splashRadius: 18,
-                                      color: AppNeutralColors.grey500,
-                                    )
-                                  : null,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 390),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: <Widget>[
+                          const SizedBox(height: 80),
+                          Text(
+                            "Daily Question",
+                            style: AppTypography.headingLarge.copyWith(
+                              color: AppNeutralColors.grey900,
                             ),
-                            const SizedBox(height: 24),
-                            const _FieldLabel(text: "비밀번호"),
-                            const SizedBox(height: 6),
-                            _LoginTextField(
-                              controller: _passwordController,
-                              focusNode: _passwordFocusNode,
-                              hintText: "비밀번호를 입력하세요.",
-                              focused: _passwordFocused,
-                              obscureText: !_isPasswordVisible,
-                              keyboardType: TextInputType.visiblePassword,
-                              textInputAction: TextInputAction.go,
-                              onChanged: (_) => setState(() {}),
-                              onSubmitted: (_) => _attemptLogin(),
-                              trailing: _passwordController.text.isNotEmpty
-                                  ? Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: <Widget>[
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.close,
-                                            size: 18,
-                                          ),
-                                          onPressed: _clearPassword,
-                                          splashRadius: 18,
-                                          color: AppNeutralColors.grey500,
+                          ),
+                          const SizedBox(height: 40),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              const _FieldLabel(text: "이메일"),
+                              const SizedBox(height: 6),
+                              _LoginTextField(
+                                controller: _emailController,
+                                focusNode: _emailFocusNode,
+                                hintText: "이메일 형식으로 입력해주세요.",
+                                focused: _emailFocused,
+                                keyboardType: TextInputType.emailAddress,
+                                textInputAction: TextInputAction.next,
+                                state: _emailHasFormatError
+                                    ? AppInputFieldState.error
+                                    : (_emailFocused
+                                          ? AppInputFieldState.focus
+                                          : AppInputFieldState.defaultState),
+                                onChanged: (_) => setState(() {
+                                  _showCredentialError = false;
+                                }),
+                                onSubmitted: (_) =>
+                                    _passwordFocusNode.requestFocus(),
+                                trailing: !_hasEmailText
+                                    ? null
+                                    : _emailHasFormatError
+                                    ? const Padding(
+                                        padding: EdgeInsets.only(right: 12),
+                                        child: Icon(
+                                          Icons.error_outline,
+                                          size: 20,
+                                          color: AppSemanticColors.error500,
                                         ),
-                                        IconButton(
-                                          icon: Icon(
-                                            _isPasswordVisible
+                                      )
+                                    : Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: <Widget>[
+                                          _InputIconAction(
+                                            icon: Icons.close,
+                                            onTap: _clearEmail,
+                                            color: _emailFocused
+                                                ? AppBrandThemes.blue.c500
+                                                : AppNeutralColors.grey500,
+                                          ),
+                                          const SizedBox(
+                                            width: AppInputTokens.supportingGap,
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                              if (_emailHasFormatError) ...<Widget>[
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: <Widget>[
+                                    const Icon(
+                                      Icons.error_outline,
+                                      size: 18,
+                                      color: AppSemanticColors.error500,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      "올바른 이메일 형식이 아닙니다",
+                                      style: AppTypography.captionMedium
+                                          .copyWith(
+                                            color: AppSemanticColors.error500,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 24),
+                              const _FieldLabel(text: "비밀번호"),
+                              const SizedBox(height: 6),
+                              _LoginTextField(
+                                controller: _passwordController,
+                                focusNode: _passwordFocusNode,
+                                hintText: "비밀번호를 입력하세요.",
+                                focused: _passwordFocused,
+                                obscureText: !_isPasswordVisible,
+                                keyboardType: TextInputType.visiblePassword,
+                                textInputAction: TextInputAction.go,
+                                state: _showCredentialError
+                                    ? AppInputFieldState.error
+                                    : (_passwordFocused
+                                          ? AppInputFieldState.focus
+                                          : AppInputFieldState.defaultState),
+                                onChanged: (_) => setState(() {
+                                  _showCredentialError = false;
+                                }),
+                                onSubmitted: (_) => _attemptLogin(),
+                                trailing: !_hasPasswordText
+                                    ? null
+                                    : Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: <Widget>[
+                                          _InputIconAction(
+                                            icon: Icons.close,
+                                            onTap: _clearPassword,
+                                            color: _showCredentialError
+                                                ? AppSemanticColors.error500
+                                                : (_passwordFocused
+                                                      ? AppBrandThemes.blue.c500
+                                                      : AppNeutralColors
+                                                            .grey500),
+                                          ),
+                                          const SizedBox(
+                                            width: AppInputTokens.supportingGap,
+                                          ),
+                                          _InputIconAction(
+                                            icon: _isPasswordVisible
                                                 ? Icons.visibility_off_outlined
                                                 : Icons.visibility_outlined,
-                                            size: 18,
+                                            onTap: () {
+                                              setState(() {
+                                                _isPasswordVisible =
+                                                    !_isPasswordVisible;
+                                              });
+                                            },
+                                            color: _showCredentialError
+                                                ? AppSemanticColors.error500
+                                                : (_passwordFocused ||
+                                                          _isPasswordVisible
+                                                      ? AppBrandThemes.blue.c500
+                                                      : AppNeutralColors
+                                                            .grey600),
                                           ),
-                                          onPressed: () {
-                                            setState(() {
-                                              _isPasswordVisible =
-                                                  !_isPasswordVisible;
-                                            });
-                                          },
-                                          splashRadius: 18,
-                                          color: AppNeutralColors.grey600,
-                                        ),
-                                      ],
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(height: 24),
-                            SizedBox(
-                              height: 56,
-                              child: ElevatedButton(
-                                onPressed: _canSubmit ? _attemptLogin : null,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppBrandThemes.blue.c500,
-                                  foregroundColor: AppNeutralColors.white,
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: AppRadius.br8,
+                                        ],
+                                      ),
+                              ),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                height: 56,
+                                child: ElevatedButton(
+                                  onPressed: _canSubmit ? _attemptLogin : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppBrandThemes.blue.c500,
+                                    disabledBackgroundColor: const Color(
+                                      0xFFA3C9F0,
+                                    ),
+                                    foregroundColor: AppNeutralColors.white,
+                                    disabledForegroundColor:
+                                        AppBrandThemes.blue.c100,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: AppRadius.br8,
+                                    ),
                                   ),
-                                ),
-                                child: Text(
-                                  "로그인",
-                                  style: AppTypography.buttonLarge.copyWith(
-                                    color: AppNeutralColors.white,
+                                  child: Text(
+                                    "로그인",
+                                    style: AppTypography.buttonLarge.copyWith(
+                                      color: AppNeutralColors.white,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                            _LoginLinkRow(
-                              onFindId: widget.onFindId,
-                              onFindPassword: widget.onFindPassword,
-                              onSignUp: widget.onSignUp,
-                            ),
-                          ],
-                        ),
+                              const SizedBox(height: 24),
+                              _LoginLinkRow(
+                                onFindId: widget.onFindId,
+                                onFindPassword: widget.onFindPassword,
+                                onSignUp: widget.onSignUp,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 56),
+                          _SocialLoginSection(
+                            recentLoginProviders: widget.hasRecentSocialLogin
+                                ? (widget.recentSocialLoginProviders ??
+                                      <String>[
+                                        widget.recentSocialLoginProvider ??
+                                            "kakao",
+                                      ])
+                                : const <String>[],
+                            onSocialLogin: widget.onSocialLogin,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 56),
-                      _SocialLoginSection(
-                        showRecentLoginTooltip: widget.hasRecentSocialLogin,
-                        onSocialLogin: widget.onSocialLogin,
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -283,6 +376,7 @@ class _LoginTextField extends StatelessWidget {
     this.onChanged,
     this.onSubmitted,
     this.trailing,
+    this.state = AppInputFieldState.defaultState,
   });
 
   final TextEditingController controller;
@@ -295,6 +389,7 @@ class _LoginTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final Widget? trailing;
+  final AppInputFieldState state;
 
   @override
   Widget build(BuildContext context) {
@@ -308,36 +403,42 @@ class _LoginTextField extends StatelessWidget {
         textInputAction: textInputAction,
         onChanged: onChanged,
         onSubmitted: onSubmitted,
-        style: AppTypography.bodyMediumMedium.copyWith(
-          color: AppNeutralColors.grey900,
+        style: AppInputTokens.mdTextStyle.copyWith(
+          color: AppInputTokens.textColor(
+            state,
+            hasValue: controller.text.isNotEmpty,
+          ),
         ),
         decoration: InputDecoration(
           hintText: focused ? null : hintText,
-          hintStyle: AppTypography.bodyMediumMedium.copyWith(
-            color: AppNeutralColors.grey400,
+          hintStyle: AppInputTokens.mdTextStyle.copyWith(
+            color: AppInputTokens.textColor(
+              AppInputFieldState.defaultState,
+              hasValue: false,
+            ),
           ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 16,
+          contentPadding: AppInputTokens.fieldPadding.copyWith(
+            top: 16,
+            bottom: 16,
           ),
           suffixIcon: trailing == null
               ? null
               : Padding(
-                  padding: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.only(right: 12),
                   child: trailing,
                 ),
-          suffixIconConstraints: const BoxConstraints(minHeight: 32),
+          suffixIconConstraints: const BoxConstraints(minHeight: 24),
           border: OutlineInputBorder(
             borderRadius: AppRadius.br8,
-            borderSide: const BorderSide(color: AppNeutralColors.grey300),
+            borderSide: BorderSide(color: AppInputTokens.borderColor(state)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: AppRadius.br8,
-            borderSide: const BorderSide(color: AppNeutralColors.grey300),
+            borderSide: BorderSide(color: AppInputTokens.borderColor(state)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: AppRadius.br8,
-            borderSide: BorderSide(color: AppBrandThemes.blue.c500),
+            borderSide: BorderSide(color: AppInputTokens.borderColor(state)),
           ),
         ),
       ),
@@ -387,16 +488,26 @@ class _HoverLinkState extends State<_HoverLink> {
       onExit: (_) => setState(() => _hovered = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: widget.onTap ?? () {},
         behavior: HitTestBehavior.opaque,
         child: Padding(
           padding: const EdgeInsets.all(4),
-          child: Text(
-            widget.label,
-            style: AppTypography.buttonSmall.copyWith(
-              color: _hovered
-                  ? AppBrandThemes.blue.c500
-                  : AppNeutralColors.grey900,
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: _hovered
+                      ? AppNeutralColors.grey900
+                      : Colors.transparent,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Text(
+              widget.label,
+              style: AppTypography.buttonSmall.copyWith(
+                color: AppNeutralColors.grey900,
+              ),
             ),
           ),
         ),
@@ -419,13 +530,34 @@ class _VerticalDivider extends StatelessWidget {
   }
 }
 
+class _InputIconAction extends StatelessWidget {
+  const _InputIconAction({required this.icon, required this.color, this.onTap});
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      onTap: onTap,
+      radius: 16,
+      child: SizedBox(
+        width: AppInputTokens.actionIconSize,
+        height: AppInputTokens.actionIconSize,
+        child: Icon(icon, size: 18, color: color),
+      ),
+    );
+  }
+}
+
 class _SocialLoginSection extends StatelessWidget {
   const _SocialLoginSection({
-    required this.showRecentLoginTooltip,
+    required this.recentLoginProviders,
     this.onSocialLogin,
   });
 
-  final bool showRecentLoginTooltip;
+  final List<String> recentLoginProviders;
   final void Function(String provider)? onSocialLogin;
 
   @override
@@ -441,38 +573,50 @@ class _SocialLoginSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          width: 294,
-          height: 95,
-          child: Stack(
-            clipBehavior: Clip.none,
+          width: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  _SocialIconButton(
-                    path: "assets/images/login/ic_kakao.svg",
-                    onTap: () => onSocialLogin?.call("kakao"),
+              SizedBox(
+                height: 60,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: <Widget>[
+                      _SocialIconButton(
+                        path: "assets/images/login/ic_kakao.svg",
+                        onTap: () => onSocialLogin?.call("kakao"),
+                      ),
+                      _SocialIconButton(
+                        path: "assets/images/login/ic_naver.svg",
+                        onTap: () => onSocialLogin?.call("naver"),
+                      ),
+                      _SocialIconButton(
+                        path: "assets/images/login/ic_google.svg",
+                        onTap: () => onSocialLogin?.call("google"),
+                      ),
+                      _SocialIconButton(
+                        path: "assets/images/login/ic_apple.svg",
+                        onTap: () => onSocialLogin?.call("apple"),
+                      ),
+                    ],
                   ),
-                  _SocialIconButton(
-                    path: "assets/images/login/ic_naver.svg",
-                    onTap: () => onSocialLogin?.call("naver"),
-                  ),
-                  _SocialIconButton(
-                    path: "assets/images/login/ic_google.svg",
-                    onTap: () => onSocialLogin?.call("google"),
-                  ),
-                  _SocialIconButton(
-                    path: "assets/images/login/ic_apple.svg",
-                    onTap: () => onSocialLogin?.call("apple"),
-                  ),
-                ],
-              ),
-              if (showRecentLoginTooltip)
-                const Positioned(
-                  left: 0,
-                  top: 67,
-                  child: _RecentLoginTooltip(),
                 ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 31,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    _TooltipSlot(show: recentLoginProviders.contains("kakao")),
+                    _TooltipSlot(show: recentLoginProviders.contains("naver")),
+                    _TooltipSlot(show: recentLoginProviders.contains("google")),
+                    _TooltipSlot(show: recentLoginProviders.contains("apple")),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -511,48 +655,27 @@ class _SocialIconButton extends StatelessWidget {
   }
 }
 
-class _RecentLoginTooltip extends StatelessWidget {
-  const _RecentLoginTooltip();
+class _TooltipSlot extends StatelessWidget {
+  const _TooltipSlot({required this.show});
+
+  final bool show;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        CustomPaint(size: const Size(10, 6), painter: _TooltipArrowPainter()),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppNeutralColors.black.withValues(alpha: 0.8),
-            borderRadius: AppRadius.br4,
-          ),
-          child: Text(
-            "최근 로그인",
-            style: AppTypography.captionSmall.copyWith(
-              color: AppNeutralColors.white,
-            ),
-          ),
-        ),
-      ],
+    return SizedBox(
+      width: AppTooltipTokens.width,
+      height: 31,
+      child: Center(
+        child: show
+            ? const SizedBox(
+                width: AppTooltipTokens.width,
+                child: AppTooltipBubble(
+                  text: "최근 로그인",
+                  direction: AppBubbleDirection.upCenter,
+                ),
+              )
+            : const SizedBox.shrink(),
+      ),
     );
   }
-}
-
-class _TooltipArrowPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()
-      ..color = AppNeutralColors.black.withValues(alpha: 0.8)
-      ..style = PaintingStyle.fill;
-
-    final Path path = Path()
-      ..moveTo(size.width / 2, 0)
-      ..lineTo(0, size.height)
-      ..lineTo(size.width, size.height)
-      ..close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
