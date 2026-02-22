@@ -256,7 +256,7 @@ class AppTodayRecordCard extends StatelessWidget {
           Expanded(
             child: Center(
               child: isNone
-                  ? const Icon(
+                  ? Icon(
                       Icons.edit_note,
                       size: 64,
                       color: AppBrandThemes.blue.c300,

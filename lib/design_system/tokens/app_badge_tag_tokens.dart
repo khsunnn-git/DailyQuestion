@@ -54,7 +54,7 @@ abstract final class AppBucketTagTokens {
   static AppBucketTagStyle style(AppBucketTagState state) {
     switch (state) {
       case AppBucketTagState.addDefault:
-        return const AppBucketTagStyle(
+        return AppBucketTagStyle(
           background: AppNeutralColors.grey100,
           textColor: AppBrandThemes.blue.c500,
           showHash: false,
@@ -62,7 +62,7 @@ abstract final class AppBucketTagTokens {
           showAdd: true,
         );
       case AppBucketTagState.oneOrMoreAdd:
-        return const AppBucketTagStyle(
+        return AppBucketTagStyle(
           background: AppBrandThemes.blue.c500,
           textColor: AppNeutralColors.white,
           showHash: true,
@@ -70,7 +70,7 @@ abstract final class AppBucketTagTokens {
           showAdd: true,
         );
       case AppBucketTagState.deleteAdd:
-        return const AppBucketTagStyle(
+        return AppBucketTagStyle(
           background: AppBrandThemes.blue.c500,
           textColor: AppNeutralColors.white,
           showHash: true,
@@ -78,7 +78,7 @@ abstract final class AppBucketTagTokens {
           showAdd: true,
         );
       case AppBucketTagState.defaultState:
-        return const AppBucketTagStyle(
+        return AppBucketTagStyle(
           background: AppBrandThemes.blue.c500,
           textColor: AppNeutralColors.white,
           showHash: true,
@@ -86,7 +86,7 @@ abstract final class AppBucketTagTokens {
           showAdd: false,
         );
       case AppBucketTagState.delete:
-        return const AppBucketTagStyle(
+        return AppBucketTagStyle(
           background: AppBrandThemes.blue.c500,
           textColor: AppNeutralColors.white,
           showHash: true,

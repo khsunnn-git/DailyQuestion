@@ -6,11 +6,7 @@ import "app_radius.dart";
 import "app_spacing.dart";
 import "app_typography.dart";
 
-enum AppControlState {
-  selected,
-  defaultState,
-  disabled,
-}
+enum AppControlState { selected, defaultState, disabled }
 
 class AppSegmentedButtonStyle {
   const AppSegmentedButtonStyle({
@@ -38,7 +34,7 @@ abstract final class AppSegmentedTokens {
   static AppSegmentedButtonStyle style(AppControlState state) {
     switch (state) {
       case AppControlState.selected:
-        return const AppSegmentedButtonStyle(
+        return AppSegmentedButtonStyle(
           backgroundColor: AppBrandThemes.blue.c100,
           borderColor: AppBrandThemes.blue.c500,
           textColor: AppBrandThemes.blue.c500,
@@ -94,7 +90,7 @@ abstract final class AppTabTokens {
   static AppTabButtonStyle style(AppControlState state) {
     switch (state) {
       case AppControlState.selected:
-        return const AppTabButtonStyle(
+        return AppTabButtonStyle(
           textColor: AppBrandThemes.blue.c500,
           borderColor: AppBrandThemes.blue.c500,
           padding: EdgeInsets.symmetric(

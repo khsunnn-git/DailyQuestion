@@ -30,7 +30,7 @@ class AppLoadingIndicator extends StatelessWidget {
             width: size,
             height: size,
             fit: fit,
-            errorBuilder: (_, __, ___) => SizedBox(
+            errorBuilder: (_, _, _) => SizedBox(
               width: size,
               height: size,
               child: const Center(

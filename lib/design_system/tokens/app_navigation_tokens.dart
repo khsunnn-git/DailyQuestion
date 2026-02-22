@@ -27,7 +27,7 @@ abstract final class AppNavigationBarTokens {
   static const double gap = AppSpacing.s28;
   static const double itemGap = AppSpacing.s4;
   static const TextStyle labelStyle = AppTypography.captionSmall;
-  static const Color focusedColor = AppBrandThemes.blue.c500;
+  static final Color focusedColor = AppBrandThemes.blue.c500;
   static const Color unfocusedColor = AppNeutralColors.grey700;
   static const Color backgroundColor = AppTransparentColors.light64;
   static const double blurSigma = 12;

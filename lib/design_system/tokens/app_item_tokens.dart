@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "app_colors.dart";
 import "app_radius.dart";
 import "app_spacing.dart";
+import "app_typography.dart";
 
 enum AppItemCardState { defaultState, selected }
 
@@ -20,7 +21,7 @@ abstract final class AppItemCardTokens {
 
   static const Color backgroundColor = AppNeutralColors.grey50;
   static const Color textColor = AppNeutralColors.grey600;
-  static const Color selectedBorderColor = AppBrandThemes.blue.c500;
+  static final Color selectedBorderColor = AppBrandThemes.blue.c500;
 
   static const TextStyle priceStyle = TextStyle(
     fontFamily: AppFontFamily.suit,

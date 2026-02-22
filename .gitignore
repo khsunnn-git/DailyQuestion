@@ -1,2 +1,22 @@
 .DS_Store
 **/.DS_Store
+
+# Flutter/Dart generated
+.dart_tool/
+.packages
+.pub/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Flutter platform/tooling files
+**/Generated.xcconfig
+**/flutter_export_environment.sh
+**/Pods/
+**/.symlinks/
+
+# Misc
+coverage/

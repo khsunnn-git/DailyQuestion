@@ -49,8 +49,8 @@ abstract final class AppCardTokens {
   static const BorderRadius todayRadius = AppRadius.br16;
   static const TextStyle todayBodyStyle = AppTypography.bodyMediumMedium;
   static const TextStyle todayNameStyle = AppTypography.bodyMediumMedium;
-  static const Color todayNameColor = AppBrandThemes.blue.c500;
-  static const Color todayEmptyCtaColor = AppBrandThemes.blue.c400;
+  static final Color todayNameColor = AppBrandThemes.blue.c500;
+  static final Color todayEmptyCtaColor = AppBrandThemes.blue.c400;
 
   // Today's other records
   static const double todayOtherWidth = 350;

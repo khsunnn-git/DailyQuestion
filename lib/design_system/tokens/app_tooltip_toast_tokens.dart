@@ -19,10 +19,7 @@ enum AppBubbleDirection {
   down,
 }
 
-enum AppSpeechBubbleVariant {
-  primary,
-  white,
-}
+enum AppSpeechBubbleVariant { primary, white }
 
 abstract final class AppTooltipTokens {
   static const double width = 68;
@@ -33,8 +30,9 @@ abstract final class AppTooltipTokens {
     horizontal: AppSpacing.s6,
     vertical: AppSpacing.s4,
   );
-  static const EdgeInsets pointerHorizontalPadding =
-      EdgeInsets.symmetric(horizontal: AppSpacing.s8);
+  static const EdgeInsets pointerHorizontalPadding = EdgeInsets.symmetric(
+    horizontal: AppSpacing.s8,
+  );
   static const Color background = Color(0xCC000000);
   static const Color textColor = AppNeutralColors.white;
   static const TextStyle textStyle = AppTypography.captionSmall;
@@ -59,7 +57,7 @@ abstract final class AppToastTokens {
 }
 
 abstract final class AppSpeechBubbleTokens {
-  static const Color primaryBackground = AppBrandThemes.blue.c500;
+  static final Color primaryBackground = AppBrandThemes.blue.c500;
   static const Color primaryText = AppNeutralColors.white;
   static const Color whiteBackground = AppNeutralColors.white;
   static const Color whiteText = AppNeutralColors.grey700;
