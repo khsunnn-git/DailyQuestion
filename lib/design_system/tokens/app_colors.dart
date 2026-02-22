@@ -77,7 +77,7 @@ abstract final class AppAccentColors {
   static const Color lavender = Color(0xFFD9C8FF);
   static const Color peach = Color(0xFFFFD7B5);
   static const Color oliveMist = Color(0xFFDCEBC4);
-  static const Color cyanBreeze = Color(0xFFC2F1F5);
+  static const Color cyanBreeze = Color(0xFFD0F3F9);
   static const Color rosePetal = Color(0xFFF8C7D4);
   static const Color plumMilk = Color(0xFFE9C4E6);
   static const Color periwinkle = Color(0xFFC9D3FF);
