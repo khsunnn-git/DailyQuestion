@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 
+import "../theme/app_theme.dart";
 import "../tokens/app_colors.dart";
 import "../tokens/app_input_tokens.dart";
 import "../tokens/app_spacing.dart";
@@ -30,6 +31,7 @@ class AppTextInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
     final bool hasValue =
         (value?.isNotEmpty ?? false) ||
         state != AppInputFieldState.defaultState;
@@ -59,7 +61,9 @@ class AppTextInput extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppInputTokens.backgroundColor(state),
               borderRadius: AppInputTokens.radius,
-              border: Border.all(color: AppInputTokens.borderColor(state)),
+              border: Border.all(
+                color: AppInputTokens.borderColor(state, brand: brand),
+              ),
             ),
             child: Row(
               children: <Widget>[
@@ -80,7 +84,10 @@ class AppTextInput extends StatelessWidget {
                     child: Icon(
                       _trailingIcon(state),
                       size: AppInputTokens.actionIconSize,
-                      color: AppInputTokens.supportingColor(state),
+                      color: AppInputTokens.supportingColor(
+                        state,
+                        brand: brand,
+                      ),
                     ),
                   ),
               ],
@@ -91,7 +98,7 @@ class AppTextInput extends StatelessWidget {
             message: supportingMessage,
             counter: counter,
             showCounter: showCounter,
-            color: AppInputTokens.supportingColor(state),
+            color: AppInputTokens.supportingColor(state, brand: brand),
             style: supportingStyle,
             icon: _supportIcon(state),
             iconSize: AppInputTokens.iconSize,
@@ -116,6 +123,7 @@ class AppSelectField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
     return InkWell(
       onTap: onTap,
       borderRadius: AppInputTokens.radius,
@@ -126,7 +134,9 @@ class AppSelectField extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppInputTokens.backgroundColor(state),
           borderRadius: AppInputTokens.radius,
-          border: Border.all(color: AppInputTokens.borderColor(state)),
+          border: Border.all(
+            color: AppInputTokens.borderColor(state, brand: brand),
+          ),
         ),
         child: Row(
           children: <Widget>[
@@ -176,14 +186,15 @@ class AppTextArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
     final bool isLong = usage == AppTextAreaUsage.textArea;
     final bool hasValue = value?.isNotEmpty ?? false;
     final Color borderColor = state == AppInputFieldState.error
         ? AppSemanticColors.error500
         : state == AppInputFieldState.focus
-        ? AppBrandThemes.blue.c300
+        ? brand.c300
         : state == AppInputFieldState.success
-        ? AppBrandThemes.blue.c500
+        ? brand.c500
         : Colors.transparent;
 
     return SizedBox(
@@ -218,12 +229,117 @@ class AppTextArea extends StatelessWidget {
           _InputSupporting(
             message: supportingMessage,
             counter: counter,
-            color: AppInputTokens.supportingColor(state),
+            color: AppInputTokens.supportingColor(state, brand: brand),
             style: AppInputTokens.supportingMdStyle,
             icon: _supportIcon(state),
             iconSize: AppInputTokens.iconSize,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class AppEditableTextArea extends StatefulWidget {
+  const AppEditableTextArea({
+    super.key,
+    required this.controller,
+    required this.focusNode,
+    this.hintText = "무엇이든 가볍게 적어보세요",
+    this.height = 370,
+    this.enabled = true,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String hintText;
+  final double height;
+  final bool enabled;
+
+  @override
+  State<AppEditableTextArea> createState() => _AppEditableTextAreaState();
+}
+
+class _AppEditableTextAreaState extends State<AppEditableTextArea> {
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode.addListener(_handleFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppEditableTextArea oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      oldWidget.focusNode.removeListener(_handleFocusChanged);
+      widget.focusNode.addListener(_handleFocusChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_handleFocusChanged);
+    super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.enabled ? () => widget.focusNode.requestFocus() : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOut,
+        height: widget.height,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.s16,
+          vertical: AppSpacing.s12,
+        ),
+        decoration: BoxDecoration(
+          color: widget.enabled
+              ? AppNeutralColors.white
+              : AppNeutralColors.grey50,
+          borderRadius: AppInputTokens.radius,
+        ),
+        child: TextField(
+          controller: widget.controller,
+          focusNode: widget.focusNode,
+          enabled: widget.enabled,
+          cursorColor: AppNeutralColors.grey900,
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
+          minLines: null,
+          maxLines: null,
+          expands: true,
+          textAlignVertical: TextAlignVertical.top,
+          style: AppInputTokens.mdTextStyle.copyWith(
+            color: widget.enabled
+                ? AppNeutralColors.grey900
+                : AppNeutralColors.grey300,
+          ),
+          decoration: InputDecoration(
+            isCollapsed: true,
+            filled: false,
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            focusedErrorBorder: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+            hintText: widget.hintText,
+            hintStyle: AppInputTokens.mdTextStyle.copyWith(
+              color: widget.enabled
+                  ? AppNeutralColors.grey400
+                  : AppNeutralColors.grey300,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -251,6 +367,7 @@ class AppTextButtonField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
     final bool hasValue = value?.isNotEmpty ?? false;
 
     return SizedBox(
@@ -271,6 +388,7 @@ class AppTextButtonField extends StatelessWidget {
                     border: Border.all(
                       color: AppInputTokens.borderColor(
                         state,
+                        brand: brand,
                         successUseLight: true,
                       ),
                     ),
@@ -300,7 +418,10 @@ class AppTextButtonField extends StatelessWidget {
                           child: Icon(
                             Icons.close,
                             size: AppInputTokens.actionIconSize,
-                            color: AppInputTokens.supportingColor(state),
+                            color: AppInputTokens.supportingColor(
+                              state,
+                              brand: brand,
+                            ),
                           ),
                         ),
                     ],
@@ -311,7 +432,7 @@ class AppTextButtonField extends StatelessWidget {
                   message: supportingMessage,
                   counter: "",
                   showCounter: false,
-                  color: AppInputTokens.supportingColor(state),
+                  color: AppInputTokens.supportingColor(state, brand: brand),
                   style: AppInputTokens.supportingSmStyle,
                   icon: _supportIcon(state),
                   iconSize: AppInputTokens.iconSize,
@@ -333,15 +454,27 @@ class AppTextButtonField extends StatelessWidget {
                 shape: const RoundedRectangleBorder(
                   borderRadius: AppInputTokens.radius,
                 ),
-                backgroundColor: AppInputTokens.actionBackground(state),
-                disabledBackgroundColor: AppInputTokens.actionBackground(state),
-                foregroundColor: AppInputTokens.actionForeground(state),
-                disabledForegroundColor: AppInputTokens.actionForeground(state),
+                backgroundColor: AppInputTokens.actionBackground(
+                  state,
+                  brand: brand,
+                ),
+                disabledBackgroundColor: AppInputTokens.actionBackground(
+                  state,
+                  brand: brand,
+                ),
+                foregroundColor: AppInputTokens.actionForeground(
+                  state,
+                  brand: brand,
+                ),
+                disabledForegroundColor: AppInputTokens.actionForeground(
+                  state,
+                  brand: brand,
+                ),
               ),
               child: Text(
                 buttonLabel,
                 style: AppInputTokens.actionButtonStyle.copyWith(
-                  color: AppInputTokens.actionForeground(state),
+                  color: AppInputTokens.actionForeground(state, brand: brand),
                 ),
               ),
             ),

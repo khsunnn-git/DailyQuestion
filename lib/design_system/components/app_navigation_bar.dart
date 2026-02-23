@@ -5,10 +5,7 @@ import "package:flutter/material.dart";
 import "../tokens/app_navigation_tokens.dart";
 
 class AppNavigationBarItemData {
-  const AppNavigationBarItemData({
-    required this.label,
-    required this.icon,
-  });
+  const AppNavigationBarItemData({required this.label, required this.icon});
 
   final String label;
   final IconData icon;
@@ -28,6 +25,7 @@ class AppNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color focusedColor = Theme.of(context).colorScheme.primary;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -40,11 +38,12 @@ class AppNavigationBar extends StatelessWidget {
           color: AppNavigationBarTokens.backgroundColor,
           padding: AppNavigationBarTokens.padding,
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List<Widget>.generate(items.length, (int index) {
               final bool focused = index == currentIndex;
               final Color color = focused
-                  ? AppNavigationBarTokens.focusedColor
+                  ? focusedColor
                   : AppNavigationBarTokens.unfocusedColor;
               return SizedBox(
                 width: AppNavigationBarTokens.itemWidth,
@@ -62,7 +61,9 @@ class AppNavigationBar extends StatelessWidget {
                       Text(
                         items[index].label,
                         textAlign: TextAlign.center,
-                        style: AppNavigationBarTokens.labelStyle.copyWith(color: color),
+                        style: AppNavigationBarTokens.labelStyle.copyWith(
+                          color: color,
+                        ),
                       ),
                     ],
                   ),

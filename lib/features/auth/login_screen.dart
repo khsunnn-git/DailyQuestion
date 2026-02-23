@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_svg/flutter_svg.dart";
 
 import "../../design_system/design_system.dart";
+import "../home/home_screen.dart";
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -95,6 +96,10 @@ class _LoginScreenState extends State<LoginScreen> {
       });
       if (widget.onLoginSuccess != null) {
         widget.onLoginSuccess!();
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+        );
       }
       return;
     }
@@ -137,6 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
     return Scaffold(
       backgroundColor: AppNeutralColors.white,
       body: SafeArea(
@@ -203,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         child: Icon(
                                           Icons.check,
                                           size: 20,
-                                          color: AppBrandThemes.blue.c500,
+                                          color: brand.c500,
                                         ),
                                       )
                                     : Row(
@@ -213,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             icon: Icons.close,
                                             onTap: _clearEmail,
                                             color: _emailFocused
-                                                ? AppBrandThemes.blue.c500
+                                                ? brand.c500
                                                 : AppNeutralColors.grey500,
                                           ),
                                           const SizedBox(
@@ -273,7 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             color: _showCredentialError
                                                 ? AppSemanticColors.error500
                                                 : (_passwordFocused
-                                                      ? AppBrandThemes.blue.c500
+                                                      ? brand.c500
                                                       : AppNeutralColors
                                                             .grey500),
                                           ),
@@ -294,7 +300,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                                 ? AppSemanticColors.error500
                                                 : (_passwordFocused ||
                                                           _isPasswordVisible
-                                                      ? AppBrandThemes.blue.c500
+                                                      ? brand.c500
                                                       : AppNeutralColors
                                                             .grey600),
                                           ),
@@ -307,13 +313,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: ElevatedButton(
                                   onPressed: _canSubmit ? _attemptLogin : null,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppBrandThemes.blue.c500,
-                                    disabledBackgroundColor: const Color(
-                                      0xFFA3C9F0,
-                                    ),
+                                    backgroundColor: brand.c500,
+                                    disabledBackgroundColor: brand.c300,
                                     foregroundColor: AppNeutralColors.white,
-                                    disabledForegroundColor:
-                                        AppBrandThemes.blue.c100,
+                                    disabledForegroundColor: brand.c100,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: AppRadius.br8,
@@ -405,6 +408,7 @@ class _LoginTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
     return SizedBox(
       height: 58,
       child: TextField(
@@ -442,15 +446,21 @@ class _LoginTextField extends StatelessWidget {
           suffixIconConstraints: const BoxConstraints(minHeight: 24),
           border: OutlineInputBorder(
             borderRadius: AppRadius.br8,
-            borderSide: BorderSide(color: AppInputTokens.borderColor(state)),
+            borderSide: BorderSide(
+              color: AppInputTokens.borderColor(state, brand: brand),
+            ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: AppRadius.br8,
-            borderSide: BorderSide(color: AppInputTokens.borderColor(state)),
+            borderSide: BorderSide(
+              color: AppInputTokens.borderColor(state, brand: brand),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: AppRadius.br8,
-            borderSide: BorderSide(color: AppInputTokens.borderColor(state)),
+            borderSide: BorderSide(
+              color: AppInputTokens.borderColor(state, brand: brand),
+            ),
           ),
         ),
       ),

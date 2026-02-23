@@ -1,11 +1,11 @@
 import "dart:async";
 
 import "package:flutter/material.dart";
-import "package:flutter/services.dart";
 import "package:flutter_svg/flutter_svg.dart";
 
 import "../../design_system/design_system.dart";
 import "../auth/login_screen.dart";
+import "../home/home_screen.dart";
 
 class SplashScreen extends StatefulWidget {
   SplashScreen({
@@ -35,11 +35,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  static const String _questionIconUrl =
-      "http://localhost:3845/assets/2e67e91ec636008d496fd4d431c4bf4fa4535c03.svg";
-  static const String _dailyQuestionLogoUrl =
-      "http://localhost:3845/assets/7144d6a5c83720f0c87fdb9d90d41820b602630c.svg";
-
   Timer? _timer;
   bool _showSecondSplash = false;
 
@@ -64,7 +59,7 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const _DemoHomeScreen()),
+        MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
       );
       return;
     }
@@ -90,6 +85,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
     return Scaffold(
       body: Stack(
         children: <Widget>[
@@ -99,10 +95,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 gradient: RadialGradient(
                   center: Alignment.center,
                   radius: 1.8,
-                  colors: <Color>[
-                    AppNeutralColors.white,
-                    AppBrandThemes.blue.c100,
-                  ],
+                  colors: <Color>[AppNeutralColors.white, brand.c100],
                 ),
               ),
             ),
@@ -120,11 +113,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
-                    _SplashIcon(
-                      showSecondSplash: _showSecondSplash,
-                      questionIconUrl: _questionIconUrl,
-                      dailyQuestionLogoUrl: _dailyQuestionLogoUrl,
-                    ),
+                    _SplashIcon(showSecondSplash: _showSecondSplash),
                     const SizedBox(height: 24),
                     const Text(
                       "오늘의 질문으로\n내일의 나를 만나는 시간",
@@ -149,15 +138,9 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 class _SplashIcon extends StatelessWidget {
-  const _SplashIcon({
-    required this.showSecondSplash,
-    required this.questionIconUrl,
-    required this.dailyQuestionLogoUrl,
-  });
+  const _SplashIcon({required this.showSecondSplash});
 
   final bool showSecondSplash;
-  final String questionIconUrl;
-  final String dailyQuestionLogoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -168,99 +151,54 @@ class _SplashIcon extends StatelessWidget {
         child: Image.asset(
           "assets/images/splash/splash_logo_daily_question.png",
           fit: BoxFit.contain,
-          errorBuilder: (_, error, stackTrace) {
-            return _OptionalSvgAsset(
-              assetPath: "assets/images/splash/splash_logo_daily_question.svg",
-              networkUrl: dailyQuestionLogoUrl,
-              width: 157,
-              height: 82,
-              fallback: const Text(
-                "Daily\nQuestion",
-                style: TextStyle(
-                  fontFamily: AppFontFamily.suit,
-                  color: AppAccentColors.sky,
-                  fontSize: 56,
-                  height: 0.88,
-                  fontWeight: FontWeight.w800,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            );
-          },
+          errorBuilder: (_, error, stackTrace) => const Text(
+            "Daily\nQuestion",
+            style: TextStyle(
+              fontFamily: AppFontFamily.suit,
+              color: AppAccentColors.sky,
+              fontSize: 56,
+              height: 0.88,
+              fontWeight: FontWeight.w800,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ),
       );
     }
 
-    return _OptionalSvgAsset(
-      assetPath: "assets/images/splash/splash_icon_question.svg",
-      networkUrl: questionIconUrl,
-      width: 53,
-      height: 74,
-      fallback: SizedBox(
-        width: 53,
-        height: 74,
-        child: FittedBox(
-          child: Text(
-            "?",
-            style: TextStyle(
-              fontFamily: AppFontFamily.suit,
-              fontSize: 90,
-              fontWeight: FontWeight.w800,
-              color: AppAccentColors.sky,
-              height: 0.8,
-            ),
-          ),
+    return const SizedBox(width: 53, height: 74, child: _SplashQuestionIcon());
+  }
+}
+
+class _SplashQuestionIcon extends StatelessWidget {
+  const _SplashQuestionIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      "assets/images/splash/splash_icon_question.svg",
+      fit: BoxFit.contain,
+      placeholderBuilder: (_) => const _SplashQuestionFallback(),
+    );
+  }
+}
+
+class _SplashQuestionFallback extends StatelessWidget {
+  const _SplashQuestionFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const FittedBox(
+      child: Text(
+        "?",
+        style: TextStyle(
+          fontFamily: AppFontFamily.suit,
+          fontSize: 90,
+          fontWeight: FontWeight.w800,
+          color: AppAccentColors.sky,
+          height: 0.8,
         ),
       ),
     );
-  }
-}
-
-class _OptionalSvgAsset extends StatelessWidget {
-  const _OptionalSvgAsset({
-    required this.assetPath,
-    this.networkUrl,
-    required this.width,
-    required this.height,
-    required this.fallback,
-  });
-
-  final String assetPath;
-  final String? networkUrl;
-  final double width;
-  final double height;
-  final Widget fallback;
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<String>(
-      future: rootBundle.loadString(assetPath),
-      builder: (BuildContext context, AsyncSnapshot<String> snapshot) {
-        if (snapshot.hasData) {
-          return SizedBox(
-            width: width,
-            height: height,
-            child: SvgPicture.string(snapshot.data!, fit: BoxFit.contain),
-          );
-        }
-        if (networkUrl != null && networkUrl!.isNotEmpty) {
-          return SizedBox(
-            width: width,
-            height: height,
-            child: SvgPicture.network(networkUrl!, fit: BoxFit.contain),
-          );
-        }
-        return fallback;
-      },
-    );
-  }
-}
-
-class _DemoHomeScreen extends StatelessWidget {
-  const _DemoHomeScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: Text("홈 화면")));
   }
 }

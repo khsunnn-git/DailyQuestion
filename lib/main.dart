@@ -10,11 +10,15 @@ void main() {
 class DailyQuestionApp extends StatelessWidget {
   const DailyQuestionApp({super.key});
 
+  static const String _selectedCharacterName = "물고기";
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.of(AppBrandTheme.blue),
+      theme: AppTheme.of(
+        AppCharacterThemeMapper.fromCharacterName(_selectedCharacterName),
+      ),
       home: SplashScreen(
         isLoggedIn: false,
         firstDuration: Duration(milliseconds: 1400),

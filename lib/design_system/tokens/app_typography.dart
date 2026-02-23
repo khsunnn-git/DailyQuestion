@@ -46,6 +46,14 @@ abstract final class AppTypography {
     letterSpacing: 0,
   );
 
+  static const TextStyle heading2XSmall = TextStyle(
+    fontFamily: AppFontFamily.suit,
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    height: 1.4,
+    letterSpacing: 0,
+  );
+
   // Body
   static const TextStyle bodyXLargeSemiBold = TextStyle(
     fontFamily: AppFontFamily.suit,

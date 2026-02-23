@@ -61,17 +61,16 @@ abstract final class AppInputTokens {
 
   static Color borderColor(
     AppInputFieldState state, {
+    required BrandScale brand,
     bool successUseLight = false,
   }) {
     switch (state) {
       case AppInputFieldState.defaultState:
         return AppNeutralColors.grey300;
       case AppInputFieldState.focus:
-        return AppBrandThemes.blue.c500;
+        return brand.c500;
       case AppInputFieldState.success:
-        return successUseLight
-            ? AppBrandThemes.blue.c400
-            : AppBrandThemes.blue.c500;
+        return successUseLight ? brand.c400 : brand.c500;
       case AppInputFieldState.error:
         return AppSemanticColors.error500;
       case AppInputFieldState.disabled:
@@ -89,13 +88,16 @@ abstract final class AppInputTokens {
     return AppNeutralColors.grey400;
   }
 
-  static Color supportingColor(AppInputFieldState state) {
+  static Color supportingColor(
+    AppInputFieldState state, {
+    required BrandScale brand,
+  }) {
     switch (state) {
       case AppInputFieldState.defaultState:
         return AppNeutralColors.grey500;
       case AppInputFieldState.focus:
       case AppInputFieldState.success:
-        return AppBrandThemes.blue.c500;
+        return brand.c500;
       case AppInputFieldState.error:
         return AppSemanticColors.error500;
       case AppInputFieldState.disabled:
@@ -103,23 +105,29 @@ abstract final class AppInputTokens {
     }
   }
 
-  static Color actionBackground(AppInputFieldState state) {
+  static Color actionBackground(
+    AppInputFieldState state, {
+    required BrandScale brand,
+  }) {
     switch (state) {
       case AppInputFieldState.success:
-        return AppBrandThemes.blue.c100;
+        return brand.c100;
       case AppInputFieldState.disabled:
         return AppNeutralColors.grey50;
       case AppInputFieldState.defaultState:
       case AppInputFieldState.focus:
       case AppInputFieldState.error:
-        return AppBrandThemes.blue.c500;
+        return brand.c500;
     }
   }
 
-  static Color actionForeground(AppInputFieldState state) {
+  static Color actionForeground(
+    AppInputFieldState state, {
+    required BrandScale brand,
+  }) {
     switch (state) {
       case AppInputFieldState.success:
-        return AppBrandThemes.blue.c500;
+        return brand.c500;
       case AppInputFieldState.disabled:
         return AppNeutralColors.grey400;
       case AppInputFieldState.defaultState:

@@ -4,27 +4,16 @@ import "../tokens/app_colors.dart";
 import "../tokens/app_radius.dart";
 import "../tokens/app_typography.dart";
 
-enum AppBrandTheme {
-  blue,
-  green,
-  brown,
-  purple,
-}
+enum AppBrandTheme { blue, green, brown, purple }
 
 class AppThemePalette extends ThemeExtension<AppThemePalette> {
-  const AppThemePalette({
-    required this.brand,
-  });
+  const AppThemePalette({required this.brand});
 
   final BrandScale brand;
 
   @override
-  ThemeExtension<AppThemePalette> copyWith({
-    BrandScale? brand,
-  }) {
-    return AppThemePalette(
-      brand: brand ?? this.brand,
-    );
+  ThemeExtension<AppThemePalette> copyWith({BrandScale? brand}) {
+    return AppThemePalette(brand: brand ?? this.brand);
   }
 
   @override
@@ -91,7 +80,10 @@ abstract final class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppNeutralColors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: AppRadius.br8,
           borderSide: const BorderSide(color: AppNeutralColors.grey200),
@@ -105,9 +97,35 @@ abstract final class AppTheme {
           borderSide: BorderSide(color: brand.c500, width: 1.5),
         ),
       ),
-      extensions: <ThemeExtension<dynamic>>[
-        AppThemePalette(brand: brand),
-      ],
+      extensions: <ThemeExtension<dynamic>>[AppThemePalette(brand: brand)],
     );
+  }
+}
+
+abstract final class AppCharacterThemeMapper {
+  static AppBrandTheme fromCharacterName(String characterName) {
+    switch (characterName.trim()) {
+      case "돌맹이":
+      case "고양이":
+        return AppBrandTheme.brown;
+      case "물고기":
+      case "뱁새":
+        return AppBrandTheme.blue;
+      case "새싹":
+      case "공룡":
+      case "팬더":
+        return AppBrandTheme.green;
+      case "강아지":
+        return AppBrandTheme.purple;
+      default:
+        return AppBrandTheme.blue;
+    }
+  }
+}
+
+extension AppThemeContextX on BuildContext {
+  BrandScale get appBrandScale {
+    return Theme.of(this).extension<AppThemePalette>()?.brand ??
+        AppBrandThemes.blue;
   }
 }

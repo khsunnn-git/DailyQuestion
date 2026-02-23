@@ -8,6 +8,7 @@ export "components/app_item_card.dart";
 export "components/app_navigation_bar.dart";
 export "components/app_popup.dart";
 export "components/app_tooltip_toast.dart";
+export "components/app_toggle.dart";
 export "theme/app_theme.dart";
 export "tokens/app_button_tokens.dart";
 export "tokens/app_badge_tag_tokens.dart";

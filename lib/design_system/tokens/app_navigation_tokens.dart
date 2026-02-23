@@ -20,7 +20,7 @@ abstract final class AppNavigationBarTokens {
     AppSpacing.s40,
     AppSpacing.s16,
     AppSpacing.s40,
-    AppSpacing.s28,
+    AppSpacing.s0,
   );
   static const double itemWidth = 56;
   static const double itemIconSize = 24;
