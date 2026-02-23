@@ -12,6 +12,10 @@ class HomeScreen extends StatelessWidget {
       "assets/images/home/home_character_fish_blue.png";
   static const String _bannerFishbowlAsset =
       "assets/images/home/home_banner_fishbowl_blue.png";
+  static const String _decoSeaweedAsset =
+      "assets/images/home/home_deco_seaweed_blue.png";
+  static const String _decoCrabAsset =
+      "assets/images/home/home_deco_crab_blue.png";
 
   static void openTodayQuestionAnswer(BuildContext context) {
     Navigator.of(context).push(
@@ -22,9 +26,9 @@ class HomeScreen extends StatelessWidget {
   }
 
   static void openTodayRecords(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const TodayRecordsScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const TodayRecordsScreen()));
   }
 
   @override
@@ -140,175 +144,254 @@ class _TopQuestionPanel extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.s24),
-          Stack(
-            alignment: Alignment.center,
-            children: <Widget>[
-              Container(
-                width: 260,
-                height: 260,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: <Color>[
-                      AppNeutralColors.white.withValues(alpha: 0.8),
-                      brand.c100.withValues(alpha: 0),
-                    ],
-                  ),
-                ),
-              ),
-              Column(
-                children: <Widget>[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.s8,
-                      vertical: AppSpacing.s24,
-                    ),
-                    child: Text(
-                      "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
-                      textAlign: TextAlign.center,
-                      style:
-                          textTheme.displayLarge?.copyWith(
-                            color: AppNeutralColors.grey900,
-                          ) ??
-                          AppTypography.headingLarge.copyWith(
-                            color: AppNeutralColors.grey900,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.s16),
-                  const _SpeechBubble(text: "오늘은 아직 답변하지 않았어요"),
-                  const SizedBox(height: AppSpacing.s12),
-                  const _HeroFish(),
-                  const SizedBox(height: AppSpacing.s12),
-                  SizedBox(
-                    height: 32,
-                    child: TextButton(
-                      onPressed: () {},
-                      style: TextButton.styleFrom(
-                        minimumSize: Size.zero,
-                        padding: const EdgeInsets.all(4),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        foregroundColor: brand.c500,
-                        textStyle: AppTypography.buttonSmall.copyWith(
-                          color: brand.c500,
-                        ),
-                      ),
-                      child: const Text("새로운 질문 받기"),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.s12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 60,
-                    child: FilledButton(
-                      onPressed: () =>
-                          HomeScreen.openTodayQuestionAnswer(context),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: brand.c500,
-                        shape: const StadiumBorder(),
-                      ),
-                      child: Text(
-                        "기록하기",
-                        style: AppTypography.buttonLarge.copyWith(
-                          color: AppNeutralColors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+          const _QuestionWrittenPreviewCard(),
+          const SizedBox(height: AppSpacing.s8),
+          _TopCharacterDecorations(bubbleColor: brand.c500),
         ],
       ),
     );
   }
 }
 
-class _HeroFish extends StatelessWidget {
-  const _HeroFish();
+class _QuestionWrittenPreviewCard extends StatelessWidget {
+  const _QuestionWrittenPreviewCard();
 
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return SizedBox(
-      width: 150,
-      height: 150,
-      child: Stack(
+    final DateTime now = DateTime.now();
+    final List<String> weekdays = <String>[
+      "월요일",
+      "화요일",
+      "수요일",
+      "목요일",
+      "금요일",
+      "토요일",
+      "일요일",
+    ];
+    final String currentDate = "${now.day}일 ${weekdays[now.weekday - 1]}";
+    return Container(
+      width: double.infinity,
+      height: 458,
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
+      decoration: BoxDecoration(
+        color: AppNeutralColors.white,
+        borderRadius: AppRadius.br24,
+        boxShadow: AppElevation.level1,
+      ),
+      child: Column(
         children: <Widget>[
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Image.asset(
-              HomeScreen._heroFishAsset,
-              width: 150,
-              height: 150,
-              fit: BoxFit.contain,
-              errorBuilder: (_, error, stackTrace) {
-                return const Center(
-                  child: Text("🐟", style: TextStyle(fontSize: 64)),
-                );
-              },
+          SizedBox(
+            width: 286,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s4),
+              child: Row(
+                children: <Widget>[
+                  Icon(
+                    Icons.history,
+                    size: AppSpacing.s24,
+                    color: AppNeutralColors.grey400,
+                  ),
+                  Expanded(
+                    child: Text(
+                      currentDate,
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodyMediumSemiBold.copyWith(
+                        color: brand.c500,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.more_horiz,
+                    size: AppSpacing.s24,
+                    color: AppNeutralColors.grey400,
+                  ),
+                ],
+              ),
             ),
           ),
-          Positioned(left: 16, top: 12, child: _bubble(12, brand)),
-          Positioned(left: 8, top: 30, child: _bubble(8, brand)),
-          Positioned(left: 24, top: 42, child: _bubble(10, brand)),
+          const SizedBox(height: AppSpacing.s16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(color: AppNeutralColors.grey50),
+              ),
+            ),
+            child: Text(
+              "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+              textAlign: TextAlign.center,
+              style: AppTypography.headingMediumExtraBold.copyWith(
+                color: AppNeutralColors.grey900,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s16),
+          Expanded(
+            child: Text(
+              "올해는 꼭 제주도 한라산에 올라가 백록담을 직접 보고 싶어. "
+              "예전부터 사진으로만 보던 그 푸른 호수를 실제로 내 눈으로 담아보고 싶다는 마음이 있었거든요...",
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyLargeRegular.copyWith(
+                color: AppNeutralColors.grey800,
+              ),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
+            child: Row(
+              children: <Widget>[
+                Container(
+                  height: 38,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: brand.c100,
+                    borderRadius: AppRadius.pill,
+                    border: Border.all(color: brand.c200),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "#제주도 한라산 가기",
+                    textAlign: TextAlign.left,
+                    style: AppTypography.buttonSmall.copyWith(
+                      color: brand.c500,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+}
 
-  Widget _bubble(double size, BrandScale brand) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: brand.c300.withValues(alpha: 0.8),
-        shape: BoxShape.circle,
+class _QuestionWrittenSpeechBubble extends StatelessWidget {
+  const _QuestionWrittenSpeechBubble({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: const BorderRadius.all(
+                Radius.circular(AppSpacing.s12 + AppSpacing.s2),
+              ),
+              boxShadow: AppElevation.level1,
+            ),
+            child: Text(
+              text,
+              style: AppTypography.bodySmallMedium.copyWith(
+                color: AppNeutralColors.white,
+              ),
+            ),
+          ),
+          CustomPaint(
+            size: const Size(6, 10),
+            painter: _SpeechRightTailPainter(color),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _SpeechBubble extends StatelessWidget {
-  const _SpeechBubble({required this.text});
+class _TopCharacterDecorations extends StatelessWidget {
+  const _TopCharacterDecorations({required this.bubbleColor});
 
-  final String text;
+  final Color bubbleColor;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppNeutralColors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: AppElevation.level1,
-          ),
-          child: Text(
-            text,
-            style: AppTypography.bodySmallMedium.copyWith(
-              color: AppNeutralColors.grey700,
+    return SizedBox(
+      width: 350,
+      height: 132,
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            left: 4,
+            bottom: 0,
+            child: Image.asset(
+              HomeScreen._decoSeaweedAsset,
+              width: 80,
+              height: 120,
+              fit: BoxFit.contain,
+              errorBuilder: (_, error, stackTrace) => const SizedBox.shrink(),
             ),
           ),
-        ),
-        CustomPaint(size: const Size(10, 6), painter: _SpeechTailPainter()),
-      ],
+          Positioned(
+            left: 47,
+            bottom: 0,
+            child: Image.asset(
+              HomeScreen._decoCrabAsset,
+              width: 70,
+              height: 70,
+              fit: BoxFit.contain,
+              errorBuilder: (_, error, stackTrace) => const SizedBox.shrink(),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 18,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: <Widget>[
+                _QuestionWrittenSpeechBubble(
+                  text: "오늘의 질문을 적었어요!",
+                  color: bubbleColor,
+                ),
+                const SizedBox(width: AppSpacing.s8),
+                Image.asset(
+                  HomeScreen._heroFishAsset,
+                  width: 108.4,
+                  height: 108.4,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, error, stackTrace) {
+                    return const SizedBox(
+                      width: 108.4,
+                      height: 108.4,
+                      child: Center(
+                        child: Text("🐟", style: TextStyle(fontSize: 48)),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _SpeechTailPainter extends CustomPainter {
+class _SpeechRightTailPainter extends CustomPainter {
+  _SpeechRightTailPainter(this.color);
+
+  final Color color;
+
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint = Paint()..color = AppNeutralColors.white;
+    final Paint paint = Paint()..color = color;
     final Path path = Path()
-      ..moveTo(size.width / 2, size.height)
-      ..lineTo(0, 0)
-      ..lineTo(size.width, 0)
+      ..moveTo(0, 0)
+      ..lineTo(size.width, size.height / 2)
+      ..lineTo(0, size.height)
       ..close();
     canvas.drawPath(path, paint);
   }
@@ -327,7 +410,7 @@ class _RecordStreakBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
         color: AppNeutralColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.br16,
         boxShadow: AppElevation.level1,
       ),
       child: Text(
@@ -388,7 +471,9 @@ class _TodayRecordSection extends StatelessWidget {
           Text(
             "오늘의 기록",
             style:
-                textTheme.titleLarge?.copyWith(color: AppNeutralColors.grey900) ??
+                textTheme.titleLarge?.copyWith(
+                  color: AppNeutralColors.grey900,
+                ) ??
                 AppTypography.headingSmall.copyWith(
                   color: AppNeutralColors.grey900,
                 ),
@@ -410,8 +495,10 @@ class _TodayRecordSection extends StatelessWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 physics: const ClampingScrollPhysics(),
-                itemBuilder: (context, index) =>
-                    _TodayRecordCard(record: records[index]),
+                itemBuilder: (context, index) => _TodayRecordCard(
+                  record: records[index],
+                  width: records.length == 1 ? 350 : 320,
+                ),
                 separatorBuilder: (context, index) =>
                     const SizedBox(width: AppSpacing.s8),
                 itemCount: records.length,
@@ -445,7 +532,7 @@ class _TodayRecordEmptyCard extends StatelessWidget {
           height: 154,
           decoration: BoxDecoration(
             color: AppNeutralColors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.br16,
             boxShadow: AppElevation.level1,
           ),
           child: Column(
@@ -483,19 +570,20 @@ class _TodayRecordData {
 }
 
 class _TodayRecordCard extends StatelessWidget {
-  const _TodayRecordCard({required this.record});
+  const _TodayRecordCard({required this.record, required this.width});
 
   final _TodayRecordData record;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     return Container(
-      width: 320,
+      width: width,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppNeutralColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.br16,
         boxShadow: AppElevation.level1,
       ),
       child: Column(
@@ -527,7 +615,6 @@ class _TodayRecordCard extends StatelessWidget {
   }
 }
 
-
 class _AquariumBanner extends StatelessWidget {
   const _AquariumBanner();
 
@@ -539,14 +626,8 @@ class _AquariumBanner extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 4, 20, 4),
       decoration: BoxDecoration(
         color: brand.c200,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x0F000000),
-            offset: Offset(0, 2),
-            blurRadius: 8,
-          ),
-        ],
+        borderRadius: AppRadius.br16,
+        boxShadow: AppElevation.level1,
       ),
       child: Row(
         children: <Widget>[
@@ -590,28 +671,21 @@ class _AquariumBanner extends StatelessWidget {
   }
 }
 
-
 class _OneLineReportCard extends StatelessWidget {
   const _OneLineReportCard();
 
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    const List<String> tags = <String>["여행 ✈️", "독서📚", "사람🤝️", "습관⏰", "성장📈"];
+    const List<String> tags = <String>["여행 ✈️", "독서📚", "사람🤝️"];
     return Container(
       width: double.infinity,
       height: 278,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 32),
+      padding: const EdgeInsets.fromLTRB(22, 29, 22, 20),
       decoration: BoxDecoration(
         color: brand.c50,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const <BoxShadow>[
-          BoxShadow(
-            color: Color(0x0F000000),
-            offset: Offset(0, 2),
-            blurRadius: 8,
-          ),
-        ],
+        borderRadius: AppRadius.br16,
+        boxShadow: AppElevation.level1,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -623,7 +697,7 @@ class _OneLineReportCard extends StatelessWidget {
                 "나의 한 줄 리포트",
                 style: AppTypography.heading2XSmall.copyWith(color: brand.c500),
               ),
-              const SizedBox(height: AppSpacing.s16),
+              const SizedBox(height: AppSpacing.s8),
               Text(
                 "최근 당신의 답변에는\n‘자기 성장 키워드’가 가장 많았어요",
                 style: AppTypography.headingMediumExtraBold.copyWith(
@@ -633,28 +707,31 @@ class _OneLineReportCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.s56),
-          SizedBox(
-            width: double.infinity,
-            height: 40,
-            child: ScrollConfiguration(
-              behavior: const MaterialScrollBehavior().copyWith(
-                dragDevices: <PointerDeviceKind>{
-                  PointerDeviceKind.touch,
-                  PointerDeviceKind.mouse,
-                  PointerDeviceKind.trackpad,
-                  PointerDeviceKind.stylus,
-                  PointerDeviceKind.invertedStylus,
-                },
-              ),
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const ClampingScrollPhysics(),
-                itemBuilder: (context, index) =>
-                    _KeywordChip(text: tags[index]),
-                separatorBuilder: (context, index) =>
-                    const SizedBox(width: AppSpacing.s8),
-                itemCount: tags.length,
+          const Spacer(),
+          Padding(
+            padding: const EdgeInsets.only(left: AppSpacing.s12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 40,
+              child: ScrollConfiguration(
+                behavior: const MaterialScrollBehavior().copyWith(
+                  dragDevices: <PointerDeviceKind>{
+                    PointerDeviceKind.touch,
+                    PointerDeviceKind.mouse,
+                    PointerDeviceKind.trackpad,
+                    PointerDeviceKind.stylus,
+                    PointerDeviceKind.invertedStylus,
+                  },
+                ),
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  itemBuilder: (context, index) =>
+                      _KeywordChip(text: tags[index]),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: AppSpacing.s8),
+                  itemCount: tags.length,
+                ),
               ),
             ),
           ),
@@ -678,7 +755,7 @@ class _KeywordChip extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppNeutralColors.white,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: AppRadius.pill,
         border: Border.all(color: brand.c200),
       ),
       child: Row(

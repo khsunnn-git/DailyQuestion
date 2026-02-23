@@ -161,10 +161,6 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
     final AppButtonMetrics mediumButtonMetrics = AppButtonTokens.metrics(
       AppButtonSize.medium,
     );
-    final Color polishDisabledBackground = Color.alphaBlend(
-      AppTransparentColors.light64,
-      brand.c200,
-    );
     return Scaffold(
       backgroundColor: brand.bg,
       body: SafeArea(
@@ -250,27 +246,47 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                                   WidgetStateProperty.resolveWith<Color>((
                                     Set<WidgetState> states,
                                   ) {
-                                    if (states.contains(WidgetState.disabled)) {
-                                      return polishDisabledBackground;
-                                    }
-                                    return brand.c100;
+                                    final AppButtonState state =
+                                        states.contains(WidgetState.disabled)
+                                        ? AppButtonState.disabled
+                                        : states.contains(WidgetState.hovered)
+                                        ? AppButtonState.hovered
+                                        : AppButtonState.enabled;
+                                    return AppButtonTokens.polishActionStyle(
+                                      state: state,
+                                      brand: brand,
+                                    ).backgroundColor;
                                   }),
                               side: WidgetStateProperty.resolveWith<BorderSide>(
                                 (Set<WidgetState> states) {
-                                  if (states.contains(WidgetState.disabled)) {
-                                    return BorderSide(color: brand.c200);
-                                  }
-                                  return BorderSide(color: brand.c200);
+                                  final AppButtonState state =
+                                      states.contains(WidgetState.disabled)
+                                      ? AppButtonState.disabled
+                                      : states.contains(WidgetState.hovered)
+                                      ? AppButtonState.hovered
+                                      : AppButtonState.enabled;
+                                  return BorderSide(
+                                    color: AppButtonTokens.polishActionStyle(
+                                      state: state,
+                                      brand: brand,
+                                    ).borderColor,
+                                  );
                                 },
                               ),
                               foregroundColor:
                                   WidgetStateProperty.resolveWith<Color>((
                                     Set<WidgetState> states,
                                   ) {
-                                    if (states.contains(WidgetState.disabled)) {
-                                      return brand.c300;
-                                    }
-                                    return brand.c500;
+                                    final AppButtonState state =
+                                        states.contains(WidgetState.disabled)
+                                        ? AppButtonState.disabled
+                                        : states.contains(WidgetState.hovered)
+                                        ? AppButtonState.hovered
+                                        : AppButtonState.enabled;
+                                    return AppButtonTokens.polishActionStyle(
+                                      state: state,
+                                      brand: brand,
+                                    ).foregroundColor;
                                   }),
                               shape:
                                   const WidgetStatePropertyAll<OutlinedBorder>(
@@ -281,17 +297,34 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                               ),
                               elevation:
                                   WidgetStateProperty.resolveWith<double>((
-                                Set<WidgetState> states,
-                              ) {
-                                if (states.contains(WidgetState.hovered)) {
-                                  return 2;
-                                }
-                                return 0;
-                              }),
+                                    Set<WidgetState> states,
+                                  ) {
+                                    final AppButtonState state =
+                                        states.contains(WidgetState.disabled)
+                                        ? AppButtonState.disabled
+                                        : states.contains(WidgetState.hovered)
+                                        ? AppButtonState.hovered
+                                        : AppButtonState.enabled;
+                                    return AppButtonTokens.polishActionStyle(
+                                      state: state,
+                                      brand: brand,
+                                    ).elevation;
+                                  }),
                               shadowColor:
-                                  const WidgetStatePropertyAll<Color>(
-                                Color(0x14000000),
-                              ),
+                                  WidgetStateProperty.resolveWith<Color>((
+                                    Set<WidgetState> states,
+                                  ) {
+                                    final AppButtonState state =
+                                        states.contains(WidgetState.disabled)
+                                        ? AppButtonState.disabled
+                                        : states.contains(WidgetState.hovered)
+                                        ? AppButtonState.hovered
+                                        : AppButtonState.enabled;
+                                    return AppButtonTokens.polishActionStyle(
+                                      state: state,
+                                      brand: brand,
+                                    ).shadowColor;
+                                  }),
                             ),
                             child: const Text("✨ 문장을 매끄럽게 다듬어줄까요?"),
                           ),
