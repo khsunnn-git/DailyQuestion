@@ -248,6 +248,8 @@ class AppEditableTextArea extends StatefulWidget {
     this.hintText = "무엇이든 가볍게 적어보세요",
     this.height = 370,
     this.enabled = true,
+    this.backgroundColor,
+    this.borderColor,
   });
 
   final TextEditingController controller;
@@ -255,6 +257,8 @@ class AppEditableTextArea extends StatefulWidget {
   final String hintText;
   final double height;
   final bool enabled;
+  final Color? backgroundColor;
+  final Color? borderColor;
 
   @override
   State<AppEditableTextArea> createState() => _AppEditableTextAreaState();
@@ -302,9 +306,13 @@ class _AppEditableTextAreaState extends State<AppEditableTextArea> {
         ),
         decoration: BoxDecoration(
           color: widget.enabled
-              ? AppNeutralColors.white
+              ? (widget.backgroundColor ?? AppNeutralColors.white)
               : AppNeutralColors.grey50,
           borderRadius: AppInputTokens.radius,
+          border: Border.all(
+            color: widget.borderColor ?? Colors.transparent,
+            width: 1,
+          ),
         ),
         child: TextField(
           controller: widget.controller,

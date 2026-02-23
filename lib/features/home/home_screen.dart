@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
 import "../question/today_question_answer_screen.dart";
+import "../question/today_question_store.dart";
 import "today_records_screen.dart";
 
 class HomeScreen extends StatelessWidget {
@@ -122,31 +123,111 @@ class _TopQuestionPanel extends StatelessWidget {
         boxShadow: AppElevation.level2,
       ),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      child: ValueListenableBuilder<List<TodayQuestionRecord>>(
+        valueListenable: TodayQuestionStore.instance,
+        builder:
+            (
+              BuildContext context,
+              List<TodayQuestionRecord> records,
+              Widget? child,
+            ) {
+          final bool hasRecord = records.isNotEmpty;
+          return Column(
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  const SizedBox(width: 24, height: 24),
+                  Expanded(
+                    child: Text(
+                      "Daily Question",
+                      textAlign: TextAlign.center,
+                      style:
+                          textTheme.titleMedium?.copyWith(
+                            color: AppNeutralColors.grey900,
+                          ) ??
+                          AppTypography.headingXSmall.copyWith(
+                            color: AppNeutralColors.grey900,
+                          ),
+                    ),
+                  ),
+                  const SizedBox(width: 24, height: 24),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.s24),
+              if (hasRecord) ...<Widget>[
+                const _QuestionWrittenPreviewCard(),
+                const SizedBox(height: AppSpacing.s8),
+                _TopCharacterDecorations(bubbleColor: brand.c500),
+              ] else ...<Widget>[
+                const _QuestionBeforeRecordCard(),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _QuestionBeforeRecordCard extends StatelessWidget {
+  const _QuestionBeforeRecordCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s12),
       child: Column(
         children: <Widget>[
-          Row(
-            children: <Widget>[
-              const SizedBox(width: 24, height: 24),
-              Expanded(
-                child: Text(
-                  "Daily Question",
-                  textAlign: TextAlign.center,
-                  style:
-                      textTheme.titleMedium?.copyWith(
-                        color: AppNeutralColors.grey900,
-                      ) ??
-                      AppTypography.headingXSmall.copyWith(
-                        color: AppNeutralColors.grey900,
-                      ),
+          Text(
+            "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+            textAlign: TextAlign.center,
+            style: AppTypography.headingLarge.copyWith(
+              color: AppNeutralColors.grey900,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s16),
+          const _QuestionWrittenSpeechBubble(
+            text: "오늘은 아직 답변하지 않았어요",
+            color: AppNeutralColors.white,
+          ),
+          const SizedBox(height: AppSpacing.s8),
+          Image.asset(
+            HomeScreen._heroFishAsset,
+            width: 150,
+            height: 150,
+            fit: BoxFit.contain,
+            errorBuilder: (_, error, stackTrace) {
+              return const Text("🐟", style: TextStyle(fontSize: 64));
+            },
+          ),
+          const SizedBox(height: AppSpacing.s8),
+          TextButton(
+            onPressed: () {},
+            style: TextButton.styleFrom(
+              foregroundColor: brand.c500,
+              textStyle: AppTypography.buttonSmall,
+            ),
+            child: const Text("새로운 질문 받기"),
+          ),
+          const SizedBox(height: AppSpacing.s12),
+          SizedBox(
+            width: double.infinity,
+            height: 60,
+            child: FilledButton(
+              onPressed: () => HomeScreen.openTodayQuestionAnswer(context),
+              style: FilledButton.styleFrom(
+                backgroundColor: brand.c500,
+                shape: const StadiumBorder(),
+              ),
+              child: Text(
+                "기록하기",
+                style: AppTypography.buttonLarge.copyWith(
+                  color: AppNeutralColors.white,
                 ),
               ),
-              const SizedBox(width: 24, height: 24),
-            ],
+            ),
           ),
-          const SizedBox(height: AppSpacing.s24),
-          const _QuestionWrittenPreviewCard(),
-          const SizedBox(height: AppSpacing.s8),
-          _TopCharacterDecorations(bubbleColor: brand.c500),
         ],
       ),
     );
@@ -159,7 +240,9 @@ class _QuestionWrittenPreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final DateTime now = DateTime.now();
+    final TodayQuestionRecord? latest =
+        TodayQuestionStore.instance.latestRecord;
+    final DateTime now = latest?.createdAt ?? DateTime.now();
     final List<String> weekdays = <String>[
       "월요일",
       "화요일",
@@ -170,6 +253,11 @@ class _QuestionWrittenPreviewCard extends StatelessWidget {
       "일요일",
     ];
     final String currentDate = "${now.day}일 ${weekdays[now.weekday - 1]}";
+    final String answerText =
+        latest?.answer ??
+        "올해는 꼭 제주도 한라산에 올라가 백록담을 직접 보고 싶어. "
+            "예전부터 사진으로만 보던 그 푸른 호수를 실제로 내 눈으로 담아보고 싶다는 마음이 있었거든요...";
+    final String bucketText = latest?.bucketTag ?? "제주도 한라산 가기";
     return Container(
       width: double.infinity,
       height: 458,
@@ -230,8 +318,7 @@ class _QuestionWrittenPreviewCard extends StatelessWidget {
           const SizedBox(height: AppSpacing.s16),
           Expanded(
             child: Text(
-              "올해는 꼭 제주도 한라산에 올라가 백록담을 직접 보고 싶어. "
-              "예전부터 사진으로만 보던 그 푸른 호수를 실제로 내 눈으로 담아보고 싶다는 마음이 있었거든요...",
+              answerText,
               textAlign: TextAlign.center,
               style: AppTypography.bodyLargeRegular.copyWith(
                 color: AppNeutralColors.grey800,
@@ -255,7 +342,7 @@ class _QuestionWrittenPreviewCard extends StatelessWidget {
                   ),
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    "#제주도 한라산 가기",
+                    "#$bucketText",
                     textAlign: TextAlign.left,
                     style: AppTypography.buttonSmall.copyWith(
                       color: brand.c500,
@@ -297,7 +384,9 @@ class _QuestionWrittenSpeechBubble extends StatelessWidget {
             child: Text(
               text,
               style: AppTypography.bodySmallMedium.copyWith(
-                color: AppNeutralColors.white,
+                color: color == AppNeutralColors.white
+                    ? AppNeutralColors.grey700
+                    : AppNeutralColors.white,
               ),
             ),
           ),
@@ -429,88 +518,103 @@ class _TodayRecordSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const List<_TodayRecordData> records = <_TodayRecordData>[
-      _TodayRecordData(
-        body:
-            "올해는 꼭 해외여행을 다녀오고 싶습니다.\n코로나 이후로 한 번도 비행기를 타본 적이\n없어서, 짧게라도 일본 교토에 가서 벚꽃...",
-        name: "익명의 호랑이님",
-      ),
-    ];
-    final bool hasRecords = records.isNotEmpty;
     final TextTheme textTheme = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        if (hasRecords)
-          InkWell(
-            onTap: () => HomeScreen.openTodayRecords(context),
-            borderRadius: BorderRadius.circular(8),
-            child: Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    "오늘의 기록",
-                    style:
-                        textTheme.titleLarge?.copyWith(
-                          color: AppNeutralColors.grey900,
-                        ) ??
-                        AppTypography.headingSmall.copyWith(
-                          color: AppNeutralColors.grey900,
-                        ),
+    return ValueListenableBuilder<List<TodayQuestionRecord>>(
+      valueListenable: TodayQuestionStore.instance,
+      builder: (BuildContext context, List<TodayQuestionRecord> saved, _) {
+        final List<_TodayRecordData> records = saved
+            .where((TodayQuestionRecord item) => item.isPublic)
+            .map(
+              (TodayQuestionRecord item) => _TodayRecordData(
+                body: _toPreviewText(item.answer),
+                name: item.author,
+              ),
+            )
+            .toList(growable: false);
+        final bool hasRecords = records.isNotEmpty;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            if (hasRecords)
+              InkWell(
+                onTap: () => HomeScreen.openTodayRecords(context),
+                borderRadius: BorderRadius.circular(8),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        "오늘의 기록",
+                        style:
+                            textTheme.titleLarge?.copyWith(
+                              color: AppNeutralColors.grey900,
+                            ) ??
+                            AppTypography.headingSmall.copyWith(
+                              color: AppNeutralColors.grey900,
+                            ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 24,
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ],
+                ),
+              )
+            else
+              Text(
+                "오늘의 기록",
+                style:
+                    textTheme.titleLarge?.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ) ??
+                    AppTypography.headingSmall.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ),
+              ),
+            const SizedBox(height: 17),
+            if (hasRecords)
+              SizedBox(
+                height: 154,
+                child: ScrollConfiguration(
+                  behavior: const MaterialScrollBehavior().copyWith(
+                    dragDevices: <PointerDeviceKind>{
+                      PointerDeviceKind.touch,
+                      PointerDeviceKind.mouse,
+                      PointerDeviceKind.trackpad,
+                      PointerDeviceKind.stylus,
+                      PointerDeviceKind.invertedStylus,
+                    },
+                  ),
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const ClampingScrollPhysics(),
+                    itemBuilder: (context, index) => _TodayRecordCard(
+                      record: records[index],
+                      width: records.length == 1 ? 350 : 320,
+                    ),
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: AppSpacing.s8),
+                    itemCount: records.length,
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right,
-                  size: 24,
-                  color: AppNeutralColors.grey900,
-                ),
-              ],
-            ),
-          )
-        else
-          Text(
-            "오늘의 기록",
-            style:
-                textTheme.titleLarge?.copyWith(
-                  color: AppNeutralColors.grey900,
-                ) ??
-                AppTypography.headingSmall.copyWith(
-                  color: AppNeutralColors.grey900,
-                ),
-          ),
-        const SizedBox(height: 17),
-        if (hasRecords)
-          SizedBox(
-            height: 154,
-            child: ScrollConfiguration(
-              behavior: const MaterialScrollBehavior().copyWith(
-                dragDevices: <PointerDeviceKind>{
-                  PointerDeviceKind.touch,
-                  PointerDeviceKind.mouse,
-                  PointerDeviceKind.trackpad,
-                  PointerDeviceKind.stylus,
-                  PointerDeviceKind.invertedStylus,
-                },
+              )
+            else
+              _TodayRecordEmptyCard(
+                onTap: () => HomeScreen.openTodayQuestionAnswer(context),
               ),
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                physics: const ClampingScrollPhysics(),
-                itemBuilder: (context, index) => _TodayRecordCard(
-                  record: records[index],
-                  width: records.length == 1 ? 350 : 320,
-                ),
-                separatorBuilder: (context, index) =>
-                    const SizedBox(width: AppSpacing.s8),
-                itemCount: records.length,
-              ),
-            ),
-          )
-        else
-          _TodayRecordEmptyCard(
-            onTap: () => HomeScreen.openTodayQuestionAnswer(context),
-          ),
-      ],
+          ],
+        );
+      },
     );
+  }
+
+  String _toPreviewText(String raw) {
+    final String singleLine = raw.replaceAll("\n", " ");
+    if (singleLine.length <= 56) {
+      return singleLine;
+    }
+    return "${singleLine.substring(0, 56)}...";
   }
 }
 
