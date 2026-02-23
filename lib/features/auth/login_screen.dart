@@ -175,9 +175,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                 textInputAction: TextInputAction.next,
                                 state: _emailHasFormatError
                                     ? AppInputFieldState.error
-                                    : (_emailFocused
-                                          ? AppInputFieldState.focus
-                                          : AppInputFieldState.defaultState),
+                                    : (_isEmailValid
+                                          ? AppInputFieldState.success
+                                          : (_emailFocused
+                                                ? AppInputFieldState.focus
+                                                : AppInputFieldState
+                                                      .defaultState)),
                                 onChanged: (_) => setState(() {
                                   _showCredentialError = false;
                                 }),
@@ -192,6 +195,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                           Icons.error_outline,
                                           size: 20,
                                           color: AppSemanticColors.error500,
+                                        ),
+                                      )
+                                    : _isEmailValid
+                                    ? Padding(
+                                        padding: EdgeInsets.only(right: 12),
+                                        child: Icon(
+                                          Icons.check,
+                                          size: 20,
+                                          color: AppBrandThemes.blue.c500,
                                         ),
                                       )
                                     : Row(
