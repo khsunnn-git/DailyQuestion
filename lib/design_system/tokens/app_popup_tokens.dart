@@ -22,6 +22,7 @@ abstract final class AppPopupTokens {
   static const Color dimmed = Color(0xB8000000);
   static const BorderRadius radius = AppRadius.br16;
   static const List<BoxShadow> shadow = AppElevation.level3;
+  static const List<BoxShadow> bottomSheetShadow = AppElevation.level1;
   static const TextStyle titleStyle = AppTypography.headingSmall;
   static const TextStyle bodyStyle = AppTypography.bodyMediumMedium;
   static const Color titleColor = AppNeutralColors.grey900;

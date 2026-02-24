@@ -17,6 +17,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   bool _isPublic = false;
   int _polishUsedCount = 0;
   bool _showPolishLoading = false;
+  final List<String> _bucketTags = <String>[];
   final TextEditingController _answerController = TextEditingController();
   final FocusNode _answerFocusNode = FocusNode();
 
@@ -97,9 +98,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
             return base.replaceAll("싶어요.", "싶습니다.");
           }
           if (requestCount == 3) {
-            return base
-                .replaceAll("싶어요.", "싶습니다.")
-                .replaceAll("거예요.", "것입니다.");
+            return base.replaceAll("싶어요.", "싶습니다.").replaceAll("거예요.", "것입니다.");
           }
           return base;
         },
@@ -129,6 +128,61 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
+  }
+
+  void _showBucketToastMessage(String message) {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: AppToastMessage(text: message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          margin: const EdgeInsets.fromLTRB(50, 0, 50, 98),
+        ),
+      );
+  }
+
+  void _showBucketToast() {
+    _showBucketToastMessage("버킷리스트에 추가되었습니다✨");
+  }
+
+  void _showBucketRemovedToast() {
+    _showBucketToastMessage("버킷리스트가 삭제되었습니다.");
+  }
+
+  Future<T?> _showDesignBottomSheet<T>({
+    required BuildContext context,
+    required Widget Function(BuildContext context, double keyboardInset)
+    builder,
+  }) {
+    return showModalBottomSheet<T>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      barrierColor: AppPopupTokens.dimmed,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      builder: (BuildContext sheetContext) {
+        final double keyboardInset = MediaQuery.of(
+          sheetContext,
+        ).viewInsets.bottom;
+        return DecoratedBox(
+          decoration: const BoxDecoration(
+            color: AppNeutralColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            boxShadow: AppPopupTokens.bottomSheetShadow,
+          ),
+          child: builder(sheetContext, keyboardInset),
+        );
+      },
+    );
   }
 
   Future<void> _openPolishBottomSheet(BuildContext context) async {
@@ -165,21 +219,14 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       return;
     }
 
-    final String? action = await showModalBottomSheet<String>(
+    final String? action = await _showDesignBottomSheet<String>(
       context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      barrierColor: const Color(0xB8000000),
-      backgroundColor: AppNeutralColors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (BuildContext context) {
+      builder: (BuildContext context, double keyboardInset) {
         final BrandScale brand = context.appBrandScale;
         final int displayCount = _polishUsedCount.clamp(1, 3);
         final bool canRetry = _polishUsedCount < 3;
         return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 48),
+          padding: EdgeInsets.fromLTRB(24, 24, 24, 48 + keyboardInset),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -228,6 +275,8 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(56),
                           backgroundColor: AppNeutralColors.grey100,
+                          overlayColor: Colors.transparent,
+                          splashFactory: NoSplash.splashFactory,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -247,6 +296,8 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                         style: FilledButton.styleFrom(
                           minimumSize: const Size.fromHeight(56),
                           backgroundColor: brand.c500,
+                          overlayColor: Colors.transparent,
+                          splashFactory: NoSplash.splashFactory,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
                           ),
@@ -297,6 +348,159 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
         TextPosition(offset: _answerController.text.length),
       );
     }
+  }
+
+  Future<void> _openBucketBottomSheet(BuildContext context) async {
+    final TextEditingController bucketController = TextEditingController();
+
+    final String? bucketText = await _showDesignBottomSheet<String>(
+      context: context,
+      builder: (BuildContext context, double keyboardInset) {
+        final BrandScale brand = context.appBrandScale;
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            final bool canSave = bucketController.text.trim().isNotEmpty;
+            return Padding(
+              padding: EdgeInsets.fromLTRB(24, 24, 24, 48 + keyboardInset),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Align(
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 48,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppNeutralColors.grey300,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s20),
+                  Text(
+                    "이 질문을 통해 얻은 버킷리스트가 있나요?",
+                    style: AppTypography.headingSmall.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s8),
+                  Text(
+                    "이곳에 작성한 내용은 버킷리스트에\n자동으로 저장됩니다.",
+                    style: AppTypography.bodyMediumRegular.copyWith(
+                      color: AppNeutralColors.grey500,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s20),
+                  Container(
+                    constraints: const BoxConstraints(
+                      minHeight: AppInputTokens.textAreaInputPreviewHeight,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppNeutralColors.grey50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    child: TextField(
+                      controller: bucketController,
+                      autofocus: true,
+                      cursorColor: AppNeutralColors.grey900,
+                      minLines: 3,
+                      maxLines: 3,
+                      style: AppTypography.bodyMediumMedium.copyWith(
+                        color: AppNeutralColors.grey900,
+                      ),
+                      onChanged: (_) => setModalState(() {}),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        hoverColor: Colors.transparent,
+                        focusColor: Colors.transparent,
+                        hintText: "간단한 버킷리스트를 남겨보세요.",
+                        hintStyle: AppTypography.bodyMediumMedium.copyWith(
+                          color: AppNeutralColors.grey300,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s16),
+                  SizedBox(
+                    height: 56,
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(56),
+                              backgroundColor: AppNeutralColors.grey100,
+                              overlayColor: Colors.transparent,
+                              splashFactory: NoSplash.splashFactory,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              "다음에 할게요",
+                              style: AppTypography.buttonLarge.copyWith(
+                                color: AppNeutralColors.grey600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.s8),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: canSave
+                                ? () => Navigator.of(
+                                    context,
+                                  ).pop(bucketController.text.trim())
+                                : null,
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size.fromHeight(56),
+                              backgroundColor: brand.c500,
+                              disabledBackgroundColor: brand.c300,
+                              disabledForegroundColor: AppNeutralColors.white,
+                              overlayColor: Colors.transparent,
+                              splashFactory: NoSplash.splashFactory,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              "저장하기",
+                              style: AppTypography.buttonLarge.copyWith(
+                                color: AppNeutralColors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    bucketController.dispose();
+    if (!mounted || bucketText == null) {
+      return;
+    }
+    setState(() {
+      _bucketTags.add(bucketText);
+    });
+    _showBucketToast();
   }
 
   @override
@@ -481,30 +685,129 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                         const SizedBox(height: AppSpacing.s16),
                         Align(
                           alignment: Alignment.centerLeft,
-                          child: Container(
-                            height: 38,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.s16,
-                            ),
-                            decoration: BoxDecoration(
-                              color: brand.c100,
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: brand.c200),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Text(
-                                  "추가하기",
-                                  style: AppTypography.buttonSmall.copyWith(
-                                    color: brand.c500,
+                          child: _bucketTags.isEmpty
+                              ? Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () =>
+                                        _openBucketBottomSheet(context),
+                                    borderRadius: BorderRadius.circular(999),
+                                    child: Container(
+                                      height: 38,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: AppSpacing.s16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: brand.c100,
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        border: Border.all(color: brand.c200),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: <Widget>[
+                                          Text(
+                                            "추가하기",
+                                            style: AppTypography.buttonSmall
+                                                .copyWith(color: brand.c500),
+                                          ),
+                                          const SizedBox(width: AppSpacing.s4),
+                                          Icon(
+                                            Icons.add,
+                                            size: 16,
+                                            color: brand.c500,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: <Widget>[
+                                      ..._bucketTags.asMap().entries.map((
+                                        MapEntry<int, String> entry,
+                                      ) {
+                                        final int index = entry.key;
+                                        final String tag = entry.value;
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: AppSpacing.s6,
+                                          ),
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              onLongPress: () {
+                                                setState(() {
+                                                  _bucketTags.removeAt(index);
+                                                });
+                                                _showBucketRemovedToast();
+                                              },
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                              child: Container(
+                                                height: 38,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal:
+                                                          AppSpacing.s12,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: brand.c500,
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        999,
+                                                      ),
+                                                ),
+                                                child: Center(
+                                                  child: Text(
+                                                    "#$tag",
+                                                    style: AppTypography
+                                                        .buttonSmall
+                                                        .copyWith(
+                                                          color:
+                                                              AppNeutralColors
+                                                                  .white,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                      Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onTap: () =>
+                                              _openBucketBottomSheet(context),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                          child: Container(
+                                            width: 38,
+                                            height: 38,
+                                            decoration: BoxDecoration(
+                                              color: brand.c100,
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                              border: Border.all(
+                                                color: brand.c200,
+                                              ),
+                                            ),
+                                            child: Icon(
+                                              Icons.add,
+                                              size: 16,
+                                              color: brand.c500,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: AppSpacing.s4),
-                                Icon(Icons.add, size: 16, color: brand.c500),
-                              ],
-                            ),
-                          ),
                         ),
                         const SizedBox(height: AppSpacing.s16),
                         Container(
@@ -569,7 +872,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                               TodayQuestionStore.instance.saveRecord(
                                 answer: _answerController.text,
                                 isPublic: _isPublic,
-                                bucketTag: "제주도 한라산 가기",
+                                bucketTags: _bucketTags,
                               );
                               if (!mounted) {
                                 return;

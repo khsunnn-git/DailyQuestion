@@ -8,6 +8,7 @@ class TodayQuestionRecord {
     required this.answer,
     required this.author,
     this.bucketTag,
+    this.bucketTags = const <String>[],
     this.isPublic = false,
   });
 
@@ -15,6 +16,7 @@ class TodayQuestionRecord {
   final String answer;
   final String author;
   final String? bucketTag;
+  final List<String> bucketTags;
   final bool isPublic;
 }
 
@@ -75,17 +77,26 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     required String answer,
     required bool isPublic,
     String? bucketTag,
+    List<String> bucketTags = const <String>[],
   }) {
     final String normalized = answer.trim();
     if (normalized.isEmpty) {
       return;
     }
+    final List<String> normalizedTags = bucketTags
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
+    final String? resolvedBucketTag = normalizedTags.isNotEmpty
+        ? normalizedTags.last
+        : bucketTag?.trim();
 
     final TodayQuestionRecord next = TodayQuestionRecord(
       createdAt: DateTime.now(),
       answer: normalized,
       author: isPublic ? _buildRandomNickname() : "나의 기록",
-      bucketTag: bucketTag,
+      bucketTag: resolvedBucketTag,
+      bucketTags: normalizedTags,
       isPublic: isPublic,
     );
     value = <TodayQuestionRecord>[next, ...value];

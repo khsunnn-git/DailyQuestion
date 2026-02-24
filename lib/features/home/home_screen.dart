@@ -133,39 +133,37 @@ class _TopQuestionPanel extends StatelessWidget {
               List<TodayQuestionRecord> records,
               Widget? child,
             ) {
-          final bool hasRecord = records.isNotEmpty;
-          return Column(
-            children: <Widget>[
-              Row(
+              final bool hasRecord = records.isNotEmpty;
+              return Column(
                 children: <Widget>[
-                  const SizedBox(width: 24, height: 24),
-                  Expanded(
-                    child: Text(
-                      "Daily Question",
-                      textAlign: TextAlign.center,
-                      style:
-                          textTheme.titleMedium?.copyWith(
-                            color: AppNeutralColors.grey900,
-                          ) ??
-                          AppTypography.headingXSmall.copyWith(
-                            color: AppNeutralColors.grey900,
-                          ),
-                    ),
+                  Row(
+                    children: <Widget>[
+                      const SizedBox(width: 24, height: 24),
+                      Expanded(
+                        child: Text(
+                          "Daily Question",
+                          textAlign: TextAlign.center,
+                          style:
+                              textTheme.titleMedium?.copyWith(
+                                color: AppNeutralColors.grey900,
+                              ) ??
+                              AppTypography.headingXSmall.copyWith(
+                                color: AppNeutralColors.grey900,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 24, height: 24),
+                    ],
                   ),
-                  const SizedBox(width: 24, height: 24),
+                  const SizedBox(height: AppSpacing.s24),
+                  if (hasRecord) ...<Widget>[
+                    const _QuestionWrittenPreviewCard(),
+                    const SizedBox(height: AppSpacing.s8),
+                    _TopCharacterDecorations(bubbleColor: brand.c500),
+                  ] else ...<Widget>[const _QuestionBeforeRecordCard()],
                 ],
-              ),
-              const SizedBox(height: AppSpacing.s24),
-              if (hasRecord) ...<Widget>[
-                const _QuestionWrittenPreviewCard(),
-                const SizedBox(height: AppSpacing.s8),
-                _TopCharacterDecorations(bubbleColor: brand.c500),
-              ] else ...<Widget>[
-                const _QuestionBeforeRecordCard(),
-              ],
-            ],
-          );
-        },
+              );
+            },
       ),
     );
   }
@@ -294,7 +292,13 @@ class _QuestionWrittenPreviewCard extends StatelessWidget {
         latest?.answer ??
         "올해는 꼭 제주도 한라산에 올라가 백록담을 직접 보고 싶어. "
             "예전부터 사진으로만 보던 그 푸른 호수를 실제로 내 눈으로 담아보고 싶다는 마음이 있었거든요...";
-    final String bucketText = latest?.bucketTag ?? "제주도 한라산 가기";
+    final List<String> bucketTags = latest == null
+        ? const <String>[]
+        : latest.bucketTags.isNotEmpty
+        ? latest.bucketTags
+        : (latest.bucketTag == null || latest.bucketTag!.trim().isEmpty)
+        ? const <String>[]
+        : <String>[latest.bucketTag!.trim()];
     return Container(
       width: double.infinity,
       height: 458,
@@ -364,32 +368,46 @@ class _QuestionWrittenPreviewCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
-            child: Row(
-              children: <Widget>[
-                Container(
-                  height: 38,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: brand.c100,
-                    borderRadius: AppRadius.pill,
-                    border: Border.all(color: brand.c200),
-                  ),
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "#$bucketText",
-                    textAlign: TextAlign.left,
-                    style: AppTypography.buttonSmall.copyWith(
-                      color: brand.c500,
-                    ),
+          if (bucketTags.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
+              child: SizedBox(
+                width: double.infinity,
+                height: 38,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: bucketTags
+                        .map(
+                          (String tag) => Padding(
+                            padding: const EdgeInsets.only(
+                              right: AppSpacing.s6,
+                            ),
+                            child: Container(
+                              height: 38,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.s16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: brand.c100,
+                                borderRadius: AppRadius.pill,
+                                border: Border.all(color: brand.c200),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                "#$tag",
+                                style: AppTypography.buttonSmall.copyWith(
+                                  color: brand.c500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
                   ),
                 ),
-                const Spacer(),
-              ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -661,16 +679,16 @@ class _TodayRecordSection extends StatelessWidget {
               ),
             )
             .toList(growable: false);
-        final List<_TodayRecordData> otherRecords = TodayRecordsDataSource
-            .visiblePublicRecords()
-            .take(3)
-            .map(
-              (OtherTodayRecord item) => _TodayRecordData(
-                body: _toPreviewText(item.body),
-                name: item.author,
-              ),
-            )
-            .toList(growable: false);
+        final List<_TodayRecordData> otherRecords =
+            TodayRecordsDataSource.visiblePublicRecords()
+                .take(3)
+                .map(
+                  (OtherTodayRecord item) => _TodayRecordData(
+                    body: _toPreviewText(item.body),
+                    name: item.author,
+                  ),
+                )
+                .toList(growable: false);
         final List<_TodayRecordData> records = <_TodayRecordData>[
           ...myPublicRecords,
           ...otherRecords,
