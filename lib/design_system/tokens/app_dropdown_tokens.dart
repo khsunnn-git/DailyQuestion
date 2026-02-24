@@ -23,14 +23,9 @@ class AppDropdownItemStyle {
 }
 
 class AppDropdownMenuStyle {
-  const AppDropdownMenuStyle({
-    required this.width,
-    required this.height,
-    required this.shadow,
-  });
+  const AppDropdownMenuStyle({required this.width, required this.shadow});
 
   final double width;
-  final double height;
   final List<BoxShadow> shadow;
 }
 
@@ -80,19 +75,16 @@ abstract final class AppDropdownTokens {
       case AppDropdownMenuSize.lg:
         return const AppDropdownMenuStyle(
           width: 110,
-          height: 148,
           shadow: AppElevation.level2,
         );
       case AppDropdownMenuSize.md:
         return const AppDropdownMenuStyle(
           width: 84,
-          height: 148,
           shadow: AppElevation.level3,
         );
       case AppDropdownMenuSize.sm:
         return const AppDropdownMenuStyle(
           width: 84,
-          height: 104,
           shadow: AppElevation.level3,
         );
     }

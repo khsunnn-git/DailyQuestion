@@ -37,13 +37,19 @@ class AppPopup extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: AppPopupTokens.titleStyle.copyWith(color: AppPopupTokens.titleColor),
+              style: AppPopupTokens.titleStyle.copyWith(
+                color: AppPopupTokens.titleColor,
+                decoration: TextDecoration.none,
+              ),
             ),
             const SizedBox(height: AppPopupTokens.contentGap),
             Text(
               body,
               textAlign: TextAlign.center,
-              style: AppPopupTokens.bodyStyle.copyWith(color: AppPopupTokens.bodyColor),
+              style: AppPopupTokens.bodyStyle.copyWith(
+                color: AppPopupTokens.bodyColor,
+                decoration: TextDecoration.none,
+              ),
             ),
             if (actions.isNotEmpty) ...<Widget>[
               const SizedBox(height: AppPopupTokens.contentGap),

@@ -18,6 +18,7 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
   late String _answer;
   late bool _isPublic;
   bool _showMoreMenu = false;
+  int? _selectedMoreMenuIndex;
   int? _armedDeleteTagIndex;
 
   @override
@@ -39,13 +40,34 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
     }
     setState(() {
       _showMoreMenu = false;
+      _selectedMoreMenuIndex = null;
     });
   }
 
   void _toggleMoreMenu() {
     setState(() {
       _showMoreMenu = !_showMoreMenu;
+      if (_showMoreMenu) {
+        _selectedMoreMenuIndex = null;
+      }
     });
+  }
+
+  Future<void> _handleMoreMenuTap({
+    required int index,
+    required Future<void> Function() action,
+  }) async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedMoreMenuIndex = index;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) {
+      return;
+    }
+    await action();
   }
 
   void _showBucketRemovedToast() {
@@ -369,91 +391,80 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: AppSpacing.s16),
+                          const SizedBox(height: AppSpacing.s8),
                           Padding(
                             padding: const EdgeInsets.symmetric(
                               horizontal: AppSpacing.s24,
                             ),
                             child: SizedBox(
                               width: 300,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: _bucketTags
-                                      .asMap()
-                                      .entries
-                                      .map((MapEntry<int, String> entry) {
-                                        final int index = entry.key;
-                                        final String tag = entry.value;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: AppSpacing.s6,
-                                          ),
-                                          child: Material(
-                                            color: Colors.transparent,
-                                            child: InkWell(
-                                              onLongPress: () =>
-                                                  _armTagDelete(index),
-                                              onTap: () => _handleTagTap(index),
+                              child: Wrap(
+                                spacing: AppSpacing.s8,
+                                runSpacing: AppSpacing.s8,
+                                children: _bucketTags
+                                    .asMap()
+                                    .entries
+                                    .map((MapEntry<int, String> entry) {
+                                      final int index = entry.key;
+                                      final String tag = entry.value;
+                                      return Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onLongPress: () =>
+                                              _armTagDelete(index),
+                                          onTap: () => _handleTagTap(index),
+                                          borderRadius: AppRadius.pill,
+                                          child: Container(
+                                            height: 38,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: AppSpacing.s12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: brand.c500,
                                               borderRadius: AppRadius.pill,
-                                              child: Container(
-                                                height: 38,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal:
-                                                          AppSpacing.s12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: brand.c500,
-                                                  borderRadius: AppRadius.pill,
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: <Widget>[
-                                                    Text(
-                                                      "#$tag",
-                                                      style: AppTypography
-                                                          .buttonSmall
-                                                          .copyWith(
-                                                            color:
-                                                                AppNeutralColors
-                                                                    .white,
-                                                          ),
-                                                    ),
-                                                    if (_armedDeleteTagIndex ==
-                                                        index) ...<Widget>[
-                                                      const SizedBox(
-                                                        width: AppSpacing.s6,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: <Widget>[
+                                                Text(
+                                                  "#$tag",
+                                                  style: AppTypography
+                                                      .buttonSmall
+                                                      .copyWith(
+                                                        color: AppNeutralColors
+                                                            .white,
                                                       ),
-                                                      Container(
-                                                        width: 20,
-                                                        height: 20,
-                                                        decoration:
-                                                            const BoxDecoration(
-                                                              color:
-                                                                  AppNeutralColors
-                                                                      .white,
-                                                              shape: BoxShape
-                                                                  .circle,
-                                                            ),
-                                                        child: Icon(
-                                                          Icons.close,
-                                                          size: 16,
-                                                          color: brand.c500,
+                                                ),
+                                                if (_armedDeleteTagIndex ==
+                                                    index) ...<Widget>[
+                                                  const SizedBox(
+                                                    width: AppSpacing.s6,
+                                                  ),
+                                                  Container(
+                                                    width: 20,
+                                                    height: 20,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          color:
+                                                              AppNeutralColors
+                                                                  .white,
+                                                          shape:
+                                                              BoxShape.circle,
                                                         ),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                              ),
+                                                    child: Icon(
+                                                      Icons.close,
+                                                      size: 16,
+                                                      color: brand.c500,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
                                           ),
-                                        );
-                                      })
-                                      .toList(growable: false),
-                                ),
+                                        ),
+                                      );
+                                    })
+                                    .toList(growable: false),
                               ),
                             ),
                           ),
@@ -479,13 +490,23 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                       items: <AppDropdownItem>[
                         AppDropdownItem(
                           label: "수정",
-                          state: AppDropdownItemState.defaultState,
-                          onTap: _openEditScreen,
+                          state: _selectedMoreMenuIndex == 0
+                              ? AppDropdownItemState.selected
+                              : AppDropdownItemState.defaultState,
+                          onTap: () => _handleMoreMenuTap(
+                            index: 0,
+                            action: _openEditScreen,
+                          ),
                         ),
                         AppDropdownItem(
                           label: "삭제",
-                          state: AppDropdownItemState.defaultState,
-                          onTap: _deleteRecordWithPopup,
+                          state: _selectedMoreMenuIndex == 1
+                              ? AppDropdownItemState.selected
+                              : AppDropdownItemState.defaultState,
+                          onTap: () => _handleMoreMenuTap(
+                            index: 1,
+                            action: _deleteRecordWithPopup,
+                          ),
                         ),
                       ],
                     ),

@@ -279,8 +279,142 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard> {
   }
 }
 
-class _QuestionWrittenPreviewCard extends StatelessWidget {
+class _QuestionWrittenPreviewCard extends StatefulWidget {
   const _QuestionWrittenPreviewCard();
+
+  @override
+  State<_QuestionWrittenPreviewCard> createState() =>
+      _QuestionWrittenPreviewCardState();
+}
+
+class _QuestionWrittenPreviewCardState
+    extends State<_QuestionWrittenPreviewCard> {
+  bool _showMoreMenu = false;
+  int? _selectedMoreMenuIndex;
+
+  void _dismissMoreMenu() {
+    if (!_showMoreMenu) {
+      return;
+    }
+    setState(() {
+      _showMoreMenu = false;
+      _selectedMoreMenuIndex = null;
+    });
+  }
+
+  void _toggleMoreMenu() {
+    setState(() {
+      _showMoreMenu = !_showMoreMenu;
+      if (_showMoreMenu) {
+        _selectedMoreMenuIndex = null;
+      }
+    });
+  }
+
+  Future<void> _handleMoreMenuTap({
+    required int index,
+    required Future<void> Function() action,
+  }) async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedMoreMenuIndex = index;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) {
+      return;
+    }
+    await action();
+  }
+
+  Future<void> _openEditScreen(TodayQuestionRecord latest) async {
+    _dismissMoreMenu();
+    await Navigator.of(context).push<TodayQuestionRecord>(
+      MaterialPageRoute<TodayQuestionRecord>(
+        builder: (_) => TodayQuestionAnswerScreen(editingRecord: latest),
+      ),
+    );
+  }
+
+  Future<void> _deleteRecordWithPopup(TodayQuestionRecord latest) async {
+    _dismissMoreMenu();
+    final BrandScale brand = context.appBrandScale;
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: AppPopupTokens.dimmed,
+      builder: (BuildContext dialogContext) {
+        return Center(
+          child: AppPopup(
+            width: AppPopupTokens.maxWidth,
+            title: "질문과 내용 모두\n삭제하시겠습니까?",
+            body: "삭제해도 질문에 대한 답변은\n언제든 다시 작성 할 수 있어요",
+            actions: <Widget>[
+              SizedBox(
+                width: 100,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppNeutralColors.grey100,
+                    foregroundColor: AppNeutralColors.grey600,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "취소",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.grey600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 170,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: brand.c500,
+                    foregroundColor: AppNeutralColors.white,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "삭제하기",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.white,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted || confirmed != true) {
+      return;
+    }
+    TodayQuestionStore.instance.deleteRecord(createdAt: latest.createdAt);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -309,132 +443,195 @@ class _QuestionWrittenPreviewCard extends StatelessWidget {
         : (latest.bucketTag == null || latest.bucketTag!.trim().isEmpty)
         ? const <String>[]
         : <String>[latest.bucketTag!.trim()];
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: latest == null
-            ? null
-            : () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => MyRecordDetailScreen(record: latest),
-                  ),
-                );
-              },
-        borderRadius: AppRadius.br24,
-        child: Container(
-          width: double.infinity,
-          height: 458,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
-          decoration: BoxDecoration(
-            color: AppNeutralColors.white,
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: <Widget>[
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: latest == null || _showMoreMenu
+                ? null
+                : () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => MyRecordDetailScreen(record: latest),
+                      ),
+                    );
+                  },
             borderRadius: AppRadius.br24,
-            boxShadow: AppElevation.level1,
-          ),
-          child: Column(
-            children: <Widget>[
-              SizedBox(
-                width: 286,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s4),
-                  child: Row(
-                    children: <Widget>[
-                      Icon(
-                        Icons.history,
-                        size: AppSpacing.s24,
-                        color: AppNeutralColors.grey300,
-                      ),
-                      Expanded(
-                        child: Text(
-                          currentDate,
-                          textAlign: TextAlign.center,
-                          style: AppTypography.bodyMediumSemiBold.copyWith(
-                            color: brand.c500,
-                          ),
-                        ),
-                      ),
-                      const Icon(
-                        Icons.more_horiz,
-                        size: AppSpacing.s24,
-                        color: AppNeutralColors.grey300,
-                      ),
-                    ],
-                  ),
-                ),
+            child: Container(
+              width: double.infinity,
+              height: 458,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+              decoration: BoxDecoration(
+                color: AppNeutralColors.white,
+                borderRadius: AppRadius.br24,
+                boxShadow: AppElevation.level1,
               ),
-              const SizedBox(height: AppSpacing.s16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
-                decoration: const BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: AppNeutralColors.grey50),
-                  ),
-                ),
-                child: Text(
-                  "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
-                  textAlign: TextAlign.center,
-                  style: AppTypography.headingMediumExtraBold.copyWith(
-                    color: AppNeutralColors.grey900,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.s16),
-          Expanded(
-            child: Text(
-              answerText,
-              textAlign: TextAlign.left,
-              style: AppTypography.bodyLargeRegular.copyWith(
-                color: AppNeutralColors.grey800,
-              ),
-              maxLines: 6,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-              if (bucketTags.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 38,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
+              child: Column(
+                children: <Widget>[
+                  SizedBox(
+                    width: 286,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s4,
+                      ),
                       child: Row(
-                        children: bucketTags
-                            .map(
-                              (String tag) => Padding(
-                                padding: const EdgeInsets.only(
-                                  right: AppSpacing.s6,
-                                ),
-                                child: Container(
-                                  height: 38,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.s16,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: brand.c100,
-                                    borderRadius: AppRadius.pill,
-                                    border: Border.all(color: brand.c200),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    "#$tag",
-                                    style: AppTypography.buttonSmall.copyWith(
-                                      color: brand.c500,
-                                    ),
-                                  ),
-                                ),
+                        children: <Widget>[
+                          Icon(
+                            Icons.history,
+                            size: AppSpacing.s24,
+                            color: AppNeutralColors.grey300,
+                          ),
+                          Expanded(
+                            child: Text(
+                              currentDate,
+                              textAlign: TextAlign.center,
+                              style: AppTypography.bodyMediumSemiBold.copyWith(
+                                color: brand.c500,
                               ),
-                            )
-                            .toList(growable: false),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: IconButton(
+                              onPressed: latest == null
+                                  ? null
+                                  : _toggleMoreMenu,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 24,
+                                height: 24,
+                              ),
+                              icon: const Icon(
+                                Icons.more_horiz,
+                                size: AppSpacing.s24,
+                                color: AppNeutralColors.grey300,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ),
-            ],
+                  const SizedBox(height: AppSpacing.s16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.s16,
+                    ),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: AppNeutralColors.grey50),
+                      ),
+                    ),
+                    child: Text(
+                      "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+                      textAlign: TextAlign.center,
+                      style: AppTypography.headingMediumExtraBold.copyWith(
+                        color: AppNeutralColors.grey900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s16),
+                  Expanded(
+                    child: Text(
+                      answerText,
+                      textAlign: TextAlign.left,
+                      style: AppTypography.bodyLargeRegular.copyWith(
+                        color: AppNeutralColors.grey800,
+                      ),
+                      maxLines: 6,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (bucketTags.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s16,
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 38,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: bucketTags
+                                .map(
+                                  (String tag) => Padding(
+                                    padding: const EdgeInsets.only(
+                                      right: AppSpacing.s6,
+                                    ),
+                                    child: Container(
+                                      height: 38,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: AppSpacing.s16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: brand.c100,
+                                        borderRadius: AppRadius.pill,
+                                        border: Border.all(color: brand.c200),
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        "#$tag",
+                                        style: AppTypography.buttonSmall
+                                            .copyWith(color: brand.c500),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(growable: false),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+        if (_showMoreMenu)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _dismissMoreMenu,
+              child: const SizedBox.expand(),
+            ),
+          ),
+        if (_showMoreMenu && latest != null)
+          Positioned(
+            top: 52,
+            right: 20,
+            child: AppDropdownMenu(
+              size: AppDropdownMenuSize.lg,
+              items: <AppDropdownItem>[
+                AppDropdownItem(
+                  label: "수정",
+                  state: _selectedMoreMenuIndex == 0
+                      ? AppDropdownItemState.selected
+                      : AppDropdownItemState.defaultState,
+                  onTap: () => _handleMoreMenuTap(
+                    index: 0,
+                    action: () => _openEditScreen(latest),
+                  ),
+                ),
+                AppDropdownItem(
+                  label: "삭제",
+                  state: _selectedMoreMenuIndex == 1
+                      ? AppDropdownItemState.selected
+                      : AppDropdownItemState.defaultState,
+                  onTap: () => _handleMoreMenuTap(
+                    index: 1,
+                    action: () => _deleteRecordWithPopup(latest),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
