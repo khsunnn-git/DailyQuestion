@@ -1,12 +1,12 @@
-# dailyquestion
+# DailyQuestion
 
-A new Flutter project.
+A Flutter project for recording daily question answers and bucket lists.
 
 ## Getting Started
 
 This project is a starting point for a Flutter application.
 
-A few resources to get you started if this is your first Flutter project:
+Useful resources:
 
 - [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
 - [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
