@@ -1,9 +1,12 @@
+import "dart:async";
+
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
+import "today_records_data_source.dart";
 import "today_records_screen.dart";
 
 class HomeScreen extends StatelessWidget {
@@ -56,13 +59,12 @@ class HomeScreen extends StatelessWidget {
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const <Widget>[
-                              _RecordStreakBar(),
-                              SizedBox(height: AppSpacing.s40),
+                            children: <Widget>[
+                              _RecordStreakSection(),
                               _TodayRecordSection(),
-                              SizedBox(height: AppSpacing.s40),
+                              const SizedBox(height: AppSpacing.s40),
                               _AquariumBanner(),
-                              SizedBox(height: AppSpacing.s40),
+                              const SizedBox(height: AppSpacing.s40),
                               _OneLineReportCard(),
                             ],
                           ),
@@ -169,67 +171,102 @@ class _TopQuestionPanel extends StatelessWidget {
   }
 }
 
-class _QuestionBeforeRecordCard extends StatelessWidget {
+enum _SpeechTailDirection { right, down }
+
+class _QuestionBeforeRecordCard extends StatefulWidget {
   const _QuestionBeforeRecordCard();
+
+  @override
+  State<_QuestionBeforeRecordCard> createState() =>
+      _QuestionBeforeRecordCardState();
+}
+
+class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard> {
+  static const List<String> _messages = <String>[
+    "오늘은 아직 답변하지 않았어요",
+    "무엇이든 가볍게 적어보세요",
+  ];
+  int _messageIndex = 0;
+  Timer? _messageTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _messageTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      setState(() {
+        _messageIndex = (_messageIndex + 1) % _messages.length;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s12),
-      child: Column(
-        children: <Widget>[
-          Text(
+    return Column(
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.s8,
+            vertical: AppSpacing.s24,
+          ),
+          child: Text(
             "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
             textAlign: TextAlign.center,
             style: AppTypography.headingLarge.copyWith(
               color: AppNeutralColors.grey900,
             ),
           ),
-          const SizedBox(height: AppSpacing.s16),
-          const _QuestionWrittenSpeechBubble(
-            text: "오늘은 아직 답변하지 않았어요",
-            color: AppNeutralColors.white,
+        ),
+        _QuestionWrittenSpeechBubble(
+          text: _messages[_messageIndex],
+          color: AppNeutralColors.white,
+          tailDirection: _SpeechTailDirection.down,
+        ),
+        const SizedBox(height: AppSpacing.s24),
+        Image.asset(
+          HomeScreen._heroFishAsset,
+          width: 150,
+          height: 150,
+          fit: BoxFit.contain,
+          errorBuilder: (_, error, stackTrace) {
+            return const Text("🐟", style: TextStyle(fontSize: 64));
+          },
+        ),
+        const SizedBox(height: AppSpacing.s24),
+        TextButton(
+          onPressed: () {},
+          style: TextButton.styleFrom(
+            foregroundColor: brand.c500,
+            textStyle: AppTypography.buttonSmall,
           ),
-          const SizedBox(height: AppSpacing.s8),
-          Image.asset(
-            HomeScreen._heroFishAsset,
-            width: 150,
-            height: 150,
-            fit: BoxFit.contain,
-            errorBuilder: (_, error, stackTrace) {
-              return const Text("🐟", style: TextStyle(fontSize: 64));
-            },
-          ),
-          const SizedBox(height: AppSpacing.s8),
-          TextButton(
-            onPressed: () {},
-            style: TextButton.styleFrom(
-              foregroundColor: brand.c500,
-              textStyle: AppTypography.buttonSmall,
+          child: const Text("새로운 질문 받기"),
+        ),
+        const SizedBox(height: AppSpacing.s24),
+        SizedBox(
+          width: double.infinity,
+          height: 60,
+          child: FilledButton(
+            onPressed: () => HomeScreen.openTodayQuestionAnswer(context),
+            style: FilledButton.styleFrom(
+              backgroundColor: brand.c500,
+              shape: const StadiumBorder(),
             ),
-            child: const Text("새로운 질문 받기"),
-          ),
-          const SizedBox(height: AppSpacing.s12),
-          SizedBox(
-            width: double.infinity,
-            height: 60,
-            child: FilledButton(
-              onPressed: () => HomeScreen.openTodayQuestionAnswer(context),
-              style: FilledButton.styleFrom(
-                backgroundColor: brand.c500,
-                shape: const StadiumBorder(),
-              ),
-              child: Text(
-                "기록하기",
-                style: AppTypography.buttonLarge.copyWith(
-                  color: AppNeutralColors.white,
-                ),
+            child: Text(
+              "기록하기",
+              style: AppTypography.buttonLarge.copyWith(
+                color: AppNeutralColors.white,
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -360,13 +397,47 @@ class _QuestionWrittenPreviewCard extends StatelessWidget {
 }
 
 class _QuestionWrittenSpeechBubble extends StatelessWidget {
-  const _QuestionWrittenSpeechBubble({required this.text, required this.color});
+  const _QuestionWrittenSpeechBubble({
+    required this.text,
+    required this.color,
+    this.tailDirection = _SpeechTailDirection.right,
+  });
 
   final String text;
   final Color color;
+  final _SpeechTailDirection tailDirection;
 
   @override
   Widget build(BuildContext context) {
+    if (tailDirection == _SpeechTailDirection.down) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: const BorderRadius.all(
+                Radius.circular(AppSpacing.s12 + AppSpacing.s2),
+              ),
+              boxShadow: AppElevation.level1,
+            ),
+            child: Text(
+              text,
+              style: AppTypography.bodySmallMedium.copyWith(
+                color: color == AppNeutralColors.white
+                    ? AppNeutralColors.grey700
+                    : AppNeutralColors.white,
+              ),
+            ),
+          ),
+          CustomPaint(
+            size: const Size(10, 6),
+            painter: _SpeechDownTailPainter(color),
+          ),
+        ],
+      );
+    }
     return Align(
       alignment: Alignment.center,
       child: Row(
@@ -398,6 +469,26 @@ class _QuestionWrittenSpeechBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SpeechDownTailPainter extends CustomPainter {
+  _SpeechDownTailPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()..color = color;
+    final Path path = Path()
+      ..moveTo(size.width / 2, size.height)
+      ..lineTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _TopCharacterDecorations extends StatelessWidget {
@@ -489,25 +580,64 @@ class _SpeechRightTailPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+class _RecordStreakSection extends StatelessWidget {
+  const _RecordStreakSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<List<TodayQuestionRecord>>(
+      valueListenable: TodayQuestionStore.instance,
+      builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
+        final int streak = TodayQuestionStore.instance.consecutiveRecordDays;
+        if (streak < 2) {
+          return const SizedBox.shrink();
+        }
+        return const Column(
+          children: <Widget>[
+            _RecordStreakBar(),
+            SizedBox(height: AppSpacing.s24),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _RecordStreakBar extends StatelessWidget {
   const _RecordStreakBar();
 
   @override
   Widget build(BuildContext context) {
+    final int streak = TodayQuestionStore.instance.consecutiveRecordDays;
+    final String subMessage = streak >= 7
+        ? "벌써 일주일 째 기록 중이에요!"
+        : "꾸준한 당신이 멋져요!";
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
         color: AppNeutralColors.white,
         borderRadius: AppRadius.br16,
         boxShadow: AppElevation.level1,
       ),
-      child: Text(
-        "🔥연속 7일째 기록중",
-        textAlign: TextAlign.center,
-        style: AppTypography.bodySmallSemiBold.copyWith(
-          color: AppNeutralColors.grey900,
-        ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            "🔥연속 $streak일째 기록 중",
+            textAlign: TextAlign.center,
+            style: AppTypography.bodySmallSemiBold.copyWith(
+              color: AppNeutralColors.grey900,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s4),
+          Text(
+            subMessage,
+            textAlign: TextAlign.center,
+            style: AppTypography.captionMedium.copyWith(
+              color: AppNeutralColors.grey600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -522,7 +652,7 @@ class _TodayRecordSection extends StatelessWidget {
     return ValueListenableBuilder<List<TodayQuestionRecord>>(
       valueListenable: TodayQuestionStore.instance,
       builder: (BuildContext context, List<TodayQuestionRecord> saved, _) {
-        final List<_TodayRecordData> records = saved
+        final List<_TodayRecordData> myPublicRecords = saved
             .where((TodayQuestionRecord item) => item.isPublic)
             .map(
               (TodayQuestionRecord item) => _TodayRecordData(
@@ -531,6 +661,20 @@ class _TodayRecordSection extends StatelessWidget {
               ),
             )
             .toList(growable: false);
+        final List<_TodayRecordData> otherRecords = TodayRecordsDataSource
+            .visiblePublicRecords()
+            .take(3)
+            .map(
+              (OtherTodayRecord item) => _TodayRecordData(
+                body: _toPreviewText(item.body),
+                name: item.author,
+              ),
+            )
+            .toList(growable: false);
+        final List<_TodayRecordData> records = <_TodayRecordData>[
+          ...myPublicRecords,
+          ...otherRecords,
+        ];
         final bool hasRecords = records.isNotEmpty;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

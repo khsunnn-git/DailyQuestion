@@ -1,9 +1,10 @@
 import "dart:async";
-import "dart:math";
 
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
+import "../question/today_question_store.dart";
+import "today_records_data_source.dart";
 
 class TodayRecordsScreen extends StatefulWidget {
   const TodayRecordsScreen({super.key});
@@ -19,96 +20,6 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
   Timer? _hourlyRefreshTimer;
   DateTime _lastRefreshedAt = DateTime.now();
 
-  static const List<_TodayRecordRawItem> _allRecords = <_TodayRecordRawItem>[
-    _TodayRecordRawItem(
-      body:
-          "올해는 꼭 해외여행을 다녀오고 싶습니다.\n코로나 이후로 한 번도 비행기를 타본 적이\n없어서, 짧게라도 일본 교토에 가서 벚꽃 시즌을\n직접 보고 사진을 남기는 게 목표예요.",
-      author: "익명의 호랑이님 답변",
-      isPublic: true,
-      sentimentScore: 0.68,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body:
-          "올해는 오랫동안 연락하지 못했던 대학 친구에게 먼저 연락해서 꼭 만나고 싶습니다. 연락이\n끊긴 지 벌써 몇 년이 되었는데, 다시 좋은 인연을 이어가고 싶어요.",
-      author: "물먹은 하마님 답변",
-      isPublic: true,
-      sentimentScore: 0.41,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body: "기타로 노래 한 곡 완주하기",
-      author: "수영하는 라마님 답변",
-      isPublic: true,
-      sentimentScore: 0.32,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body:
-          "올해는 글쓰기를 꾸준히 이어가고 싶어요. 블로그에 짧은 글이라도 10편 이상은 쓰고, 나중에\n모으면 작은 에세이집으로 엮어보고 싶습니다. 제 생각을 정리하고 기록으로 남기는 습관을 만들고 싶어요.",
-      author: "무서운 고양이님 답변",
-      isPublic: true,
-      sentimentScore: 0.52,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body: "하루 20분 독서 습관 만들기",
-      author: "익명의 여우님 답변",
-      isPublic: true,
-      sentimentScore: 0.27,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body: "나를 위한 운동 루틴 30일 도전",
-      author: "웃는 토끼님 답변",
-      isPublic: true,
-      sentimentScore: 0.48,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body: "감정이 많이 무거워서 오늘은 아무것도 하기 싫어요.",
-      author: "익명의 고슴도치님 답변",
-      isPublic: true,
-      sentimentScore: -0.29,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body: "올해는 가족과 더 자주 대화하는 시간을 만들고 싶어요.",
-      author: "익명의 사슴님 답변",
-      isPublic: true,
-      sentimentScore: 0.36,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body: "공개 설정이 아니라 개인 기록으로만 남겼어요.",
-      author: "익명의 너구리님 답변",
-      isPublic: false,
-      sentimentScore: 0.21,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body: "올해는 일주일에 한 번 새로운 장소를 걸어보려 해요.",
-      author: "익명의 고양이님 답변",
-      isPublic: true,
-      sentimentScore: 0.44,
-      hasBlockedWords: false,
-    ),
-    _TodayRecordRawItem(
-      body: "타인을 향한 모욕 표현이 포함된 문장",
-      author: "익명의 늑대님 답변",
-      isPublic: true,
-      sentimentScore: -0.12,
-      hasBlockedWords: true,
-    ),
-    _TodayRecordRawItem(
-      body: "올해는 그림 그리기를 꾸준히 해보고 싶어요.",
-      author: "익명의 펭귄님 답변",
-      isPublic: true,
-      sentimentScore: 0.39,
-      hasBlockedWords: false,
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -123,52 +34,28 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
       return;
     }
     final DateTime now = DateTime.now();
-    final List<_TodayRecordItem> visibleRecords = _allRecords
-        .where(_isVisiblePublicRecord)
+    final List<_TodayRecordItem> sampledRecords = TodayRecordsDataSource
+        .sampledVisibleRecords(now)
         .map((item) => _TodayRecordItem(body: item.body, author: item.author))
         .toList(growable: false);
-    final List<_TodayRecordItem> sampledRecords = _sampleRecords(
-      visibleRecords: visibleRecords,
-      now: now,
-    );
+    final List<_TodayRecordItem> myRecords = TodayQuestionStore.instance.value
+        .where((TodayQuestionRecord item) => item.isPublic)
+        .map(
+          (TodayQuestionRecord item) => _TodayRecordItem(
+            body: item.answer,
+            author: item.author,
+          ),
+        )
+        .toList(growable: false);
+    final List<_TodayRecordItem> mergedRecords = <_TodayRecordItem>[
+      ...myRecords,
+      ...sampledRecords,
+    ];
     setState(() {
-      _records = sampledRecords;
+      _records = mergedRecords;
       _isLoading = false;
       _lastRefreshedAt = now;
     });
-  }
-
-  bool _isVisiblePublicRecord(_TodayRecordRawItem item) {
-    if (!item.isPublic) {
-      return false;
-    }
-    if (item.hasBlockedWords) {
-      return false;
-    }
-    return item.sentimentScore >= -0.25;
-  }
-
-  List<_TodayRecordItem> _sampleRecords({
-    required List<_TodayRecordItem> visibleRecords,
-    required DateTime now,
-  }) {
-    if (visibleRecords.isEmpty) {
-      return const <_TodayRecordItem>[];
-    }
-    final int minCount = visibleRecords.length < 5 ? visibleRecords.length : 5;
-    final int maxCount = visibleRecords.length < 10
-        ? visibleRecords.length
-        : 10;
-    final Random random = Random(
-      now.year * 1000000 + now.month * 10000 + now.day * 100 + now.hour,
-    );
-    final List<_TodayRecordItem> shuffled = List<_TodayRecordItem>.from(
-      visibleRecords,
-    )..shuffle(random);
-    final int count = minCount == maxCount
-        ? minCount
-        : minCount + random.nextInt(maxCount - minCount + 1);
-    return shuffled.take(count).toList(growable: false);
   }
 
   void _startHourlyRefreshTimer() {
@@ -234,14 +121,7 @@ class _RecordsLoadingView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: AppNeutralColors.grey500,
-              shape: BoxShape.circle,
-            ),
-          ),
+          const AppLoadingIndicator(),
           const SizedBox(height: AppSpacing.s56),
           Text(
             "사람들의 생각을 불러오는 중입니다.",
@@ -328,7 +208,7 @@ class _RecordsListView extends StatelessWidget {
                           ),
                           const SizedBox(height: AppSpacing.s16),
                           Text(
-                            "NNN째 기록중",
+                            "${records.length}명 기록중",
                             style: AppTypography.bodySmallRegular.copyWith(
                               color: AppNeutralColors.grey600,
                             ),
@@ -382,22 +262,6 @@ class _TodayRecordItem {
   final String author;
 }
 
-class _TodayRecordRawItem {
-  const _TodayRecordRawItem({
-    required this.body,
-    required this.author,
-    required this.isPublic,
-    required this.sentimentScore,
-    required this.hasBlockedWords,
-  });
-
-  final String body;
-  final String author;
-  final bool isPublic;
-  final double sentimentScore;
-  final bool hasBlockedWords;
-}
-
 class _FullRecordCard extends StatelessWidget {
   const _FullRecordCard({required this.item});
 
@@ -412,23 +276,34 @@ class _FullRecordCard extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.s32),
       decoration: BoxDecoration(
         color: AppNeutralColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.br16,
         boxShadow: AppElevation.level1,
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
-          Text(
-            item.body,
-            textAlign: TextAlign.center,
-            style: AppTypography.bodyMediumMedium.copyWith(
-              color: AppNeutralColors.grey900,
-              height: 1.5,
+          SizedBox(
+            width: double.infinity,
+            child: Text(
+              item.body,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyMediumMedium.copyWith(
+                color: AppNeutralColors.grey900,
+                height: 1.5,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.s24),
-          Text(
-            item.author,
-            style: AppTypography.bodySmallSemiBold.copyWith(color: brand.c500),
+          SizedBox(
+            width: double.infinity,
+            child: Text(
+              item.author,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodySmallSemiBold.copyWith(
+                color: brand.c500,
+              ),
+            ),
           ),
         ],
       ),

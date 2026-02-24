@@ -45,6 +45,32 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
 
   TodayQuestionRecord? get latestRecord => value.isEmpty ? null : value.first;
 
+  int get consecutiveRecordDays {
+    if (value.isEmpty) {
+      return 0;
+    }
+    final Set<DateTime> uniqueDays = value
+        .map((TodayQuestionRecord item) => _dateOnly(item.createdAt))
+        .toSet();
+    final List<DateTime> sorted = uniqueDays.toList()
+      ..sort((a, b) => b.compareTo(a));
+    if (sorted.isEmpty) {
+      return 0;
+    }
+    int streak = 1;
+    DateTime cursor = sorted.first;
+    for (int i = 1; i < sorted.length; i++) {
+      final DateTime expectedPrev = cursor.subtract(const Duration(days: 1));
+      if (_dateOnly(sorted[i]) == _dateOnly(expectedPrev)) {
+        streak += 1;
+        cursor = sorted[i];
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
   void saveRecord({
     required String answer,
     required bool isPublic,
@@ -69,5 +95,9 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     final String trait = _nickTraits[_random.nextInt(_nickTraits.length)];
     final String animal = _nickAnimals[_random.nextInt(_nickAnimals.length)];
     return "$trait $animal님";
+  }
+
+  DateTime _dateOnly(DateTime dateTime) {
+    return DateTime(dateTime.year, dateTime.month, dateTime.day);
   }
 }
