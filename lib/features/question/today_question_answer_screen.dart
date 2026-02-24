@@ -3,10 +3,13 @@ import "dart:async";
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
+import "streak_completion_screen.dart";
 import "today_question_store.dart";
 
 class TodayQuestionAnswerScreen extends StatefulWidget {
-  const TodayQuestionAnswerScreen({super.key});
+  const TodayQuestionAnswerScreen({super.key, this.editingRecord});
+
+  final TodayQuestionRecord? editingRecord;
 
   @override
   State<TodayQuestionAnswerScreen> createState() =>
@@ -26,9 +29,69 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   bool get _canPolish =>
       _effectiveCharCount(_answerController.text) >= 5 && _polishUsedCount < 3;
 
+  Future<void> _saveRecord() async {
+    final bool isEditMode = widget.editingRecord != null;
+    final TodayQuestionRecord? savedRecord = isEditMode
+        ? TodayQuestionStore.instance.updateRecord(
+            createdAt: widget.editingRecord!.createdAt,
+            answer: _answerController.text,
+            isPublic: _isPublic,
+            bucketTags: _bucketTags,
+          )
+        : TodayQuestionStore.instance.saveRecord(
+            answer: _answerController.text,
+            isPublic: _isPublic,
+            bucketTags: _bucketTags,
+          );
+
+    if (savedRecord == null) {
+      return;
+    }
+
+    if (isEditMode) {
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(savedRecord);
+      return;
+    }
+
+    final int streak = TodayQuestionStore.instance.consecutiveRecordDays;
+    if (!mounted) {
+      return;
+    }
+    if (streak >= 2) {
+      final List<bool> weeklyCompleted = TodayQuestionStore.instance
+          .weeklyCompletion();
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => StreakCompletionScreen(
+            streakDays: streak,
+            weeklyCompleted: weeklyCompleted,
+          ),
+        ),
+      );
+    }
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop(savedRecord);
+  }
+
   @override
   void initState() {
     super.initState();
+    final TodayQuestionRecord? editingRecord = widget.editingRecord;
+    if (editingRecord != null) {
+      _answerController.text = editingRecord.answer;
+      _isPublic = editingRecord.isPublic;
+      if (editingRecord.bucketTags.isNotEmpty) {
+        _bucketTags.addAll(editingRecord.bucketTags);
+      } else if (editingRecord.bucketTag != null &&
+          editingRecord.bucketTag!.trim().isNotEmpty) {
+        _bucketTags.add(editingRecord.bucketTag!.trim());
+      }
+    }
     _answerController.addListener(_handleAnswerChanged);
   }
 
@@ -138,7 +201,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: AppToastMessage(text: message),
+          content: Center(child: AppToastMessage(text: message)),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
           backgroundColor: Colors.transparent,
@@ -516,10 +579,11 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
     final BrandScale brand = context.appBrandScale;
     final DateTime now = DateTime.now();
     final double keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final DateTime displayDate = widget.editingRecord?.createdAt ?? now;
     final String currentDate =
-        "${now.year.toString().padLeft(4, "0")}."
-        "${now.month.toString().padLeft(2, "0")}."
-        "${now.day.toString().padLeft(2, "0")}";
+        "${displayDate.year.toString().padLeft(4, "0")}."
+        "${displayDate.month.toString().padLeft(2, "0")}."
+        "${displayDate.day.toString().padLeft(2, "0")}";
     return Scaffold(
       backgroundColor: brand.bg,
       body: SafeArea(
@@ -551,11 +615,19 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                               visualDensity: VisualDensity.compact,
                             ),
                             Expanded(
-                              child: Text(
-                                "오늘의 질문",
-                                textAlign: TextAlign.center,
-                                style: AppTypography.headingXSmall.copyWith(
-                                  color: AppNeutralColors.grey900,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () {
+                                  Navigator.of(context).popUntil(
+                                    (Route<dynamic> route) => route.isFirst,
+                                  );
+                                },
+                                child: Text(
+                                  "오늘의 질문",
+                                  textAlign: TextAlign.center,
+                                  style: AppTypography.headingXSmall.copyWith(
+                                    color: AppNeutralColors.grey900,
+                                  ),
                                 ),
                               ),
                             ),
@@ -723,80 +795,57 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                                     ),
                                   ),
                                 )
-                              : SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: <Widget>[
-                                      ..._bucketTags.asMap().entries.map((
-                                        MapEntry<int, String> entry,
-                                      ) {
-                                        final int index = entry.key;
-                                        final String tag = entry.value;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: AppSpacing.s6,
-                                          ),
-                                          child: Material(
-                                            color: Colors.transparent,
-                                            child: InkWell(
-                                              onLongPress: () {
-                                                setState(() {
-                                                  _bucketTags.removeAt(index);
-                                                });
-                                                _showBucketRemovedToast();
-                                              },
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                              child: Container(
-                                                height: 38,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal:
-                                                          AppSpacing.s12,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: brand.c500,
-                                                  borderRadius:
-                                                      BorderRadius.circular(
-                                                        999,
-                                                      ),
-                                                ),
-                                                child: Center(
-                                                  child: Text(
-                                                    "#$tag",
-                                                    style: AppTypography
-                                                        .buttonSmall
-                                                        .copyWith(
-                                                          color:
-                                                              AppNeutralColors
-                                                                  .white,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }),
-                                      Material(
+                              : Wrap(
+                                  spacing: AppSpacing.s8,
+                                  runSpacing: AppSpacing.s8,
+                                  children: <Widget>[
+                                    ..._bucketTags.asMap().entries.map((
+                                      MapEntry<int, String> entry,
+                                    ) {
+                                      return Material(
                                         color: Colors.transparent,
                                         child: InkWell(
-                                          onTap: () =>
-                                              _openBucketBottomSheet(context),
+                                          onLongPress: () {
+                                            setState(() {
+                                              _bucketTags.removeAt(entry.key);
+                                            });
+                                            _showBucketRemovedToast();
+                                          },
                                           borderRadius: BorderRadius.circular(
                                             999,
                                           ),
-                                          child: Container(
-                                            width: 38,
-                                            height: 38,
-                                            decoration: BoxDecoration(
-                                              color: brand.c100,
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                              border: Border.all(
-                                                color: brand.c200,
-                                              ),
+                                          child: AppBucketTag(
+                                            text: entry.value,
+                                            state:
+                                                AppBucketTagState.defaultState,
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                    Material(
+                                      color: Colors.transparent,
+                                      child: InkWell(
+                                        onTap: () =>
+                                            _openBucketBottomSheet(context),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        child: Container(
+                                          width: 38,
+                                          height: 38,
+                                          padding: const EdgeInsets.all(
+                                            AppSpacing.s8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: brand.c100,
+                                            borderRadius: BorderRadius.circular(
+                                              999,
                                             ),
+                                            border: Border.all(
+                                              color: brand.c200,
+                                            ),
+                                          ),
+                                          child: Center(
                                             child: Icon(
                                               Icons.add,
                                               size: 16,
@@ -805,8 +854,8 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                                           ),
                                         ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                         ),
                         const SizedBox(height: AppSpacing.s16),
@@ -867,19 +916,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                   child: SizedBox(
                     height: 60,
                     child: FilledButton(
-                      onPressed: _hasInput
-                          ? () {
-                              TodayQuestionStore.instance.saveRecord(
-                                answer: _answerController.text,
-                                isPublic: _isPublic,
-                                bucketTags: _bucketTags,
-                              );
-                              if (!mounted) {
-                                return;
-                              }
-                              Navigator.of(context).maybePop();
-                            }
-                          : null,
+                      onPressed: _hasInput ? _saveRecord : null,
                       style: ButtonStyle(
                         backgroundColor: WidgetStateProperty.resolveWith<Color>(
                           (Set<WidgetState> states) {

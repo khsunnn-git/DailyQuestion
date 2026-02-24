@@ -4,6 +4,7 @@ import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
+import "my_record_detail_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
 import "today_records_data_source.dart";
@@ -33,6 +34,10 @@ class HomeScreen extends StatelessWidget {
     Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const TodayRecordsScreen()));
+  }
+
+  static void goHome(BuildContext context) {
+    Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
   }
 
   @override
@@ -79,6 +84,11 @@ class HomeScreen extends StatelessWidget {
                   bottom: 0,
                   child: AppNavigationBar(
                     currentIndex: 0,
+                    onTap: (int index) {
+                      if (index == 0) {
+                        goHome(context);
+                      }
+                    },
                     items: const <AppNavigationBarItemData>[
                       AppNavigationBarItemData(
                         label: "오늘의 질문",
@@ -299,116 +309,131 @@ class _QuestionWrittenPreviewCard extends StatelessWidget {
         : (latest.bucketTag == null || latest.bucketTag!.trim().isEmpty)
         ? const <String>[]
         : <String>[latest.bucketTag!.trim()];
-    return Container(
-      width: double.infinity,
-      height: 458,
-      padding: const EdgeInsets.fromLTRB(32, 24, 32, 24),
-      decoration: BoxDecoration(
-        color: AppNeutralColors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: latest == null
+            ? null
+            : () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => MyRecordDetailScreen(record: latest),
+                  ),
+                );
+              },
         borderRadius: AppRadius.br24,
-        boxShadow: AppElevation.level1,
-      ),
-      child: Column(
-        children: <Widget>[
-          SizedBox(
-            width: 286,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s4),
-              child: Row(
-                children: <Widget>[
-                  Icon(
-                    Icons.history,
-                    size: AppSpacing.s24,
-                    color: AppNeutralColors.grey400,
-                  ),
-                  Expanded(
-                    child: Text(
-                      currentDate,
-                      textAlign: TextAlign.center,
-                      style: AppTypography.bodyMediumSemiBold.copyWith(
-                        color: brand.c500,
-                      ),
-                    ),
-                  ),
-                  const Icon(
-                    Icons.more_horiz,
-                    size: AppSpacing.s24,
-                    color: AppNeutralColors.grey400,
-                  ),
-                ],
-              ),
-            ),
+        child: Container(
+          width: double.infinity,
+          height: 458,
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+          decoration: BoxDecoration(
+            color: AppNeutralColors.white,
+            borderRadius: AppRadius.br24,
+            boxShadow: AppElevation.level1,
           ),
-          const SizedBox(height: AppSpacing.s16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppNeutralColors.grey50),
-              ),
-            ),
-            child: Text(
-              "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
-              textAlign: TextAlign.center,
-              style: AppTypography.headingMediumExtraBold.copyWith(
-                color: AppNeutralColors.grey900,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s16),
-          Expanded(
-            child: Text(
-              answerText,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodyLargeRegular.copyWith(
-                color: AppNeutralColors.grey800,
-              ),
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (bucketTags.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
-              child: SizedBox(
-                width: double.infinity,
-                height: 38,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
+          child: Column(
+            children: <Widget>[
+              SizedBox(
+                width: 286,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s4),
                   child: Row(
-                    children: bucketTags
-                        .map(
-                          (String tag) => Padding(
-                            padding: const EdgeInsets.only(
-                              right: AppSpacing.s6,
-                            ),
-                            child: Container(
-                              height: 38,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.s16,
-                              ),
-                              decoration: BoxDecoration(
-                                color: brand.c100,
-                                borderRadius: AppRadius.pill,
-                                border: Border.all(color: brand.c200),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                "#$tag",
-                                style: AppTypography.buttonSmall.copyWith(
-                                  color: brand.c500,
-                                ),
-                              ),
-                            ),
+                    children: <Widget>[
+                      Icon(
+                        Icons.history,
+                        size: AppSpacing.s24,
+                        color: AppNeutralColors.grey300,
+                      ),
+                      Expanded(
+                        child: Text(
+                          currentDate,
+                          textAlign: TextAlign.center,
+                          style: AppTypography.bodyMediumSemiBold.copyWith(
+                            color: brand.c500,
                           ),
-                        )
-                        .toList(growable: false),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.more_horiz,
+                        size: AppSpacing.s24,
+                        color: AppNeutralColors.grey300,
+                      ),
+                    ],
                   ),
                 ),
               ),
+              const SizedBox(height: AppSpacing.s16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: AppNeutralColors.grey50),
+                  ),
+                ),
+                child: Text(
+                  "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headingMediumExtraBold.copyWith(
+                    color: AppNeutralColors.grey900,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s16),
+          Expanded(
+            child: Text(
+              answerText,
+              textAlign: TextAlign.left,
+              style: AppTypography.bodyLargeRegular.copyWith(
+                color: AppNeutralColors.grey800,
+              ),
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
             ),
-        ],
+          ),
+              if (bucketTags.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 38,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: bucketTags
+                            .map(
+                              (String tag) => Padding(
+                                padding: const EdgeInsets.only(
+                                  right: AppSpacing.s6,
+                                ),
+                                child: Container(
+                                  height: 38,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.s16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: brand.c100,
+                                    borderRadius: AppRadius.pill,
+                                    border: Border.all(color: brand.c200),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    "#$tag",
+                                    style: AppTypography.buttonSmall.copyWith(
+                                      color: brand.c500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

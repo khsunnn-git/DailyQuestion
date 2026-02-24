@@ -73,7 +73,21 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     return streak;
   }
 
-  void saveRecord({
+  List<bool> weeklyCompletion({DateTime? referenceDate}) {
+    final DateTime reference = referenceDate ?? DateTime.now();
+    final DateTime monday = _dateOnly(
+      reference.subtract(Duration(days: reference.weekday - 1)),
+    );
+    final Set<DateTime> recordedDays = value
+        .map((TodayQuestionRecord item) => _dateOnly(item.createdAt))
+        .toSet();
+    return List<bool>.generate(7, (int index) {
+      final DateTime day = monday.add(Duration(days: index));
+      return recordedDays.contains(day);
+    }, growable: false);
+  }
+
+  TodayQuestionRecord saveRecord({
     required String answer,
     required bool isPublic,
     String? bucketTag,
@@ -81,7 +95,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
   }) {
     final String normalized = answer.trim();
     if (normalized.isEmpty) {
-      return;
+      throw ArgumentError("answer must not be empty");
     }
     final List<String> normalizedTags = bucketTags
         .map((String item) => item.trim())
@@ -100,6 +114,89 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       isPublic: isPublic,
     );
     value = <TodayQuestionRecord>[next, ...value];
+    return next;
+  }
+
+  TodayQuestionRecord? updateRecord({
+    required DateTime createdAt,
+    required String answer,
+    required bool isPublic,
+    List<String> bucketTags = const <String>[],
+  }) {
+    final String normalizedAnswer = answer.trim();
+    if (normalizedAnswer.isEmpty) {
+      return null;
+    }
+    final List<String> normalizedTags = bucketTags
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
+
+    TodayQuestionRecord? updatedRecord;
+    final List<TodayQuestionRecord> next = value
+        .map((TodayQuestionRecord item) {
+          if (updatedRecord != null || item.createdAt != createdAt) {
+            return item;
+          }
+          final TodayQuestionRecord updated = TodayQuestionRecord(
+            createdAt: item.createdAt,
+            answer: normalizedAnswer,
+            author: isPublic
+                ? (item.isPublic ? item.author : _buildRandomNickname())
+                : "나의 기록",
+            bucketTag: normalizedTags.isEmpty ? null : normalizedTags.last,
+            bucketTags: normalizedTags,
+            isPublic: isPublic,
+          );
+          updatedRecord = updated;
+          return updated;
+        })
+        .toList(growable: false);
+
+    if (updatedRecord != null) {
+      value = next;
+    }
+    return updatedRecord;
+  }
+
+  bool deleteRecord({required DateTime createdAt}) {
+    final int beforeCount = value.length;
+    value = value
+        .where((TodayQuestionRecord item) => item.createdAt != createdAt)
+        .toList(growable: false);
+    return value.length != beforeCount;
+  }
+
+  void updateRecordBucketTags({
+    required DateTime createdAt,
+    required List<String> bucketTags,
+  }) {
+    final List<String> normalizedTags = bucketTags
+        .map((String item) => item.trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
+
+    bool updated = false;
+    final List<TodayQuestionRecord> next = value
+        .map((TodayQuestionRecord item) {
+          if (updated || item.createdAt != createdAt) {
+            return item;
+          }
+          updated = true;
+          return TodayQuestionRecord(
+            createdAt: item.createdAt,
+            answer: item.answer,
+            author: item.author,
+            bucketTag: normalizedTags.isEmpty ? null : normalizedTags.last,
+            bucketTags: normalizedTags,
+            isPublic: item.isPublic,
+          );
+        })
+        .toList(growable: false);
+
+    if (updated) {
+      value = next;
+    }
   }
 
   String _buildRandomNickname() {

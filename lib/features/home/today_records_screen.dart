@@ -34,17 +34,17 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
       return;
     }
     final DateTime now = DateTime.now();
-    final List<_TodayRecordItem> sampledRecords = TodayRecordsDataSource
-        .sampledVisibleRecords(now)
-        .map((item) => _TodayRecordItem(body: item.body, author: item.author))
-        .toList(growable: false);
+    final List<_TodayRecordItem> sampledRecords =
+        TodayRecordsDataSource.sampledVisibleRecords(now)
+            .map(
+              (item) => _TodayRecordItem(body: item.body, author: item.author),
+            )
+            .toList(growable: false);
     final List<_TodayRecordItem> myRecords = TodayQuestionStore.instance.value
         .where((TodayQuestionRecord item) => item.isPublic)
         .map(
-          (TodayQuestionRecord item) => _TodayRecordItem(
-            body: item.answer,
-            author: item.author,
-          ),
+          (TodayQuestionRecord item) =>
+              _TodayRecordItem(body: item.answer, author: item.author),
         )
         .toList(growable: false);
     final List<_TodayRecordItem> mergedRecords = <_TodayRecordItem>[
@@ -228,6 +228,13 @@ class _RecordsListView extends StatelessWidget {
               bottom: 0,
               child: AppNavigationBar(
                 currentIndex: 0,
+                onTap: (int index) {
+                  if (index == 0) {
+                    Navigator.of(
+                      context,
+                    ).popUntil((Route<dynamic> route) => route.isFirst);
+                  }
+                },
                 items: const <AppNavigationBarItemData>[
                   AppNavigationBarItemData(
                     label: "오늘의 질문",

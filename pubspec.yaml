@@ -62,6 +62,7 @@ flutter:
     - assets/images/splash/
     - assets/images/login/
     - assets/images/home/
+    - assets/images/question/
 
   fonts:
     - family: SUIT Variable
