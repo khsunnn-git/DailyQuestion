@@ -63,6 +63,7 @@ flutter:
     - assets/images/splash/
     - assets/images/login/
     - assets/images/home/
+    - assets/images/bucket/
     - assets/images/record/
     - assets/images/question/
 

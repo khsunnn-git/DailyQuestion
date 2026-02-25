@@ -4,6 +4,7 @@ import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
+import "../bucket/bucket_list_screen.dart";
 import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
 import "my_records_screen.dart";
@@ -91,6 +92,14 @@ class HomeScreen extends StatelessWidget {
                 onTap: (int index) {
                   if (index == 0) {
                     goHome(context);
+                    return;
+                  }
+                  if (index == 1) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const BucketListScreen(),
+                      ),
+                    );
                     return;
                   }
                   if (index == 2) {

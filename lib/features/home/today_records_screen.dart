@@ -3,6 +3,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
+import "../bucket/bucket_list_screen.dart";
 import "../question/today_question_store.dart";
 import "my_records_screen.dart";
 import "today_records_data_source.dart";
@@ -232,6 +233,14 @@ class _RecordsListView extends StatelessWidget {
                     Navigator.of(
                       context,
                     ).popUntil((Route<dynamic> route) => route.isFirst);
+                    return;
+                  }
+                  if (index == 1) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const BucketListScreen(),
+                      ),
+                    );
                     return;
                   }
                   if (index == 2) {

@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
+import "../bucket/bucket_list_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
 import "my_records_screen.dart";
@@ -525,6 +526,14 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                         Navigator.of(
                           context,
                         ).popUntil((Route<dynamic> route) => route.isFirst);
+                        return;
+                      }
+                      if (index == 1) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const BucketListScreen(),
+                          ),
+                        );
                         return;
                       }
                       if (index == 2) {

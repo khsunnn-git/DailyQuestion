@@ -5,6 +5,7 @@ import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "../../design_system/design_system.dart";
+import "../bucket/bucket_list_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
 import "annual_record_screen.dart";
@@ -292,6 +293,14 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                     Navigator.of(
                       context,
                     ).popUntil((Route<dynamic> route) => route.isFirst);
+                    return;
+                  }
+                  if (index == 1) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const BucketListScreen(),
+                      ),
+                    );
                   }
                 },
                 items: const <AppNavigationBarItemData>[
@@ -1912,6 +1921,14 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
               onTap: (int index) {
                 if (index == 0) {
                   Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+                  return;
+                }
+                if (index == 1) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const BucketListScreen(),
+                    ),
+                  );
                 }
               },
               items: const <AppNavigationBarItemData>[
