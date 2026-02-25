@@ -4,6 +4,7 @@ import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
 import "../question/today_question_store.dart";
+import "my_records_screen.dart";
 import "today_records_data_source.dart";
 
 class TodayRecordsScreen extends StatefulWidget {
@@ -103,7 +104,8 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
     final BrandScale brand = context.appBrandScale;
     return Scaffold(
       backgroundColor: brand.bg,
-      body: SafeArea(
+      body: Padding(
+        padding: EdgeInsets.zero,
         child: _isLoading
             ? const _RecordsLoadingView()
             : _RecordsListView(records: _records),
@@ -144,18 +146,15 @@ class _RecordsListView extends StatelessWidget {
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     final TextTheme textTheme = Theme.of(context).textTheme;
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 390),
-        child: Stack(
-          children: <Widget>[
+    return Stack(
+      children: <Widget>[
             Positioned.fill(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   AppSpacing.s20,
                   AppSpacing.s20,
                   AppSpacing.s20,
-                  96,
+                  AppNavigationBar.totalHeight(context) + AppSpacing.s20,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,6 +232,14 @@ class _RecordsListView extends StatelessWidget {
                     Navigator.of(
                       context,
                     ).popUntil((Route<dynamic> route) => route.isFirst);
+                    return;
+                  }
+                  if (index == 2) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const MyRecordsScreen(),
+                      ),
+                    );
                   }
                 },
                 items: const <AppNavigationBarItemData>[
@@ -256,8 +263,6 @@ class _RecordsListView extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
     );
   }
 }

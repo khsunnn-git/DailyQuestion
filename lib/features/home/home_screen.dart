@@ -5,6 +5,7 @@ import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
 import "my_record_detail_screen.dart";
+import "my_records_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
 import "today_records_data_source.dart";
@@ -45,73 +46,79 @@ class HomeScreen extends StatelessWidget {
     final BrandScale brand = context.appBrandScale;
     return Scaffold(
       backgroundColor: brand.bg,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 390),
-            child: Stack(
-              children: <Widget>[
-                Positioned.fill(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 84),
-                    child: Column(
-                      children: <Widget>[
-                        const _TopQuestionPanel(),
-                        const SizedBox(height: AppSpacing.s24),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s20,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              _RecordStreakSection(),
-                              _TodayRecordSection(),
-                              const SizedBox(height: AppSpacing.s40),
-                              _AquariumBanner(),
-                              const SizedBox(height: AppSpacing.s40),
-                              _OneLineReportCard(),
-                            ],
-                          ),
-                        ),
-                      ],
+      body: Padding(
+        padding: EdgeInsets.zero,
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom: AppNavigationBar.totalHeight(context) + AppSpacing.s8,
+                ),
+                child: Column(
+                  children: <Widget>[
+                    const _TopQuestionPanel(),
+                    const SizedBox(height: AppSpacing.s24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.s20,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          _RecordStreakSection(),
+                          _TodayRecordSection(),
+                          const SizedBox(height: AppSpacing.s40),
+                          _AquariumBanner(),
+                          const SizedBox(height: AppSpacing.s40),
+                          _OneLineReportCard(),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: AppNavigationBar(
-                    currentIndex: 0,
-                    onTap: (int index) {
-                      if (index == 0) {
-                        goHome(context);
-                      }
-                    },
-                    items: const <AppNavigationBarItemData>[
-                      AppNavigationBarItemData(
-                        label: "오늘의 질문",
-                        icon: Icons.home_outlined,
-                      ),
-                      AppNavigationBarItemData(
-                        label: "버킷리스트",
-                        icon: Icons.format_list_bulleted,
-                      ),
-                      AppNavigationBarItemData(
-                        label: "나의기록",
-                        icon: Icons.assignment_outlined,
-                      ),
-                      AppNavigationBarItemData(
-                        label: "더보기",
-                        icon: Icons.more_horiz,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AppNavigationBar(
+                currentIndex: 0,
+                onTap: (int index) {
+                  if (index == 0) {
+                    goHome(context);
+                    return;
+                  }
+                  if (index == 2) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const MyRecordsScreen(),
+                      ),
+                    );
+                  }
+                },
+                items: const <AppNavigationBarItemData>[
+                  AppNavigationBarItemData(
+                    label: "오늘의 질문",
+                    icon: Icons.home_outlined,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "버킷리스트",
+                    icon: Icons.format_list_bulleted,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "나의기록",
+                    icon: Icons.assignment_outlined,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "더보기",
+                    icon: Icons.more_horiz,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -134,7 +141,7 @@ class _TopQuestionPanel extends StatelessWidget {
         ),
         boxShadow: AppElevation.level2,
       ),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
       child: ValueListenableBuilder<List<TodayQuestionRecord>>(
         valueListenable: TodayQuestionStore.instance,
         builder:
@@ -146,24 +153,28 @@ class _TopQuestionPanel extends StatelessWidget {
               final bool hasRecord = records.isNotEmpty;
               return Column(
                 children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      const SizedBox(width: 24, height: 24),
-                      Expanded(
-                        child: Text(
-                          "Daily Question",
-                          textAlign: TextAlign.center,
-                          style:
-                              textTheme.titleMedium?.copyWith(
-                                color: AppNeutralColors.grey900,
-                              ) ??
-                              AppTypography.headingXSmall.copyWith(
-                                color: AppNeutralColors.grey900,
-                              ),
+                  const SizedBox(height: 49),
+                  SizedBox(
+                    height: 65,
+                    child: Row(
+                      children: <Widget>[
+                        const SizedBox(width: 24, height: 24),
+                        Expanded(
+                          child: Text(
+                            "Daily Question",
+                            textAlign: TextAlign.center,
+                            style:
+                                textTheme.titleMedium?.copyWith(
+                                  color: AppNeutralColors.grey900,
+                                ) ??
+                                AppTypography.headingXSmall.copyWith(
+                                  color: AppNeutralColors.grey900,
+                                ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 24, height: 24),
-                    ],
+                        const SizedBox(width: 24, height: 24),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.s24),
                   if (hasRecord) ...<Widget>[
@@ -958,30 +969,45 @@ class _TodayRecordSection extends StatelessWidget {
               ),
             const SizedBox(height: 17),
             if (hasRecords)
-              SizedBox(
-                height: 154,
-                child: ScrollConfiguration(
-                  behavior: const MaterialScrollBehavior().copyWith(
-                    dragDevices: <PointerDeviceKind>{
-                      PointerDeviceKind.touch,
-                      PointerDeviceKind.mouse,
-                      PointerDeviceKind.trackpad,
-                      PointerDeviceKind.stylus,
-                      PointerDeviceKind.invertedStylus,
-                    },
-                  ),
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
-                    itemBuilder: (context, index) => _TodayRecordCard(
-                      record: records[index],
-                      width: records.length == 1 ? 350 : 320,
+              LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final double listWidth = constraints.maxWidth + AppSpacing.s20;
+                  return SizedBox(
+                    height: 168,
+                    child: OverflowBox(
+                      alignment: Alignment.topLeft,
+                      minWidth: listWidth,
+                      maxWidth: listWidth,
+                      child: SizedBox(
+                        width: listWidth,
+                        child: ScrollConfiguration(
+                          behavior: const MaterialScrollBehavior().copyWith(
+                            dragDevices: <PointerDeviceKind>{
+                              PointerDeviceKind.touch,
+                              PointerDeviceKind.mouse,
+                              PointerDeviceKind.trackpad,
+                              PointerDeviceKind.stylus,
+                              PointerDeviceKind.invertedStylus,
+                            },
+                          ),
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            physics: const ClampingScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            clipBehavior: Clip.none,
+                            itemBuilder: (context, index) => _TodayRecordCard(
+                              record: records[index],
+                              width: 320,
+                            ),
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(width: AppSpacing.s8),
+                            itemCount: records.length,
+                          ),
+                        ),
+                      ),
                     ),
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(width: AppSpacing.s8),
-                    itemCount: records.length,
-                  ),
-                ),
+                  );
+                },
               )
             else
               _TodayRecordEmptyCard(
@@ -1017,7 +1043,7 @@ class _TodayRecordEmptyCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           width: double.infinity,
-          height: 154,
+          height: 160,
           decoration: BoxDecoration(
             color: AppNeutralColors.white,
             borderRadius: AppRadius.br16,

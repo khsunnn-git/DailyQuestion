@@ -5,8 +5,10 @@ import "app_spacing.dart";
 import "app_typography.dart";
 
 abstract final class AppHeaderTokens {
-  static const double width = 390;
+  static const double topInset = 49;
+  static const double width = double.infinity;
   static const double height = 65;
+  static const double horizontalPadding = AppSpacing.s20;
   static const EdgeInsets padding = EdgeInsets.all(AppSpacing.s20);
   static const double iconSize = 24;
   static const TextStyle titleStyle = AppTypography.headingXSmall;
@@ -14,7 +16,7 @@ abstract final class AppHeaderTokens {
 }
 
 abstract final class AppNavigationBarTokens {
-  static const double width = 390;
+  static const double width = double.infinity;
   static const double height = 76;
   static const EdgeInsets padding = EdgeInsets.fromLTRB(
     AppSpacing.s40,

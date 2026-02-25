@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "../../design_system/design_system.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
+import "my_records_screen.dart";
 
 class MyRecordDetailScreen extends StatefulWidget {
   const MyRecordDetailScreen({super.key, required this.record});
@@ -255,19 +256,17 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
 
     return Scaffold(
       backgroundColor: brand.bg,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 390),
-            child: Stack(
-              children: <Widget>[
+      body: Padding(
+        padding: EdgeInsets.zero,
+        child: Stack(
+          children: <Widget>[
                 Positioned.fill(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
+                    padding: EdgeInsets.fromLTRB(
                       AppSpacing.s20,
                       AppSpacing.s20,
                       AppSpacing.s20,
-                      96,
+                      AppNavigationBar.totalHeight(context) + AppSpacing.s20,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -522,6 +521,14 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                         Navigator.of(
                           context,
                         ).popUntil((Route<dynamic> route) => route.isFirst);
+                        return;
+                      }
+                      if (index == 2) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const MyRecordsScreen(),
+                          ),
+                        );
                       }
                     },
                     items: const <AppNavigationBarItemData>[
@@ -545,8 +552,6 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
         ),
       ),
     );

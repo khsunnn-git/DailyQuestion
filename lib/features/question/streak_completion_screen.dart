@@ -74,15 +74,13 @@ class _StreakCompletionScreenState extends State<StreakCompletionScreen> {
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: _close,
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 390),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
+        child: Padding(
+          padding: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
                     Align(
                       alignment: Alignment.centerLeft,
                       child: IconButton(
@@ -219,8 +217,6 @@ class _StreakCompletionScreenState extends State<StreakCompletionScreen> {
                       ),
                     ),
                   ],
-                ),
-              ),
             ),
           ),
         ),

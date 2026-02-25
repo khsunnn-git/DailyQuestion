@@ -145,21 +145,18 @@ class _LoginScreenState extends State<LoginScreen> {
     final BrandScale brand = context.appBrandScale;
     return Scaffold(
       backgroundColor: AppNeutralColors.white,
-      body: SafeArea(
+      body: Padding(
+        padding: EdgeInsets.zero,
         child: LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) {
             return SingleChildScrollView(
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 390),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        children: <Widget>[
-                          const SizedBox(height: 80),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: <Widget>[
+                          const SizedBox(height: 130),
                           Text(
                             "Daily Question",
                             style: AppTypography.headingLarge.copyWith(
@@ -351,8 +348,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                    ),
-                  ),
                 ),
               ),
             );

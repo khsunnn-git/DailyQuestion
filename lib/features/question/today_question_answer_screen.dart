@@ -586,12 +586,10 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
         "${displayDate.day.toString().padLeft(2, "0")}";
     return Scaffold(
       backgroundColor: brand.bg,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 390),
-            child: Stack(
-              children: <Widget>[
+      body: Padding(
+        padding: EdgeInsets.zero,
+        child: Stack(
+          children: <Widget>[
                 Positioned.fill(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(
@@ -969,10 +967,8 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                         ],
                       ),
                     ),
-                  ),
+                ),
               ],
-            ),
-          ),
         ),
       ),
     );

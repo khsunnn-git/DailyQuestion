@@ -1,10 +1,11 @@
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 import "../../design_system/design_system.dart";
 import "../question/today_question_store.dart";
 
-class MyRecordsScreen extends StatelessWidget {
+class MyRecordsScreen extends StatefulWidget {
   const MyRecordsScreen({super.key});
 
   static const String _recordStarAsset =
@@ -24,8 +25,6 @@ class MyRecordsScreen extends StatelessWidget {
   static const String _characterAsset =
       "assets/images/home/home_character_fish_blue.png";
 
-  static const int _selectedYear = 2025;
-  static const int _selectedMonth = 8;
   static const int _temporaryLastDay = 24;
   static const String _defaultQuestion = "오늘 가장 기억에 남는 순간은 무엇인가요?";
   static const String _unansweredMessage = "아직 열어보지 않은 질문입니다.";
@@ -95,89 +94,205 @@ class MyRecordsScreen extends StatelessWidget {
   ];
 
   @override
+  State<MyRecordsScreen> createState() => _MyRecordsScreenState();
+}
+
+class _MyRecordsScreenState extends State<MyRecordsScreen> {
+  static const String _installMonthKey = "my_records_install_month";
+  static const int _debugInstallYear = 2024;
+  static const int _debugInstallMonth = 8;
+
+  int _selectedYear = 2025;
+  int _selectedMonth = 8;
+  late DateTime _maxMonth;
+  DateTime? _installMonth = DateTime(_debugInstallYear, _debugInstallMonth);
+
+  @override
+  void initState() {
+    super.initState();
+    final DateTime now = DateTime.now();
+    _maxMonth = DateTime(now.year, now.month);
+    _loadInstallMonth();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     return Scaffold(
       backgroundColor: brand.bg,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 390),
-            child: Stack(
-              children: <Widget>[
-                Positioned.fill(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 96),
-                    child: Column(
-                      children: <Widget>[
-                        _TopMainPanel(brand: brand),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const <Widget>[
-                              _RecordReportHeader(),
-                              SizedBox(height: AppSpacing.s8),
-                              _RecordHeroDecor(),
-                              SizedBox(height: AppSpacing.s8),
-                              _StreakCard(),
-                              SizedBox(height: AppSpacing.s8),
-                              _PastRecordsCard(),
-                              SizedBox(height: AppSpacing.s48),
-                              _MonthReportSection(),
-                            ],
-                          ),
-                        ),
-                      ],
+      body: Padding(
+        padding: EdgeInsets.zero,
+        child: Stack(
+          children: <Widget>[
+            Positioned.fill(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(
+                  bottom:
+                      AppNavigationBar.totalHeight(context) + AppSpacing.s20,
+                ),
+                child: Column(
+                  children: <Widget>[
+                    _TopMainPanel(
+                      brand: brand,
+                      selectedYear: _selectedYear,
+                      selectedMonth: _selectedMonth,
+                      onTapYearMonth: _handleTapYearMonth,
                     ),
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const <Widget>[
+                          _RecordReportHeader(),
+                          SizedBox(height: AppSpacing.s8),
+                          _RecordHeroDecor(),
+                          SizedBox(height: AppSpacing.s8),
+                          _StreakCard(),
+                          SizedBox(height: AppSpacing.s8),
+                          _PastRecordsCard(),
+                          SizedBox(height: AppSpacing.s48),
+                          _MonthReportSection(),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: AppNavigationBar(
-                    currentIndex: 2,
-                    onTap: (int index) {
-                      if (index == 0) {
-                        Navigator.of(
-                          context,
-                        ).popUntil((Route<dynamic> route) => route.isFirst);
-                      }
-                    },
-                    items: const <AppNavigationBarItemData>[
-                      AppNavigationBarItemData(
-                        label: "오늘의 질문",
-                        icon: Icons.home_outlined,
-                      ),
-                      AppNavigationBarItemData(
-                        label: "버킷리스트",
-                        icon: Icons.format_list_bulleted,
-                      ),
-                      AppNavigationBarItemData(
-                        label: "나의기록",
-                        icon: Icons.assignment_outlined,
-                      ),
-                      AppNavigationBarItemData(
-                        label: "더보기",
-                        icon: Icons.more_horiz,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AppNavigationBar(
+                currentIndex: 2,
+                onTap: (int index) {
+                  if (index == 0) {
+                    Navigator.of(
+                      context,
+                    ).popUntil((Route<dynamic> route) => route.isFirst);
+                  }
+                },
+                items: const <AppNavigationBarItemData>[
+                  AppNavigationBarItemData(
+                    label: "오늘의 질문",
+                    icon: Icons.home_outlined,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "버킷리스트",
+                    icon: Icons.format_list_bulleted,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "나의기록",
+                    icon: Icons.assignment_outlined,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "더보기",
+                    icon: Icons.more_horiz,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Future<void> _handleTapYearMonth() async {
+    final DateTime minMonth = _installMonth ?? _maxMonth;
+    final DateTime initialMonth = _clampMonth(
+      DateTime(_selectedYear, _selectedMonth),
+      minMonth,
+      _maxMonth,
+    );
+    final _YearMonthSelection? picked =
+        await showGeneralDialog<_YearMonthSelection>(
+          context: context,
+          barrierColor: const Color(0x40000000),
+          barrierDismissible: true,
+          barrierLabel: "year-month-picker",
+          transitionDuration: const Duration(milliseconds: 120),
+          pageBuilder:
+              (
+                BuildContext context,
+                Animation<double> animation,
+                Animation<double> secondaryAnimation,
+              ) {
+                return _YearMonthPickerDialog(
+                  initialYear: initialMonth.year,
+                  initialMonth: initialMonth.month,
+                  minMonth: minMonth,
+                  maxMonth: _maxMonth,
+                );
+              },
+          transitionBuilder:
+              (
+                BuildContext context,
+                Animation<double> animation,
+                Animation<double> secondaryAnimation,
+                Widget child,
+              ) {
+                return FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOut,
+                  ),
+                  child: child,
+                );
+              },
+        );
+    if (!mounted || picked == null) return;
+    setState(() {
+      _selectedYear = picked.year;
+      _selectedMonth = picked.month;
+    });
+  }
+
+  Future<void> _loadInstallMonth() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final int savedMillis = DateTime(
+      _debugInstallYear,
+      _debugInstallMonth,
+    ).millisecondsSinceEpoch;
+    await prefs.setInt(_installMonthKey, savedMillis);
+    final DateTime installMonth = _monthOnly(
+      DateTime.fromMillisecondsSinceEpoch(savedMillis),
+    );
+    if (!mounted) return;
+    setState(() {
+      _installMonth = installMonth;
+      final DateTime selected = _clampMonth(
+        DateTime(_selectedYear, _selectedMonth),
+        installMonth,
+        _maxMonth,
+      );
+      _selectedYear = selected.year;
+      _selectedMonth = selected.month;
+    });
+  }
+
+  DateTime _monthOnly(DateTime value) => DateTime(value.year, value.month);
+
+  DateTime _clampMonth(DateTime value, DateTime min, DateTime max) {
+    final DateTime month = _monthOnly(value);
+    if (month.isBefore(min)) return min;
+    if (month.isAfter(max)) return max;
+    return month;
+  }
 }
 
 class _TopMainPanel extends StatelessWidget {
-  const _TopMainPanel({required this.brand});
+  const _TopMainPanel({
+    required this.brand,
+    required this.selectedYear,
+    required this.selectedMonth,
+    required this.onTapYearMonth,
+  });
 
   final BrandScale brand;
+  final int selectedYear;
+  final int selectedMonth;
+  final VoidCallback onTapYearMonth;
 
   @override
   Widget build(BuildContext context) {
@@ -191,13 +306,16 @@ class _TopMainPanel extends StatelessWidget {
         ),
         boxShadow: AppElevation.level2,
       ),
-      padding: const EdgeInsets.fromLTRB(0, 8, 0, 32),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 32),
       child: Column(
         children: <Widget>[
+          const SizedBox(height: AppHeaderTokens.topInset),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppHeaderTokens.horizontalPadding,
+            ),
             child: SizedBox(
-              height: 65,
+              height: AppHeaderTokens.height,
               child: Row(
                 children: <Widget>[
                   SizedBox(
@@ -224,27 +342,33 @@ class _TopMainPanel extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.s16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Row(
-              children: <Widget>[
-                Text(
-                  "${MyRecordsScreen._selectedYear}.${MyRecordsScreen._selectedMonth.toString().padLeft(2, "0")}",
-                  style: AppTypography.headingSmall.copyWith(
+            child: GestureDetector(
+              onTap: onTapYearMonth,
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                children: <Widget>[
+                  Text(
+                    "$selectedYear.${selectedMonth.toString().padLeft(2, "0")}",
+                    style: AppTypography.headingSmall.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
+                  const Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 20,
                     color: AppNeutralColors.grey900,
                   ),
-                ),
-                const Icon(
-                  Icons.keyboard_arrow_down,
-                  size: 20,
-                  color: AppNeutralColors.grey900,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.s16),
-          const _MonthlyPreviewStrip(),
+          _MonthlyPreviewStrip(
+            selectedYear: selectedYear,
+            selectedMonth: selectedMonth,
+          ),
         ],
       ),
     );
@@ -252,7 +376,13 @@ class _TopMainPanel extends StatelessWidget {
 }
 
 class _MonthlyPreviewStrip extends StatefulWidget {
-  const _MonthlyPreviewStrip();
+  const _MonthlyPreviewStrip({
+    required this.selectedYear,
+    required this.selectedMonth,
+  });
+
+  final int selectedYear;
+  final int selectedMonth;
 
   @override
   State<_MonthlyPreviewStrip> createState() => _MonthlyPreviewStripState();
@@ -261,9 +391,11 @@ class _MonthlyPreviewStrip extends StatefulWidget {
 class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
   static const double _cardWidth = 350;
   static const double _cardGap = 12;
+  static const double _lastCardRightAdjust = 6;
 
   PageController? _pageController;
   bool _didSetInitialPage = false;
+  int _currentPage = 0;
 
   @override
   void initState() {
@@ -277,13 +409,13 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
       builder:
           (BuildContext context, List<TodayQuestionRecord> records, Widget? _) {
             final DateTime monthStart = DateTime(
-              MyRecordsScreen._selectedYear,
-              MyRecordsScreen._selectedMonth,
+              widget.selectedYear,
+              widget.selectedMonth,
               1,
             );
             final DateTime monthEnd = DateTime(
-              MyRecordsScreen._selectedYear,
-              MyRecordsScreen._selectedMonth + 1,
+              widget.selectedYear,
+              widget.selectedMonth + 1,
               0,
             );
 
@@ -322,8 +454,8 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                   final int day = index + 1;
                   final String weekday = _weekdayKorean(
                     DateTime(
-                      MyRecordsScreen._selectedYear,
-                      MyRecordsScreen._selectedMonth,
+                      widget.selectedYear,
+                      widget.selectedMonth,
                       day,
                     ).weekday,
                   );
@@ -366,6 +498,7 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                 return;
               }
               controller.jumpToPage(previews.length - 1);
+              _currentPage = previews.length - 1;
               _didSetInitialPage = true;
             });
 
@@ -396,11 +529,25 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                       controller: _pageController,
                       physics: const PageScrollPhysics(),
                       padEnds: true,
+                      onPageChanged: (int index) {
+                        if (_currentPage == index) return;
+                        setState(() {
+                          _currentPage = index;
+                        });
+                      },
                       itemCount: previews.length,
                       itemBuilder: (BuildContext context, int index) {
+                        final bool isLatestCard = index == previews.length - 1;
                         return Align(
-                          alignment: Alignment.center,
-                          child: _MonthlyPreviewCard(item: previews[index]),
+                          alignment: isLatestCard
+                              ? Alignment.centerRight
+                              : Alignment.center,
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: isLatestCard ? _lastCardRightAdjust : 0,
+                            ),
+                            child: _MonthlyPreviewCard(item: previews[index]),
+                          ),
                         );
                       },
                     ),
@@ -1120,4 +1267,283 @@ class _ProfileCardItem {
   final String iconAsset;
   final String title;
   final String body;
+}
+
+class _YearMonthSelection {
+  const _YearMonthSelection({required this.year, required this.month});
+
+  final int year;
+  final int month;
+}
+
+class _YearMonthPickerDialog extends StatefulWidget {
+  const _YearMonthPickerDialog({
+    required this.initialYear,
+    required this.initialMonth,
+    required this.minMonth,
+    required this.maxMonth,
+  });
+
+  final int initialYear;
+  final int initialMonth;
+  final DateTime minMonth;
+  final DateTime maxMonth;
+
+  @override
+  State<_YearMonthPickerDialog> createState() => _YearMonthPickerDialogState();
+}
+
+class _YearMonthPickerDialogState extends State<_YearMonthPickerDialog> {
+  late int _selectedYear;
+  late int _selectedMonth;
+  late FixedExtentScrollController _yearController;
+  late FixedExtentScrollController _monthController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedYear = widget.initialYear;
+    _selectedMonth = widget.initialMonth;
+    _yearController = FixedExtentScrollController(
+      initialItem: _yearValues.indexOf(_selectedYear),
+    );
+    _monthController = FixedExtentScrollController(
+      initialItem: _monthValuesForYear(_selectedYear).indexOf(_selectedMonth),
+    );
+  }
+
+  @override
+  void dispose() {
+    _yearController.dispose();
+    _monthController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<int> years = _yearValues;
+    final List<int> months = _monthValuesForYear(_selectedYear);
+
+    return Material(
+      type: MaterialType.transparency,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 156),
+          child: Container(
+            width: 350,
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            decoration: BoxDecoration(
+              color: AppNeutralColors.white,
+              borderRadius: AppRadius.br24,
+              boxShadow: AppElevation.level3,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Text(
+                  "$_selectedYear년 $_selectedMonth월",
+                  textAlign: TextAlign.center,
+                  style: AppTypography.heading2XSmall.copyWith(
+                    color: AppNeutralColors.grey900,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    _WheelPickerColumn<int>(
+                      width: 86,
+                      itemExtent: 40,
+                      controller: _yearController,
+                      values: years,
+                      selectedValue: _selectedYear,
+                      labelBuilder: (int value) => "$value년",
+                      onSelectedItemChanged: (int value) {
+                        setState(() {
+                          _selectedYear = value;
+                          final List<int> nextMonths = _monthValuesForYear(
+                            _selectedYear,
+                          );
+                          if (!nextMonths.contains(_selectedMonth)) {
+                            _selectedMonth = nextMonths.first;
+                          }
+                          _monthController.dispose();
+                          _monthController = FixedExtentScrollController(
+                            initialItem: nextMonths.indexOf(_selectedMonth),
+                          );
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 44),
+                    _WheelPickerColumn<int>(
+                      width: 48,
+                      itemExtent: 40,
+                      controller: _monthController,
+                      values: months,
+                      selectedValue: _selectedMonth,
+                      labelBuilder: (int value) => "$value월",
+                      onSelectedItemChanged: (int value) {
+                        setState(() {
+                          _selectedMonth = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.s24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(
+                        "닫기",
+                        style: AppTypography.buttonLarge.copyWith(
+                          color: AppNeutralColors.grey500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s16),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(
+                          _YearMonthSelection(
+                            year: _selectedYear,
+                            month: _selectedMonth,
+                          ),
+                        );
+                      },
+                      child: Text(
+                        "확인",
+                        style: AppTypography.buttonLarge.copyWith(
+                          color: context.appBrandScale.c500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<int> get _yearValues {
+    return List<int>.generate(
+      widget.maxMonth.year - widget.minMonth.year + 1,
+      (int index) => widget.minMonth.year + index,
+      growable: false,
+    );
+  }
+
+  List<int> _monthValuesForYear(int year) {
+    int start = 1;
+    int end = 12;
+    if (year == widget.minMonth.year) {
+      start = widget.minMonth.month;
+    }
+    if (year == widget.maxMonth.year) {
+      end = widget.maxMonth.month;
+    }
+    return List<int>.generate(end - start + 1, (int index) => start + index);
+  }
+}
+
+class _WheelPickerColumn<T> extends StatelessWidget {
+  const _WheelPickerColumn({
+    required this.width,
+    required this.itemExtent,
+    required this.controller,
+    required this.values,
+    required this.selectedValue,
+    required this.labelBuilder,
+    required this.onSelectedItemChanged,
+  });
+
+  final double width;
+  final double itemExtent;
+  final FixedExtentScrollController controller;
+  final List<T> values;
+  final T selectedValue;
+  final String Function(T value) labelBuilder;
+  final ValueChanged<T> onSelectedItemChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: itemExtent * 5,
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Container(
+                height: itemExtent * 1.2,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[AppNeutralColors.white, Color(0x00FFFFFF)],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: Container(
+                height: itemExtent * 1.2,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[Color(0x00FFFFFF), AppNeutralColors.white],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          ListWheelScrollView.useDelegate(
+            controller: controller,
+            physics: const FixedExtentScrollPhysics(),
+            itemExtent: itemExtent,
+            perspective: 0.003,
+            diameterRatio: 4.5,
+            onSelectedItemChanged: (int index) {
+              onSelectedItemChanged(values[index]);
+            },
+            childDelegate: ListWheelChildBuilderDelegate(
+              childCount: values.length,
+              builder: (BuildContext context, int index) {
+                if (index < 0 || index >= values.length) return null;
+                final T value = values[index];
+                final bool selected = value == selectedValue;
+                return Center(
+                  child: Text(
+                    labelBuilder(value),
+                    textAlign: TextAlign.center,
+                    style: AppTypography.headingLarge.copyWith(
+                      color: selected
+                          ? AppNeutralColors.grey900
+                          : AppNeutralColors.grey200,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

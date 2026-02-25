@@ -23,9 +23,15 @@ class AppNavigationBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
 
+  static double totalHeight(BuildContext context) {
+    final double bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    return AppNavigationBarTokens.height + bottomInset;
+  }
+
   @override
   Widget build(BuildContext context) {
     final Color focusedColor = Theme.of(context).colorScheme.primary;
+    final double bottomInset = MediaQuery.viewPaddingOf(context).bottom;
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(
@@ -34,9 +40,11 @@ class AppNavigationBar extends StatelessWidget {
         ),
         child: Container(
           width: AppNavigationBarTokens.width,
-          height: AppNavigationBarTokens.height,
+          height: AppNavigationBarTokens.height + bottomInset,
           color: AppNavigationBarTokens.backgroundColor,
-          padding: AppNavigationBarTokens.padding,
+          padding: AppNavigationBarTokens.padding.add(
+            EdgeInsets.only(bottom: bottomInset),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
