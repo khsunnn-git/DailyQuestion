@@ -25,7 +25,7 @@ class AnnualRecordScreen extends StatelessWidget {
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.s20,
-                49 + AppSpacing.s20,
+                49,
                 AppSpacing.s20,
                 AppNavigationBar.totalHeight(context) + AppSpacing.s20,
               ),

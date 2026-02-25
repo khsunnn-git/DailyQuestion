@@ -264,7 +264,7 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                   child: SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(
                       AppSpacing.s20,
-                      AppSpacing.s20,
+                      49,
                       AppSpacing.s20,
                       AppNavigationBar.totalHeight(context) + AppSpacing.s20,
                     ),
@@ -519,7 +519,7 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                   right: 0,
                   bottom: 0,
                   child: AppNavigationBar(
-                    currentIndex: 0,
+                    currentIndex: 2,
                     onTap: (int index) {
                       if (index == 0) {
                         Navigator.of(

@@ -1209,17 +1209,20 @@ class _RecordHeroDecor extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 150,
+      height: 300,
       child: Align(
         alignment: Alignment.centerRight,
-        child: SizedBox(
-          width: 250,
-          height: 150,
-          child: Image.asset(
-            MyRecordsScreen._recordHeroDecoAsset,
-            width: 250,
-            height: 150,
-            fit: BoxFit.contain,
+        child: Transform.translate(
+          offset: const Offset(40, 0),
+          child: SizedBox(
+            width: 500,
+            height: 300,
+            child: Image.asset(
+              MyRecordsScreen._recordHeroDecoAsset,
+              width: 500,
+              height: 300,
+              fit: BoxFit.contain,
+            ),
           ),
         ),
       ),
@@ -2277,17 +2280,21 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
                   color: AppNeutralColors.grey900,
                 ),
               ),
-              const SizedBox(height: AppSpacing.s16),
-              Center(
-                child: SizedBox(
-                  width: 190,
-                  height: 190,
-                  child: CustomPaint(
-                    painter: _KeywordPieChartPainter(slices: slices),
+              const SizedBox(height: AppSpacing.s40),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.s40),
+                child: Center(
+                  child: SizedBox(
+                    width: 168,
+                    height: 168,
+                    child: CustomPaint(
+                      size: const Size(168, 168),
+                      painter: _KeywordPieChartPainter(slices: slices),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: AppSpacing.s16),
+              const SizedBox(height: AppSpacing.s40),
               Column(
                 children: slices
                     .map((_KeywordSlice slice) {
@@ -2366,11 +2373,37 @@ class _KeywordPieChartPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.butt;
 
+    final Offset center = Offset(size.width / 2, size.height / 2);
+    final double labelRadius = (size.width / 2);
     double startAngle = -math.pi / 2;
     for (final _KeywordSlice slice in slices) {
       final double sweep = (slice.count / total) * math.pi * 2;
       paint.color = slice.color;
       canvas.drawArc(rect, startAngle, sweep, false, paint);
+
+      final double labelAngle = startAngle + (sweep / 2);
+      final Offset labelOffset = Offset(
+        center.dx + math.cos(labelAngle) * labelRadius,
+        center.dy + math.sin(labelAngle) * labelRadius,
+      );
+      final TextPainter labelPainter = TextPainter(
+        text: TextSpan(
+          text: slice.label,
+          style: AppTypography.captionSmall.copyWith(
+            color: AppNeutralColors.grey400,
+          ),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+      )..layout();
+      labelPainter.paint(
+        canvas,
+        Offset(
+          labelOffset.dx - (labelPainter.width / 2),
+          labelOffset.dy - (labelPainter.height / 2),
+        ),
+      );
+
       startAngle += sweep;
     }
 
@@ -2381,21 +2414,6 @@ class _KeywordPieChartPainter extends CustomPainter {
       Offset(size.width / 2, size.height / 2),
       (size.width / 2) - (strokeWidth / 2),
       holePaint,
-    );
-
-    final TextPainter tp = TextPainter(
-      text: TextSpan(
-        text: "주간\n키워드",
-        style: AppTypography.bodySmallSemiBold.copyWith(
-          color: AppNeutralColors.grey700,
-        ),
-      ),
-      textAlign: TextAlign.center,
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: size.width);
-    tp.paint(
-      canvas,
-      Offset((size.width - tp.width) / 2, (size.height - tp.height) / 2),
     );
   }
 
