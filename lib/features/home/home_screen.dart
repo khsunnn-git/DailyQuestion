@@ -4,6 +4,7 @@ import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
+import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
 import "my_records_screen.dart";
 import "../question/today_question_answer_screen.dart";
@@ -22,6 +23,8 @@ class HomeScreen extends StatelessWidget {
       "assets/images/home/home_deco_seaweed_blue.png";
   static const String _decoCrabAsset =
       "assets/images/home/home_deco_crab_blue.png";
+  static const String _decoBubbleAsset =
+      "assets/images/home/home_deco_bubble_blue.png";
 
   static void openTodayQuestionAnswer(BuildContext context) {
     Navigator.of(context).push(
@@ -200,17 +203,31 @@ class _QuestionBeforeRecordCard extends StatefulWidget {
       _QuestionBeforeRecordCardState();
 }
 
-class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard> {
+class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
+    with SingleTickerProviderStateMixin {
   static const List<String> _messages = <String>[
     "오늘은 아직 답변하지 않았어요",
     "무엇이든 가볍게 적어보세요",
   ];
   int _messageIndex = 0;
   Timer? _messageTimer;
+  late final AnimationController _floatController;
+  late final Animation<double> _fishDy;
+  late final Animation<double> _bubbleDy;
 
   @override
   void initState() {
     super.initState();
+    _floatController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _fishDy = Tween<double>(begin: 2, end: -6).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
+    );
+    _bubbleDy = Tween<double>(begin: 0, end: -8).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
+    );
     _messageTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
       setState(() {
@@ -222,6 +239,7 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard> {
   @override
   void dispose() {
     _messageTimer?.cancel();
+    _floatController.dispose();
     super.dispose();
   }
 
@@ -249,14 +267,71 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard> {
           tailDirection: _SpeechTailDirection.down,
         ),
         const SizedBox(height: AppSpacing.s24),
-        Image.asset(
-          HomeScreen._heroFishAsset,
+        SizedBox(
           width: 150,
           height: 150,
-          fit: BoxFit.contain,
-          errorBuilder: (_, error, stackTrace) {
-            return const Text("🐟", style: TextStyle(fontSize: 64));
-          },
+          child: AnimatedBuilder(
+            animation: _floatController,
+            builder: (BuildContext context, Widget? child) {
+              return Stack(
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  Positioned(
+                    left: -2,
+                    top: -4,
+                    child: Transform.translate(
+                      offset: Offset(0, _bubbleDy.value),
+                      child: Opacity(
+                        opacity: 0.92,
+                        child: Image.asset(
+                          HomeScreen._decoBubbleAsset,
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.contain,
+                          errorBuilder: (
+                            BuildContext context,
+                            Object error,
+                            StackTrace? stackTrace,
+                          ) =>
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: const Color(0x9937B8FF),
+                                  shape: BoxShape.circle,
+                                  boxShadow: const <BoxShadow>[
+                                    BoxShadow(
+                                      color: Color(0x33017AF7),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Transform.translate(
+                      offset: Offset(0, _fishDy.value),
+                      child: Image.asset(
+                        HomeScreen._heroFishAsset,
+                        width: 150,
+                        height: 150,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, error, stackTrace) {
+                          return const Center(
+                            child: Text("🐟", style: TextStyle(fontSize: 64)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
         const SizedBox(height: AppSpacing.s24),
         TextButton(
@@ -427,6 +502,89 @@ class _QuestionWrittenPreviewCardState
     TodayQuestionStore.instance.deleteRecord(createdAt: latest.createdAt);
   }
 
+  void _showHistoryDisabledToast() {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Center(child: AppToastMessage(text: "😳이 질문은 아직 쌓이지 않았어요")),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          margin: EdgeInsets.fromLTRB(50, 0, 50, 98),
+        ),
+      );
+  }
+
+  List<AnnualRecordEntry> _buildAnnualEntries({
+    required DateTime baseDate,
+    required TodayQuestionRecord? latest,
+  }) {
+    final Map<int, AnnualRecordEntry> byYear = <int, AnnualRecordEntry>{};
+
+    if (latest != null) {
+      final String currentDateLabel =
+          "${baseDate.year.toString().padLeft(4, "0")}."
+          "${baseDate.month.toString().padLeft(2, "0")}."
+          "${baseDate.day.toString().padLeft(2, "0")} 기록";
+      byYear[baseDate.year] = AnnualRecordEntry(
+        year: baseDate.year,
+        answer: latest.answer,
+        dateLabel: currentDateLabel,
+      );
+    }
+
+    final List<TodayQuestionRecord> sameDay = TodayQuestionStore.instance.value
+        .where(
+          (TodayQuestionRecord record) =>
+              record.createdAt.month == baseDate.month &&
+              record.createdAt.day == baseDate.day &&
+              record.createdAt.year <= baseDate.year,
+        )
+        .toList(growable: false);
+    final List<TodayQuestionRecord> mergedSameDay = <TodayQuestionRecord>[
+      ...sameDay,
+      ...MyRecordsScreen.debugAnnualMockRecords(baseDate: baseDate),
+    ];
+    for (final TodayQuestionRecord record in mergedSameDay) {
+      byYear.putIfAbsent(record.createdAt.year, () {
+        final String dateLabel =
+            "${record.createdAt.year.toString().padLeft(4, "0")}."
+            "${record.createdAt.month.toString().padLeft(2, "0")}."
+            "${record.createdAt.day.toString().padLeft(2, "0")} 기록";
+        return AnnualRecordEntry(
+          year: record.createdAt.year,
+          answer: record.answer,
+          dateLabel: dateLabel,
+        );
+      });
+    }
+
+    final List<int> years = byYear.keys.toList()
+      ..sort((int a, int b) => b.compareTo(a));
+    return years.map((int year) => byYear[year]!).toList(growable: false);
+  }
+
+  Future<void> _openQuestionHistory(List<AnnualRecordEntry> entries) async {
+    if (!mounted || entries.isEmpty) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AnnualRecordScreen(
+          question: "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+          entries: entries,
+          continuousYears: entries.length,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
@@ -443,6 +601,15 @@ class _QuestionWrittenPreviewCardState
       "일요일",
     ];
     final String currentDate = "${now.day}일 ${weekdays[now.weekday - 1]}";
+    final DateTime baseDate =
+        latest?.createdAt ?? DateTime(now.year, now.month, now.day, 12);
+    final List<AnnualRecordEntry> annualEntries = _buildAnnualEntries(
+      baseDate: baseDate,
+      latest: latest,
+    );
+    final bool hasPastYearRecord = annualEntries.any(
+      (AnnualRecordEntry entry) => entry.year < baseDate.year,
+    );
     final String answerText =
         latest?.answer ??
         "올해는 꼭 제주도 한라산에 올라가 백록담을 직접 보고 싶어. "
@@ -490,10 +657,27 @@ class _QuestionWrittenPreviewCardState
                       ),
                       child: Row(
                         children: <Widget>[
-                          Icon(
-                            Icons.history,
-                            size: AppSpacing.s24,
-                            color: AppNeutralColors.grey300,
+                          IconButton(
+                            onPressed: () {
+                              if (!hasPastYearRecord) {
+                                _showHistoryDisabledToast();
+                                return;
+                              }
+                              _openQuestionHistory(annualEntries);
+                            },
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 24,
+                              height: 24,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              Icons.history,
+                              size: AppSpacing.s24,
+                              color: hasPastYearRecord
+                                  ? brand.c500
+                                  : AppNeutralColors.grey300,
+                            ),
                           ),
                           Expanded(
                             child: Text(
@@ -742,10 +926,42 @@ class _SpeechDownTailPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _TopCharacterDecorations extends StatelessWidget {
+class _TopCharacterDecorations extends StatefulWidget {
   const _TopCharacterDecorations({required this.bubbleColor});
 
   final Color bubbleColor;
+
+  @override
+  State<_TopCharacterDecorations> createState() =>
+      _TopCharacterDecorationsState();
+}
+
+class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _fishDy;
+  late final Animation<double> _bubbleDy;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _fishDy = Tween<double>(begin: 2, end: -6).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    _bubbleDy = Tween<double>(begin: 0, end: -8).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -753,6 +969,7 @@ class _TopCharacterDecorations extends StatelessWidget {
       width: 350,
       height: 132,
       child: Stack(
+        clipBehavior: Clip.none,
         children: <Widget>[
           Positioned(
             left: 4,
@@ -784,25 +1001,86 @@ class _TopCharacterDecorations extends StatelessWidget {
               children: <Widget>[
                 _QuestionWrittenSpeechBubble(
                   text: "오늘의 질문을 적었어요!",
-                  color: bubbleColor,
+                  color: widget.bubbleColor,
                 ),
                 const SizedBox(width: AppSpacing.s8),
-                Image.asset(
-                  HomeScreen._heroFishAsset,
-                  width: 108.4,
-                  height: 108.4,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, error, stackTrace) {
-                    return const SizedBox(
-                      width: 108.4,
-                      height: 108.4,
-                      child: Center(
-                        child: Text("🐟", style: TextStyle(fontSize: 48)),
-                      ),
-                    );
-                  },
+                SizedBox(
+                  width: 150,
+                  height: 124,
+                  child: AnimatedBuilder(
+                    animation: _controller,
+                    builder: (BuildContext context, Widget? child) {
+                      return Align(
+                        alignment: Alignment.bottomRight,
+                        child: Transform.translate(
+                          offset: Offset(0, _fishDy.value),
+                          child: Image.asset(
+                            HomeScreen._heroFishAsset,
+                            width: 108.4,
+                            height: 108.4,
+                            fit: BoxFit.contain,
+                            errorBuilder: (_, error, stackTrace) {
+                              return const SizedBox(
+                                width: 108.4,
+                                height: 108.4,
+                                child: Center(
+                                  child: Text(
+                                    "🐟",
+                                    style: TextStyle(fontSize: 48),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
+            ),
+          ),
+          Positioned(
+            right: 66,
+            top: -14,
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (BuildContext context, Widget? child) {
+                return Transform.translate(
+                  offset: Offset(0, _bubbleDy.value),
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: 0.92,
+                      child: Image.asset(
+                        HomeScreen._decoBubbleAsset,
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.contain,
+                        errorBuilder: (
+                          BuildContext context,
+                          Object error,
+                          StackTrace? stackTrace,
+                        ) =>
+                            Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: const Color(0x9937B8FF),
+                                shape: BoxShape.circle,
+                                boxShadow: const <BoxShadow>[
+                                  BoxShadow(
+                                    color: Color(0x33017AF7),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
