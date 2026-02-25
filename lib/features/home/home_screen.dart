@@ -58,7 +58,7 @@ class HomeScreen extends StatelessWidget {
                 child: Column(
                   children: <Widget>[
                     const _TopQuestionPanel(),
-                    const SizedBox(height: AppSpacing.s24),
+                    const SizedBox(height: AppSpacing.s40),
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.s20,
@@ -971,7 +971,8 @@ class _TodayRecordSection extends StatelessWidget {
             if (hasRecords)
               LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints constraints) {
-                  final double listWidth = constraints.maxWidth + AppSpacing.s20;
+                  final double listWidth =
+                      constraints.maxWidth + AppSpacing.s20;
                   return SizedBox(
                     height: 168,
                     child: OverflowBox(

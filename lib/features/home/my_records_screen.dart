@@ -1,17 +1,18 @@
+import "dart:math" as math;
+
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "../../design_system/design_system.dart";
+import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
 
 class MyRecordsScreen extends StatefulWidget {
   const MyRecordsScreen({super.key});
 
-  static const String _recordStarAsset =
-      "assets/images/record/record_star_img.png";
-  static const String _recordReportAsset =
-      "assets/images/record/record_report_img.png";
+  static const String _recordHeroDecoAsset =
+      "assets/images/record/my_record_hero_deco.png";
   static const String _profileInsightAsset =
       "assets/images/record/profile_insight.png";
   static const String _profileInterestAsset =
@@ -22,8 +23,6 @@ class MyRecordsScreen extends StatefulWidget {
       "assets/images/record/profile_record_pattern.png";
   static const String _profileChangesAsset =
       "assets/images/record/profile_changes.png";
-  static const String _characterAsset =
-      "assets/images/home/home_character_fish_blue.png";
 
   static const int _temporaryLastDay = 24;
   static const String _defaultQuestion = "오늘 가장 기억에 남는 순간은 무엇인가요?";
@@ -56,11 +55,66 @@ class MyRecordsScreen extends StatefulWidget {
   ];
 
   static const List<_RecordListItem> _recordItems = <_RecordListItem>[
-    _RecordListItem(day: "15", text: "올해 꼭 해 보고 싶은 일 하나는 무엇인가요?"),
-    _RecordListItem(day: "24", text: "요즘 무척 휴식을 원하나요?"),
-    _RecordListItem(day: "23", text: "다른 사람에게 나를 어떻게 기억해줬으면 하나요?"),
-    _RecordListItem(day: "22", text: "3년 뒤의 나, 스스로에게 어떤 말을 해주고 싶나요?"),
-    _RecordListItem(day: "21", text: "최근에 누군가에게 고마웠던 순간을 떠올려 보세요."),
+    _RecordListItem(
+      day: "25",
+      weekday: "화",
+      text: "올해 꼭 해 보고 싶은 일 하나는 무엇인가요?",
+      isCompleted: true,
+    ),
+    _RecordListItem(
+      day: "24",
+      weekday: "월",
+      text: "요즘 무척 휴식을 원하나요?",
+      isCompleted: true,
+    ),
+    _RecordListItem(
+      day: "23",
+      weekday: "일",
+      text: "다른 사람에게 나를 어떻게 기억해줬으면 하나요?",
+      isCompleted: true,
+    ),
+    _RecordListItem(
+      day: "22",
+      weekday: "토",
+      text: "3년 뒤의 나, 스스로에게 어떤 말을 해주고 싶나요?",
+      isCompleted: false,
+    ),
+    _RecordListItem(
+      day: "21",
+      weekday: "금",
+      text: "최근에 누군가에게 고마웠던 순간을 떠올려 보세요.",
+      isCompleted: false,
+    ),
+    _RecordListItem(
+      day: "20",
+      weekday: "목",
+      text: "최근에 나를 가장 웃게 만든 일은 무엇인가요?",
+      isCompleted: false,
+    ),
+    _RecordListItem(
+      day: "19",
+      weekday: "수",
+      text: "지금 가장 바꾸고 싶은 습관은 무엇인가요?",
+      isCompleted: false,
+    ),
+    _RecordListItem(
+      day: "18",
+      weekday: "화",
+      text: "오늘 나에게 고맙다고 말해주고 싶은 점은?",
+      isCompleted: false,
+    ),
+    _RecordListItem(
+      day: "17",
+      weekday: "월",
+      text: "요즘 스스로를 가장 잘 돌본 순간은 언제인가요?",
+      isCompleted: false,
+    ),
+    _RecordListItem(
+      day: "16",
+      weekday: "일",
+      text: "이번 주에 꼭 해내고 싶은 작은 목표는?",
+      isCompleted: false,
+    ),
   ];
 
   static const List<_ProfileCardItem> _profileItems = <_ProfileCardItem>[
@@ -139,19 +193,22 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                       onTapYearMonth: _handleTapYearMonth,
                     ),
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const <Widget>[
-                          _RecordReportHeader(),
-                          SizedBox(height: AppSpacing.s8),
-                          _RecordHeroDecor(),
-                          SizedBox(height: AppSpacing.s8),
-                          _StreakCard(),
-                          SizedBox(height: AppSpacing.s8),
-                          _PastRecordsCard(),
-                          SizedBox(height: AppSpacing.s48),
-                          _MonthReportSection(),
+                        children: <Widget>[
+                          const _RecordReportHeader(),
+                          const SizedBox(height: AppSpacing.s32),
+                          const _RecordHeroDecor(),
+                          const SizedBox(height: AppSpacing.s32),
+                          const _StreakCard(),
+                          const SizedBox(height: AppSpacing.s32),
+                          const _PastRecordsSection(),
+                          const SizedBox(height: AppSpacing.s32),
+                          _MonthReportSection(
+                            selectedYear: _selectedYear,
+                            selectedMonth: _selectedMonth,
+                          ),
                         ],
                       ),
                     ),
@@ -476,6 +533,7 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                           seed?.question ?? MyRecordsScreen._defaultQuestion,
                       body: record.answer,
                       tags: tags,
+                      record: record,
                     );
                   }
                   if (seed != null) {
@@ -579,126 +637,327 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
   }
 }
 
-class _MonthlyPreviewCard extends StatelessWidget {
+class _MonthlyPreviewCard extends StatefulWidget {
   const _MonthlyPreviewCard({required this.item});
 
   final _MonthlyRecordPreview item;
 
   @override
+  State<_MonthlyPreviewCard> createState() => _MonthlyPreviewCardState();
+}
+
+class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
+  bool _showMoreMenu = false;
+  int? _selectedMoreMenuIndex;
+
+  void _dismissMoreMenu() {
+    if (!_showMoreMenu) {
+      return;
+    }
+    setState(() {
+      _showMoreMenu = false;
+      _selectedMoreMenuIndex = null;
+    });
+  }
+
+  void _toggleMoreMenu() {
+    setState(() {
+      _showMoreMenu = !_showMoreMenu;
+      if (_showMoreMenu) {
+        _selectedMoreMenuIndex = null;
+      }
+    });
+  }
+
+  Future<void> _handleMoreMenuTap({
+    required int index,
+    required Future<void> Function() action,
+  }) async {
+    setState(() {
+      _selectedMoreMenuIndex = index;
+    });
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (!mounted) {
+      return;
+    }
+    await action();
+  }
+
+  Future<void> _openEditScreen() async {
+    final TodayQuestionRecord? record = widget.item.record;
+    _dismissMoreMenu();
+    if (record == null || !mounted) {
+      return;
+    }
+    await Navigator.of(context).push<TodayQuestionRecord>(
+      MaterialPageRoute<TodayQuestionRecord>(
+        builder: (_) => TodayQuestionAnswerScreen(editingRecord: record),
+      ),
+    );
+  }
+
+  Future<void> _deleteRecordWithPopup() async {
+    final TodayQuestionRecord? record = widget.item.record;
+    _dismissMoreMenu();
+    if (record == null || !mounted) {
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: AppPopupTokens.dimmed,
+      builder: (BuildContext dialogContext) {
+        return Center(
+          child: AppPopup(
+            width: AppPopupTokens.maxWidth,
+            title: "질문과 내용 모두\n삭제하시겠습니까?",
+            body: "삭제해도 질문에 대한 답변은\n언제든 다시 작성 할 수 있어요",
+            actions: <Widget>[
+              SizedBox(
+                width: 100,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppNeutralColors.grey100,
+                    foregroundColor: AppNeutralColors.grey600,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "취소",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.grey600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 170,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: context.appBrandScale.c500,
+                    foregroundColor: AppNeutralColors.white,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "삭제하기",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.white,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (!mounted || confirmed != true) {
+      return;
+    }
+    TodayQuestionStore.instance.deleteRecord(createdAt: record.createdAt);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final _MonthlyRecordPreview item = widget.item;
     final BrandScale brand = context.appBrandScale;
-    return Container(
+    return SizedBox(
       width: _MonthlyPreviewStripState._cardWidth,
       height: 458,
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
-      decoration: BoxDecoration(
-        color: AppNeutralColors.white,
-        borderRadius: AppRadius.br24,
-        boxShadow: AppElevation.level1,
-      ),
-      child: Column(
+      child: Stack(
         children: <Widget>[
-          SizedBox(
-            width: 286,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.s4),
-              child: Row(
-                children: <Widget>[
-                  const Icon(
-                    Icons.history,
-                    size: 24,
-                    color: AppNeutralColors.grey300,
+          Container(
+            width: _MonthlyPreviewStripState._cardWidth,
+            height: 458,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+            decoration: BoxDecoration(
+              color: AppNeutralColors.white,
+              borderRadius: AppRadius.br24,
+              boxShadow: AppElevation.level1,
+            ),
+            child: Column(
+              children: <Widget>[
+                SizedBox(
+                  width: 286,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.s4,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        const Icon(
+                          Icons.history,
+                          size: 24,
+                          color: AppNeutralColors.grey300,
+                        ),
+                        Expanded(
+                          child: Text(
+                            item.date,
+                            textAlign: TextAlign.center,
+                            style: AppTypography.bodyMediumSemiBold.copyWith(
+                              color: brand.c500,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: IconButton(
+                            onPressed: _toggleMoreMenu,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 24,
+                              height: 24,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.more_horiz,
+                              size: 24,
+                              color: AppNeutralColors.grey300,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  Expanded(
+                ),
+                const SizedBox(height: AppSpacing.s16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: AppNeutralColors.grey50),
+                    ),
+                  ),
+                  child: Text(
+                    item.question,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.headingMediumExtraBold.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s16),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.topLeft,
                     child: Text(
-                      item.date,
-                      textAlign: TextAlign.center,
-                      style: AppTypography.bodyMediumSemiBold.copyWith(
-                        color: brand.c500,
+                      item.body,
+                      textAlign: TextAlign.left,
+                      style: AppTypography.bodyLargeRegular.copyWith(
+                        color: AppNeutralColors.grey800,
+                      ),
+                      maxLines: 6,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                if (item.tags.isNotEmpty)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 38,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: item.tags
+                            .map(
+                              (String tag) => Padding(
+                                padding: const EdgeInsets.only(
+                                  right: AppSpacing.s6,
+                                ),
+                                child: Container(
+                                  height: 38,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.s16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: brand.c100,
+                                    borderRadius: AppRadius.pill,
+                                    border: Border.all(color: brand.c200),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    "#$tag",
+                                    style: AppTypography.buttonSmall.copyWith(
+                                      color: brand.c500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
                       ),
                     ),
                   ),
-                  const Icon(
-                    Icons.more_horiz,
-                    size: 24,
-                    color: AppNeutralColors.grey300,
+                if (item.tags.isNotEmpty)
+                  const SizedBox(height: AppSpacing.s16),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
+          if (_showMoreMenu)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _dismissMoreMenu,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          if (_showMoreMenu)
+            Positioned(
+              top: 80,
+              right: 0,
+              child: AppDropdownMenu(
+                size: AppDropdownMenuSize.lg,
+                items: <AppDropdownItem>[
+                  AppDropdownItem(
+                    label: "수정",
+                    state: _selectedMoreMenuIndex == 0
+                        ? AppDropdownItemState.selected
+                        : AppDropdownItemState.defaultState,
+                    onTap: () =>
+                        _handleMoreMenuTap(index: 0, action: _openEditScreen),
+                  ),
+                  AppDropdownItem(
+                    label: "삭제",
+                    state: _selectedMoreMenuIndex == 1
+                        ? AppDropdownItemState.selected
+                        : AppDropdownItemState.defaultState,
+                    onTap: () => _handleMoreMenuTap(
+                      index: 1,
+                      action: _deleteRecordWithPopup,
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.s16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppNeutralColors.grey50),
-              ),
-            ),
-            child: Text(
-              item.question,
-              textAlign: TextAlign.center,
-              style: AppTypography.headingMediumExtraBold.copyWith(
-                color: AppNeutralColors.grey900,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s16),
-          Expanded(
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: Text(
-                item.body,
-                textAlign: TextAlign.left,
-                style: AppTypography.bodyLargeRegular.copyWith(
-                  color: AppNeutralColors.grey800,
-                ),
-                maxLines: 6,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-          if (item.tags.isNotEmpty)
-            SizedBox(
-              width: double.infinity,
-              height: 38,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: item.tags
-                      .map(
-                        (String tag) => Padding(
-                          padding: const EdgeInsets.only(right: AppSpacing.s6),
-                          child: Container(
-                            height: 38,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.s16,
-                            ),
-                            decoration: BoxDecoration(
-                              color: brand.c100,
-                              borderRadius: AppRadius.pill,
-                              border: Border.all(color: brand.c200),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              "#$tag",
-                              style: AppTypography.buttonSmall.copyWith(
-                                color: brand.c500,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
-                ),
-              ),
-            ),
-          if (item.tags.isNotEmpty) const SizedBox(height: AppSpacing.s16),
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: SizedBox.shrink(),
-          ),
         ],
       ),
     );
@@ -708,24 +967,27 @@ class _MonthlyPreviewCard extends StatelessWidget {
 class _RecordReportHeader extends StatelessWidget {
   const _RecordReportHeader();
 
+  static const String _nickname = "꼬물꼬물물고기뽀글이";
+
+  String _limitedNickname() {
+    if (_nickname.length <= 10) {
+      return _nickname;
+    }
+    return _nickname.substring(0, 10);
+  }
+
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
+    final String nickname = _limitedNickname();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(
           children: <Widget>[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(
-                color: brand.c100,
-                borderRadius: AppRadius.pill,
-              ),
-              child: Text(
-                "꼬물꼬물물고기뽀글이",
-                style: AppTypography.headingLarge.copyWith(color: brand.c500),
-              ),
+            Text(
+              nickname,
+              style: AppTypography.headingLarge.copyWith(color: brand.c500),
             ),
             Text(
               "님의",
@@ -762,59 +1024,18 @@ class _RecordHeroDecor extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: 150,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: <Widget>[
-          Positioned(
-            left: 0,
-            top: 0,
-            child: Image.asset(
-              MyRecordsScreen._recordStarAsset,
-              width: 70,
-              height: 70,
-            ),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: SizedBox(
+          width: 250,
+          height: 150,
+          child: Image.asset(
+            MyRecordsScreen._recordHeroDecoAsset,
+            width: 250,
+            height: 150,
+            fit: BoxFit.contain,
           ),
-          Positioned(
-            left: 6,
-            top: 93,
-            child: Image.asset(
-              MyRecordsScreen._recordReportAsset,
-              width: 94,
-              height: 113,
-              fit: BoxFit.cover,
-            ),
-          ),
-          Positioned(
-            left: 66,
-            top: 19,
-            child: SizedBox(
-              width: 150,
-              height: 150,
-              child: Stack(
-                children: <Widget>[
-                  Positioned(
-                    left: 34,
-                    bottom: 14,
-                    child: Container(
-                      width: 82,
-                      height: 13,
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: Image.asset(
-                      MyRecordsScreen._characterAsset,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -823,20 +1044,77 @@ class _RecordHeroDecor extends StatelessWidget {
 class _StreakCard extends StatelessWidget {
   const _StreakCard();
 
+  DateTime _dateOnly(DateTime dateTime) {
+    return DateTime(dateTime.year, dateTime.month, dateTime.day);
+  }
+
+  _StreakCardCopy _resolveCopy({
+    required int missingDays,
+    required int streak,
+    required bool hasRecords,
+  }) {
+    if (!hasRecords) {
+      return const _StreakCardCopy(
+        title: "설레이는 첫 날!❤️\n함께 기록해볼까요?",
+        body: "오늘부터 쌓아가는 하루의 하나 질문으로\n스스로에 대해 알아가봐요!",
+      );
+    }
+    if (missingDays <= 0) {
+      return _StreakCardCopy(
+        title: "연속 $streak일째\n기록을 완료했어요!🔥",
+        body: "어제의 질문도 작성하면 연속 기록을\n이어갈 수 있어요!",
+      );
+    }
+    if (missingDays == 1) {
+      return const _StreakCardCopy(
+        title: "앗,😮\n어제 질문이 비어 있어요!",
+        body: "어제의 질문도 작성하면 연속 기록을\n이어갈 수 있어요!",
+      );
+    }
+    if (missingDays >= 7) {
+      return const _StreakCardCopy(
+        title: "오늘부터\n새롭게 시작해볼까요?",
+        body: "연속 7일 이상 쉬면 연속 기록이 초기화돼요!\n나의 지난 기록에서 질문들을 작성해보세요!",
+      );
+    }
+    if (missingDays >= 5) {
+      return const _StreakCardCopy(
+        title: "기다렸어요!\n오늘 하루 더 함께 알아가요!",
+        body: "연속 7일 이상 쉬면 연속 기록이 초기화돼요!\n나의 지난 기록에서 질문들을 작성해보세요!",
+      );
+    }
+    return _StreakCardCopy(
+      title: "최근 $missingDays일 동안\n기록이 없어요!",
+      body: "나의 지난 기록에서 그동안 놓친 질문들을 작성하고\n연속 출석을 완료하세요!",
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<List<TodayQuestionRecord>>(
       valueListenable: TodayQuestionStore.instance,
       builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
         final int streak = TodayQuestionStore.instance.consecutiveRecordDays;
+        final DateTime now = _dateOnly(DateTime.now());
         final DateTime? latestDate = records.isEmpty
             ? null
-            : records.first.createdAt;
+            : _dateOnly(records.first.createdAt);
+        final int missingDays = latestDate == null
+            ? 0
+            : now.difference(latestDate).inDays;
+        final _StreakCardCopy copy = _resolveCopy(
+          missingDays: missingDays,
+          streak: streak,
+          hasRecords: records.isNotEmpty,
+        );
         final List<bool> weeklyDone = TodayQuestionStore.instance
             .weeklyCompletion(referenceDate: latestDate);
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 40,
+          ),
           decoration: BoxDecoration(
             color: AppNeutralColors.white,
             borderRadius: AppRadius.br16,
@@ -846,14 +1124,14 @@ class _StreakCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                "연속 $streak일째\n기록을 완료했어요!🔥",
+                copy.title,
                 style: AppTypography.headingLarge.copyWith(
                   color: AppNeutralColors.grey900,
                 ),
               ),
               const SizedBox(height: AppSpacing.s4),
               Text(
-                "어제의 질문도 작성하면 연속 기록을\n이어갈 수 있어요!",
+                copy.body,
                 style: AppTypography.bodySmallRegular.copyWith(
                   color: AppNeutralColors.grey600,
                 ),
@@ -877,6 +1155,13 @@ class _StreakCard extends StatelessWidget {
       },
     );
   }
+}
+
+class _StreakCardCopy {
+  const _StreakCardCopy({required this.title, required this.body});
+
+  final String title;
+  final String body;
 }
 
 class _StreakDay extends StatelessWidget {
@@ -910,7 +1195,7 @@ class _StreakDay extends StatelessWidget {
                 : null,
           ),
           child: done
-              ? const Icon(Icons.star, size: 20, color: Color(0xFFFFB200))
+              ? const Icon(Icons.star, size: 20, color: AppNeutralColors.white)
               : null,
         ),
       ],
@@ -918,58 +1203,104 @@ class _StreakDay extends StatelessWidget {
   }
 }
 
-class _PastRecordsCard extends StatelessWidget {
-  const _PastRecordsCard();
+class _PastRecordsSection extends StatefulWidget {
+  const _PastRecordsSection();
+
+  @override
+  State<_PastRecordsSection> createState() => _PastRecordsSectionState();
+}
+
+class _PastRecordsSectionState extends State<_PastRecordsSection> {
+  static const int _pageSize = 5;
+  int _visibleCount = _pageSize;
+
+  void _showMore() {
+    final int total = MyRecordsScreen._recordItems.length;
+    final int next = _visibleCount + _pageSize;
+    setState(() {
+      _visibleCount = next > total ? total : next;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppNeutralColors.white,
-        borderRadius: AppRadius.br16,
-        boxShadow: AppElevation.level1,
-      ),
-      child: Column(
-        children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
+    final int total = MyRecordsScreen._recordItems.length;
+    final int visibleCount = _visibleCount > total ? total : _visibleCount;
+    final bool hasMore = visibleCount < total;
+    final AppButtonMetrics smallButtonMetrics = AppButtonTokens.metrics(
+      AppButtonSize.small,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Text(
+              "나의 지난 기록",
+              style: AppTypography.headingSmall.copyWith(
+                color: AppNeutralColors.grey900,
+              ),
+            ),
+            const Spacer(),
+            const Icon(
+              Icons.chevron_right,
+              size: 24,
+              color: AppNeutralColors.grey900,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.s24),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppNeutralColors.white,
+            borderRadius: AppRadius.br16,
+            boxShadow: AppElevation.level1,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.s8,
+              vertical: AppSpacing.s16,
+            ),
+            child: Column(
               children: <Widget>[
-                Text(
-                  "나의 지난 기록",
-                  style: AppTypography.bodyMediumSemiBold.copyWith(
-                    color: AppNeutralColors.grey900,
+                for (int i = 0; i < visibleCount; i++)
+                  _PastRecordRow(
+                    item: MyRecordsScreen._recordItems[i],
+                    isLast: i == visibleCount - 1,
                   ),
-                ),
-                const Spacer(),
-                const Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: AppNeutralColors.grey900,
-                ),
               ],
             ),
           ),
-          for (int i = 0; i < MyRecordsScreen._recordItems.length; i++)
-            _PastRecordRow(
-              item: MyRecordsScreen._recordItems[i],
-              isLast: i == MyRecordsScreen._recordItems.length - 1,
-            ),
-          Padding(
-            padding: const EdgeInsets.only(
-              top: AppSpacing.s8,
-              bottom: AppSpacing.s12,
-            ),
-            child: Text(
-              "더보기  ˅",
-              style: AppTypography.captionSmall.copyWith(
-                color: AppNeutralColors.grey600,
+        ),
+        if (hasMore) ...<Widget>[
+          const SizedBox(height: AppSpacing.s8),
+          Align(
+            alignment: Alignment.center,
+            child: TextButton(
+              onPressed: _showMore,
+              style: TextButton.styleFrom(
+                minimumSize: Size(0, smallButtonMetrics.height),
+                padding: EdgeInsets.symmetric(
+                  horizontal: smallButtonMetrics.horizontalPadding,
+                ),
+                foregroundColor: AppNeutralColors.grey600,
+                textStyle: smallButtonMetrics.textStyle,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Text("더보기"),
+                  SizedBox(width: AppSpacing.s4),
+                  Icon(Icons.keyboard_arrow_down, size: 16),
+                ],
               ),
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -982,32 +1313,47 @@ class _PastRecordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color contentColor = item.isCompleted
+        ? AppNeutralColors.grey900
+        : AppNeutralColors.grey400;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.all(AppSpacing.s16),
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : const Border(bottom: BorderSide(color: AppNeutralColors.grey50)),
+            : const Border(
+                bottom: BorderSide(color: AppNeutralColors.grey200, width: 0.4),
+              ),
       ),
       child: Row(
         children: <Widget>[
           SizedBox(
-            width: 24,
-            child: Text(
-              item.day,
-              style: AppTypography.captionSmall.copyWith(
-                color: AppNeutralColors.grey600,
-              ),
+            width: 23,
+            child: Column(
+              children: <Widget>[
+                Text(
+                  item.day,
+                  style: AppTypography.heading2XSmall.copyWith(
+                    color: contentColor,
+                  ),
+                ),
+                Text(
+                  item.weekday,
+                  style: AppTypography.captionSmall.copyWith(
+                    color: contentColor,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: AppSpacing.s8),
+          const SizedBox(width: AppSpacing.s20),
           Expanded(
             child: Text(
               item.text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AppTypography.bodySmallRegular.copyWith(
-                color: AppNeutralColors.grey900,
+              style: AppTypography.bodyMediumMedium.copyWith(
+                color: contentColor,
               ),
             ),
           ),
@@ -1018,7 +1364,13 @@ class _PastRecordRow extends StatelessWidget {
 }
 
 class _MonthReportSection extends StatelessWidget {
-  const _MonthReportSection();
+  const _MonthReportSection({
+    required this.selectedYear,
+    required this.selectedMonth,
+  });
+
+  final int selectedYear;
+  final int selectedMonth;
 
   @override
   Widget build(BuildContext context) {
@@ -1026,14 +1378,18 @@ class _MonthReportSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text(
-          "8월 리포트",
-          style: AppTypography.heading2XSmall.copyWith(
+          "$selectedMonth월 리포트",
+          style: AppTypography.headingSmall.copyWith(
             color: AppNeutralColors.grey900,
           ),
         ),
-        const SizedBox(height: AppSpacing.s12),
-        const _KeywordBubbleCard(),
-        const SizedBox(height: AppSpacing.s12),
+        const SizedBox(height: AppSpacing.s24),
+        _WeeklyKeywordPieCard(
+          selectedYear: selectedYear,
+          selectedMonth: selectedMonth,
+          title: "최근 7일 키워드",
+        ),
+        const SizedBox(height: AppSpacing.s32),
         ...MyRecordsScreen._profileItems.map(
           (item) => _ProfileCard(item: item),
         ),
@@ -1042,135 +1398,300 @@ class _MonthReportSection extends StatelessWidget {
   }
 }
 
-class _KeywordBubbleCard extends StatelessWidget {
-  const _KeywordBubbleCard();
+class _WeeklyKeywordPieCard extends StatelessWidget {
+  const _WeeklyKeywordPieCard({
+    required this.selectedYear,
+    required this.selectedMonth,
+    required this.title,
+  });
+
+  final int selectedYear;
+  final int selectedMonth;
+  final String title;
+
+  static const List<Color> _sliceColors = <Color>[
+    Color(0xFFB6E2FF),
+    Color(0xFFD4EEFF),
+    Color(0xFFD6E7F3),
+    Color(0xFFE8EEF4),
+  ];
+
+  static const Set<String> _stopWords = <String>{
+    "오늘",
+    "이번",
+    "그리고",
+    "그냥",
+    "정말",
+    "너무",
+    "같은",
+    "대한",
+    "에서",
+    "으로",
+    "하다",
+    "했다",
+    "하고",
+    "있다",
+    "없다",
+    "나는",
+    "내가",
+    "우리",
+  };
+
+  static const List<_KeywordSlice> _sampleSlices = <_KeywordSlice>[
+    _KeywordSlice(label: "여행", count: 5, color: Color(0xFFB6E2FF)),
+    _KeywordSlice(label: "가족", count: 4, color: Color(0xFFD4EEFF)),
+    _KeywordSlice(label: "건강", count: 3, color: Color(0xFFD6E7F3)),
+    _KeywordSlice(label: "성장", count: 2, color: Color(0xFFE8EEF4)),
+  ];
+
+  List<_KeywordSlice> _buildKeywordSlices(List<TodayQuestionRecord> records) {
+    final DateTime monthEnd = DateTime(selectedYear, selectedMonth + 1, 0);
+    final DateTime start = monthEnd.subtract(const Duration(days: 6));
+    final DateTime end = DateTime(
+      monthEnd.year,
+      monthEnd.month,
+      monthEnd.day,
+      23,
+      59,
+      59,
+    );
+
+    final Iterable<TodayQuestionRecord> weeklyRecords = records.where(
+      (TodayQuestionRecord item) =>
+          !item.createdAt.isBefore(start) && !item.createdAt.isAfter(end),
+    );
+
+    final Map<String, int> counter = <String, int>{};
+    for (final TodayQuestionRecord record in weeklyRecords) {
+      final List<String> bucketKeywords = record.bucketTags.isNotEmpty
+          ? record.bucketTags
+          : (record.bucketTag == null || record.bucketTag!.trim().isEmpty)
+          ? const <String>[]
+          : <String>[record.bucketTag!.trim()];
+
+      if (bucketKeywords.isNotEmpty) {
+        for (final String keyword in bucketKeywords) {
+          final String normalized = keyword.trim();
+          if (normalized.isEmpty) continue;
+          counter[normalized] = (counter[normalized] ?? 0) + 1;
+        }
+        continue;
+      }
+
+      final Iterable<String> tokens = RegExp(
+        r"[가-힣A-Za-z0-9]{2,}",
+      ).allMatches(record.answer).map((Match m) => m.group(0) ?? "");
+      for (final String token in tokens) {
+        final String normalized = token.trim();
+        if (normalized.isEmpty || _stopWords.contains(normalized)) {
+          continue;
+        }
+        counter[normalized] = (counter[normalized] ?? 0) + 1;
+      }
+    }
+
+    final List<MapEntry<String, int>> top = counter.entries.toList()
+      ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
+        if (b.value != a.value) return b.value.compareTo(a.value);
+        return a.key.compareTo(b.key);
+      });
+    final List<_KeywordSlice> result = List<_KeywordSlice>.generate(
+      top.length > 4 ? 4 : top.length,
+      (int index) {
+        final MapEntry<String, int> item = top[index];
+        return _KeywordSlice(
+          label: item.key,
+          count: item.value,
+          color: _sliceColors[index % _sliceColors.length],
+        );
+      },
+    );
+
+    int sampleIndex = 0;
+    while (result.length < 4) {
+      final _KeywordSlice sample =
+          _sampleSlices[sampleIndex % _sampleSlices.length];
+      final bool exists = result.any((item) => item.label == sample.label);
+      if (!exists) {
+        result.add(
+          _KeywordSlice(
+            label: sample.label,
+            count: sample.count,
+            color: _sliceColors[result.length % _sliceColors.length],
+          ),
+        );
+      }
+      sampleIndex += 1;
+      if (sampleIndex > 10) break;
+    }
+
+    if (result.isEmpty) {
+      return _sampleSlices;
+    }
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final BrandScale brand = context.appBrandScale;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppNeutralColors.white,
-        borderRadius: AppRadius.br16,
-        boxShadow: AppElevation.level1,
-      ),
-      child: SizedBox(
-        height: 232,
-        child: Stack(
-          children: <Widget>[
-            Text(
-              "8월 키워드",
-              style: AppTypography.heading2XSmall.copyWith(
-                color: AppNeutralColors.grey900,
+    return ValueListenableBuilder<List<TodayQuestionRecord>>(
+      valueListenable: TodayQuestionStore.instance,
+      builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
+        final List<_KeywordSlice> slices = _buildKeywordSlices(records);
+        final int total = slices.fold(
+          0,
+          (int acc, _KeywordSlice item) => acc + item.count,
+        );
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppNeutralColors.white,
+            borderRadius: AppRadius.br16,
+            boxShadow: AppElevation.level1,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                title,
+                style: AppTypography.headingXSmall.copyWith(
+                  color: AppNeutralColors.grey900,
+                ),
               ),
-            ),
-            Positioned(
-              left: 0,
-              top: 24,
-              child: _KeywordBubble(
-                label: "가족",
-                count: "10회 언급",
-                size: 110,
-                color: const Color(0xFFD4EEFF),
+              const SizedBox(height: AppSpacing.s16),
+              Center(
+                child: SizedBox(
+                  width: 190,
+                  height: 190,
+                  child: CustomPaint(
+                    painter: _KeywordPieChartPainter(slices: slices),
+                  ),
+                ),
               ),
-            ),
-            Positioned(
-              left: 96,
-              top: 12,
-              child: _KeywordBubble(
-                label: "여행",
-                count: "9+회 언급",
-                size: 96,
-                color: brand.c200,
-                selected: true,
+              const SizedBox(height: AppSpacing.s16),
+              Column(
+                children: slices
+                    .map((_KeywordSlice slice) {
+                      final String ratio = ((slice.count / total) * 100)
+                          .toStringAsFixed(0);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.s8),
+                        child: Row(
+                          children: <Widget>[
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: slice.color,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.s8),
+                            Expanded(
+                              child: Text(
+                                slice.label,
+                                style: AppTypography.bodyMediumRegular.copyWith(
+                                  color: AppNeutralColors.grey900,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              "$ratio% (${slice.count})",
+                              style: AppTypography.bodySmallRegular.copyWith(
+                                color: AppNeutralColors.grey600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    })
+                    .toList(growable: false),
               ),
-            ),
-            const Positioned(
-              right: 8,
-              top: 76,
-              child: _KeywordBubble(
-                label: "취업",
-                count: "3회 언급",
-                size: 90,
-                color: Color(0xFFB6E2FF),
-              ),
-            ),
-            const Positioned(
-              left: 118,
-              top: 114,
-              child: _KeywordBubble(
-                label: "회복",
-                count: "4회 언급",
-                size: 70,
-                color: Color(0xFFD6E7F3),
-              ),
-            ),
-            const Positioned(
-              left: 40,
-              bottom: 0,
-              child: _KeywordBubble(
-                label: "러닝",
-                count: "3회 언급",
-                size: 90,
-                color: Color(0xFFE8EEF4),
-              ),
-            ),
-          ],
-        ),
-      ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
-class _KeywordBubble extends StatelessWidget {
-  const _KeywordBubble({
+class _KeywordSlice {
+  const _KeywordSlice({
     required this.label,
     required this.count,
-    required this.size,
     required this.color,
-    this.selected = false,
   });
 
   final String label;
-  final String count;
-  final double size;
+  final int count;
   final Color color;
-  final bool selected;
+}
+
+class _KeywordPieChartPainter extends CustomPainter {
+  const _KeywordPieChartPainter({required this.slices});
+
+  final List<_KeywordSlice> slices;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color.withValues(alpha: 0.85),
-        border: selected
-            ? Border.all(color: const Color(0xFF91D5FF), width: 1)
-            : null,
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            label,
-            style: AppTypography.bodyLargeSemiBold.copyWith(
-              color: selected
-                  ? const Color(0xFF017AF7)
-                  : AppNeutralColors.grey900,
-            ),
-          ),
-          Text(
-            count,
-            style: AppTypography.captionSmall.copyWith(
-              color: AppNeutralColors.grey600,
-            ),
-          ),
-        ],
-      ),
+  void paint(Canvas canvas, Size size) {
+    final int total = slices.fold(
+      0,
+      (int acc, _KeywordSlice e) => acc + e.count,
     );
+    if (total == 0) return;
+
+    final double strokeWidth = 60;
+    final Rect rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final Paint paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+
+    double startAngle = -math.pi / 2;
+    for (final _KeywordSlice slice in slices) {
+      final double sweep = (slice.count / total) * math.pi * 2;
+      paint.color = slice.color;
+      canvas.drawArc(rect, startAngle, sweep, false, paint);
+      startAngle += sweep;
+    }
+
+    final Paint holePaint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = AppNeutralColors.white;
+    canvas.drawCircle(
+      Offset(size.width / 2, size.height / 2),
+      (size.width / 2) - (strokeWidth / 2),
+      holePaint,
+    );
+
+    final TextPainter tp = TextPainter(
+      text: TextSpan(
+        text: "주간\n키워드",
+        style: AppTypography.bodySmallSemiBold.copyWith(
+          color: AppNeutralColors.grey700,
+        ),
+      ),
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: size.width);
+    tp.paint(
+      canvas,
+      Offset((size.width - tp.width) / 2, (size.height - tp.height) / 2),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _KeywordPieChartPainter oldDelegate) {
+    if (oldDelegate.slices.length != slices.length) return true;
+    for (int i = 0; i < slices.length; i++) {
+      final _KeywordSlice a = slices[i];
+      final _KeywordSlice b = oldDelegate.slices[i];
+      if (a.label != b.label || a.count != b.count || a.color != b.color) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
@@ -1183,7 +1704,7 @@ class _ProfileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: AppSpacing.s12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.s32),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppNeutralColors.white,
@@ -1241,6 +1762,7 @@ class _MonthlyRecordPreview {
     required this.question,
     required this.body,
     required this.tags,
+    this.record,
   });
 
   final int day;
@@ -1248,13 +1770,21 @@ class _MonthlyRecordPreview {
   final String question;
   final String body;
   final List<String> tags;
+  final TodayQuestionRecord? record;
 }
 
 class _RecordListItem {
-  const _RecordListItem({required this.day, required this.text});
+  const _RecordListItem({
+    required this.day,
+    required this.weekday,
+    required this.text,
+    required this.isCompleted,
+  });
 
   final String day;
+  final String weekday;
   final String text;
+  final bool isCompleted;
 }
 
 class _ProfileCardItem {
