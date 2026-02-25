@@ -114,18 +114,20 @@ class _SplashScreenState extends State<SplashScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     _SplashIcon(showSecondSplash: _showSecondSplash),
-                    const SizedBox(height: 24),
-                    const Text(
-                      "오늘의 질문으로\n내일의 나를 만나는 시간",
-                      style: TextStyle(
-                        fontFamily: AppFontFamily.suit,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w400,
-                        height: 1.4,
-                        color: AppNeutralColors.grey700,
+                    if (!_showSecondSplash) ...<Widget>[
+                      const SizedBox(height: 24),
+                      const Text(
+                        "오늘의 질문으로\n내일의 나를 만나는 시간",
+                        style: TextStyle(
+                          fontFamily: AppFontFamily.suit,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          height: 1.4,
+                          color: AppNeutralColors.grey700,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -145,28 +147,43 @@ class _SplashIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (showSecondSplash) {
-      return SizedBox(
-        width: 157,
-        height: 82,
-        child: Image.asset(
-          "assets/images/splash/splash_logo_daily_question.png",
-          fit: BoxFit.contain,
-          errorBuilder: (_, error, stackTrace) => const Text(
-            "Daily\nQuestion",
-            style: TextStyle(
-              fontFamily: AppFontFamily.suit,
-              color: AppAccentColors.sky,
-              fontSize: 56,
-              height: 0.88,
-              fontWeight: FontWeight.w800,
+      return TweenAnimationBuilder<double>(
+        key: const ValueKey<String>("splash_second_icon"),
+        tween: Tween<double>(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeOutCubic,
+        builder: (BuildContext context, double t, Widget? child) {
+          return Opacity(
+            opacity: t,
+            child: Transform.translate(
+              offset: Offset(0, 12 * (1 - t)),
+              child: Transform.scale(scale: 0.96 + (0.04 * t), child: child),
             ),
-            textAlign: TextAlign.center,
+          );
+        },
+        child: SizedBox(
+          width: 157,
+          height: 82,
+          child: Image.asset(
+            "assets/images/splash/splash_logo_daily_question.png",
+            fit: BoxFit.contain,
+            errorBuilder: (_, error, stackTrace) => const Text(
+              "Daily\nQuestion",
+              style: TextStyle(
+                fontFamily: AppFontFamily.suit,
+                color: AppAccentColors.sky,
+                fontSize: 56,
+                height: 0.88,
+                fontWeight: FontWeight.w800,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       );
     }
 
-    return const SizedBox(width: 53, height: 74, child: _SplashQuestionIcon());
+    return const SizedBox(width: 124, height: 124, child: _SplashQuestionIcon());
   }
 }
 
@@ -175,10 +192,14 @@ class _SplashQuestionIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SvgPicture.asset(
-      "assets/images/splash/splash_icon_question.svg",
+    return Image.asset(
+      "assets/images/splash/splash_img_question.png",
       fit: BoxFit.contain,
-      placeholderBuilder: (_) => const _SplashQuestionFallback(),
+      errorBuilder: (_, error, stackTrace) => SvgPicture.asset(
+        "assets/images/splash/splash_icon_question.svg",
+        fit: BoxFit.contain,
+        placeholderBuilder: (_) => const _SplashQuestionFallback(),
+      ),
     );
   }
 }
