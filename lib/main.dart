@@ -51,7 +51,7 @@ class DailyQuestionApp extends StatelessWidget {
         AppCharacterThemeMapper.fromCharacterName(_selectedCharacterName),
       ),
       home: SplashScreen(
-        isLoggedIn: false,
+        isLoggedIn: true,
         firstDuration: Duration(milliseconds: 1400),
         secondDuration: Duration(milliseconds: 1400),
       ),

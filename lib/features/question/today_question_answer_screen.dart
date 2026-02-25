@@ -578,7 +578,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     final DateTime now = DateTime.now();
-    final double keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final double safeBottomInset = MediaQuery.of(context).viewPadding.bottom;
     final DateTime displayDate = widget.editingRecord?.createdAt ?? now;
     final String currentDate =
         "${displayDate.year.toString().padLeft(4, "0")}."
@@ -590,182 +590,235 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
         padding: EdgeInsets.zero,
         child: Stack(
           children: <Widget>[
-                Positioned.fill(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.s20,
-                      AppSpacing.s20,
-                      AppSpacing.s20,
-                      110,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+            Positioned.fill(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.s20,
+                  70,
+                  AppSpacing.s20,
+                  AppSpacing.s20,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Row(
                       children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            IconButton(
-                              onPressed: () => Navigator.of(context).maybePop(),
-                              icon: const Icon(
-                                Icons.arrow_back_ios_new,
-                                color: AppNeutralColors.grey900,
-                                size: 22,
-                              ),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onTap: () {
-                                  Navigator.of(context).popUntil(
-                                    (Route<dynamic> route) => route.isFirst,
-                                  );
-                                },
-                                child: Text(
-                                  "오늘의 질문",
-                                  textAlign: TextAlign.center,
-                                  style: AppTypography.headingXSmall.copyWith(
-                                    color: AppNeutralColors.grey900,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 40),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.s24),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s8,
+                        IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new,
+                            color: AppNeutralColors.grey900,
+                            size: 22,
                           ),
-                          child: Column(
-                            children: <Widget>[
-                              Text(
-                                "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
-                                textAlign: TextAlign.center,
-                                style: AppTypography.headingLarge.copyWith(
-                                  color: AppNeutralColors.grey900,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.s8),
-                              Text(
-                                currentDate,
-                                style: AppTypography.bodySmallSemiBold.copyWith(
-                                  color: AppNeutralColors.grey900,
-                                ),
-                              ),
-                            ],
-                          ),
+                          visualDensity: VisualDensity.compact,
                         ),
-                        const SizedBox(height: AppSpacing.s24),
-                        AppEditableTextArea(
-                          controller: _answerController,
-                          focusNode: _answerFocusNode,
-                          hintText: "무엇이든 가볍게 적어보세요",
-                          height: 369,
-                          backgroundColor: brand.bg,
-                          borderColor: brand.c400,
-                        ),
-                        const SizedBox(height: AppSpacing.s24),
-                        SizedBox(
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: _canPolish
-                                ? () => _openPolishBottomSheet(context)
-                                : null,
-                            style: ButtonStyle(
-                              backgroundColor:
-                                  WidgetStateProperty.resolveWith<Color>((
-                                    Set<WidgetState> states,
-                                  ) {
-                                    if (states.contains(WidgetState.disabled)) {
-                                      return Color.alphaBlend(
-                                        AppTransparentColors.light64,
-                                        brand.c200,
-                                      );
-                                    }
-                                    return brand.c100;
-                                  }),
-                              side: WidgetStateProperty.resolveWith<BorderSide>(
-                                (Set<WidgetState> states) {
-                                  if (states.contains(WidgetState.disabled)) {
-                                    return BorderSide.none;
-                                  }
-                                  return BorderSide(color: brand.c200);
-                                },
-                              ),
-                              foregroundColor:
-                                  WidgetStateProperty.resolveWith<Color>((
-                                    Set<WidgetState> states,
-                                  ) {
-                                    if (states.contains(WidgetState.disabled)) {
-                                      return brand.c300;
-                                    }
-                                    return brand.c500;
-                                  }),
-                              shape:
-                                  const WidgetStatePropertyAll<OutlinedBorder>(
-                                    StadiumBorder(),
-                                  ),
-                              textStyle:
-                                  const WidgetStatePropertyAll<TextStyle>(
-                                    AppTypography.buttonMedium,
-                                  ),
-                              elevation: const WidgetStatePropertyAll<double>(
-                                0,
-                              ),
-                            ),
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              Navigator.of(context).popUntil(
+                                (Route<dynamic> route) => route.isFirst,
+                              );
+                            },
                             child: Text(
-                              _polishUsedCount >= 3
-                                  ? "✨ 문장다듬기를 모두 사용하셨어요."
-                                  : "✨ 문장을 매끄럽게 다듬어줄까요?",
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.s24),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.s8,
-                          ),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: AppNeutralColors.grey100,
+                              "오늘의 질문",
+                              textAlign: TextAlign.center,
+                              style: AppTypography.headingXSmall.copyWith(
+                                color: AppNeutralColors.grey900,
                               ),
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: <Widget>[
-                              Text(
-                                "버킷리스트",
-                                style: AppTypography.headingXSmall.copyWith(
-                                  color: AppNeutralColors.grey900,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.s6),
-                              Text(
-                                "이 질문을 통해 생각난 목표가 있나요?",
-                                style: AppTypography.captionMedium.copyWith(
-                                  color: AppNeutralColors.grey600,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
-                        const SizedBox(height: AppSpacing.s16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: _bucketTags.isEmpty
-                              ? Material(
+                        const SizedBox(width: 40),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.s24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.s8,
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          Text(
+                            "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+                            textAlign: TextAlign.center,
+                            style: AppTypography.headingLarge.copyWith(
+                              color: AppNeutralColors.grey900,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.s8),
+                          Text(
+                            currentDate,
+                            style: AppTypography.bodySmallSemiBold.copyWith(
+                              color: AppNeutralColors.grey900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s24),
+                    AppEditableTextArea(
+                      controller: _answerController,
+                      focusNode: _answerFocusNode,
+                      hintText: "무엇이든 가볍게 적어보세요",
+                      height: 369,
+                      backgroundColor: brand.bg,
+                      borderColor: brand.c400,
+                    ),
+                    const SizedBox(height: AppSpacing.s24),
+                    SizedBox(
+                      height: 48,
+                      child: OutlinedButton(
+                        onPressed: _canPolish
+                            ? () => _openPolishBottomSheet(context)
+                            : null,
+                        style: ButtonStyle(
+                          backgroundColor:
+                              WidgetStateProperty.resolveWith<Color>((
+                                Set<WidgetState> states,
+                              ) {
+                                if (states.contains(WidgetState.disabled)) {
+                                  return Color.alphaBlend(
+                                    AppTransparentColors.light64,
+                                    brand.c200,
+                                  );
+                                }
+                                return brand.c100;
+                              }),
+                          side: WidgetStateProperty.resolveWith<BorderSide>((
+                            Set<WidgetState> states,
+                          ) {
+                            if (states.contains(WidgetState.disabled)) {
+                              return BorderSide.none;
+                            }
+                            return BorderSide(color: brand.c200);
+                          }),
+                          foregroundColor:
+                              WidgetStateProperty.resolveWith<Color>((
+                                Set<WidgetState> states,
+                              ) {
+                                if (states.contains(WidgetState.disabled)) {
+                                  return brand.c300;
+                                }
+                                return brand.c500;
+                              }),
+                          shape: const WidgetStatePropertyAll<OutlinedBorder>(
+                            StadiumBorder(),
+                          ),
+                          textStyle: const WidgetStatePropertyAll<TextStyle>(
+                            AppTypography.buttonMedium,
+                          ),
+                          elevation: const WidgetStatePropertyAll<double>(0),
+                        ),
+                        child: Text(
+                          _polishUsedCount >= 3
+                              ? "✨ 문장다듬기를 모두 사용하셨어요."
+                              : "✨ 문장을 매끄럽게 다듬어줄까요?",
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s24),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s8,
+                      ),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: AppNeutralColors.grey100),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            "버킷리스트",
+                            style: AppTypography.headingXSmall.copyWith(
+                              color: AppNeutralColors.grey900,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.s6),
+                          Text(
+                            "이 질문을 통해 생각난 목표가 있나요?",
+                            style: AppTypography.captionMedium.copyWith(
+                              color: AppNeutralColors.grey600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _bucketTags.isEmpty
+                          ? Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _openBucketBottomSheet(context),
+                                borderRadius: BorderRadius.circular(999),
+                                child: Container(
+                                  height: 38,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.s16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: brand.c100,
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(color: brand.c200),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      Text(
+                                        "추가하기",
+                                        style: AppTypography.buttonSmall
+                                            .copyWith(color: brand.c500),
+                                      ),
+                                      const SizedBox(width: AppSpacing.s4),
+                                      Icon(
+                                        Icons.add,
+                                        size: 16,
+                                        color: brand.c500,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Wrap(
+                              spacing: AppSpacing.s8,
+                              runSpacing: AppSpacing.s8,
+                              children: <Widget>[
+                                ..._bucketTags.asMap().entries.map((
+                                  MapEntry<int, String> entry,
+                                ) {
+                                  return Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onLongPress: () {
+                                        setState(() {
+                                          _bucketTags.removeAt(entry.key);
+                                        });
+                                        _showBucketRemovedToast();
+                                      },
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: AppBucketTag(
+                                        text: entry.value,
+                                        state: AppBucketTagState.defaultState,
+                                      ),
+                                    ),
+                                  );
+                                }),
+                                Material(
                                   color: Colors.transparent,
                                   child: InkWell(
                                     onTap: () =>
                                         _openBucketBottomSheet(context),
                                     borderRadius: BorderRadius.circular(999),
                                     child: Container(
+                                      width: 38,
                                       height: 38,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: AppSpacing.s16,
+                                      padding: const EdgeInsets.all(
+                                        AppSpacing.s8,
                                       ),
                                       decoration: BoxDecoration(
                                         color: brand.c100,
@@ -774,150 +827,71 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                                         ),
                                         border: Border.all(color: brand.c200),
                                       ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: <Widget>[
-                                          Text(
-                                            "추가하기",
-                                            style: AppTypography.buttonSmall
-                                                .copyWith(color: brand.c500),
-                                          ),
-                                          const SizedBox(width: AppSpacing.s4),
-                                          Icon(
-                                            Icons.add,
-                                            size: 16,
-                                            color: brand.c500,
-                                          ),
-                                        ],
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.add,
+                                          size: 16,
+                                          color: brand.c500,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                )
-                              : Wrap(
-                                  spacing: AppSpacing.s8,
-                                  runSpacing: AppSpacing.s8,
-                                  children: <Widget>[
-                                    ..._bucketTags.asMap().entries.map((
-                                      MapEntry<int, String> entry,
-                                    ) {
-                                      return Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onLongPress: () {
-                                            setState(() {
-                                              _bucketTags.removeAt(entry.key);
-                                            });
-                                            _showBucketRemovedToast();
-                                          },
-                                          borderRadius: BorderRadius.circular(
-                                            999,
-                                          ),
-                                          child: AppBucketTag(
-                                            text: entry.value,
-                                            state:
-                                                AppBucketTagState.defaultState,
-                                          ),
-                                        ),
-                                      );
-                                    }),
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () =>
-                                            _openBucketBottomSheet(context),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                        child: Container(
-                                          width: 38,
-                                          height: 38,
-                                          padding: const EdgeInsets.all(
-                                            AppSpacing.s8,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: brand.c100,
-                                            borderRadius: BorderRadius.circular(
-                                              999,
-                                            ),
-                                            border: Border.all(
-                                              color: brand.c200,
-                                            ),
-                                          ),
-                                          child: Center(
-                                            child: Icon(
-                                              Icons.add,
-                                              size: 16,
-                                              color: brand.c500,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
                                 ),
+                              ],
+                            ),
+                    ),
+                    const SizedBox(height: AppSpacing.s16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s8,
+                      ),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: AppNeutralColors.grey100),
                         ),
-                        const SizedBox(height: AppSpacing.s16),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.s8,
-                          ),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: AppNeutralColors.grey100,
-                              ),
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  "전체공개",
+                                  style: AppTypography.headingXSmall.copyWith(
+                                    color: AppNeutralColors.grey900,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.s6),
+                                Text(
+                                  "모든 사용자에게 익명으로 내 글을 공개합니다.",
+                                  style: AppTypography.captionMedium.copyWith(
+                                    color: AppNeutralColors.grey600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Text(
-                                      "전체공개",
-                                      style: AppTypography.headingXSmall
-                                          .copyWith(
-                                            color: AppNeutralColors.grey900,
-                                          ),
-                                    ),
-                                    const SizedBox(height: AppSpacing.s6),
-                                    Text(
-                                      "모든 사용자에게 익명으로 내 글을 공개합니다.",
-                                      style: AppTypography.captionMedium
-                                          .copyWith(
-                                            color: AppNeutralColors.grey600,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              AppIconToggle(
-                                value: _isPublic,
-                                onChanged: (bool value) {
-                                  setState(() {
-                                    _isPublic = value;
-                                  });
-                                },
-                              ),
-                            ],
+                          AppIconToggle(
+                            value: _isPublic,
+                            onChanged: (bool value) {
+                              setState(() {
+                                _isPublic = value;
+                              });
+                            },
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  left: AppSpacing.s20,
-                  right: AppSpacing.s20,
-                  bottom: keyboardInset > 0 ? 12 : AppSpacing.s20,
-                  child: SizedBox(
-                    height: 60,
-                    child: FilledButton(
-                      onPressed: _hasInput ? _saveRecord : null,
-                      style: ButtonStyle(
-                        backgroundColor: WidgetStateProperty.resolveWith<Color>(
-                          (Set<WidgetState> states) {
+                    const SizedBox(height: 40),
+                    SizedBox(
+                      height: 60,
+                      child: FilledButton(
+                        onPressed: _hasInput ? _saveRecord : null,
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                            Set<WidgetState> states,
+                          ) {
                             if (states.contains(WidgetState.disabled)) {
                               return brand.c300;
                             }
@@ -925,50 +899,53 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                               return brand.c600;
                             }
                             return brand.c500;
-                          },
-                        ),
-                        overlayColor: WidgetStatePropertyAll<Color>(
-                          AppNeutralColors.white.withValues(alpha: 0.08),
-                        ),
-                        shape: WidgetStatePropertyAll<RoundedRectangleBorder>(
-                          RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.s8),
+                          }),
+                          overlayColor: WidgetStatePropertyAll<Color>(
+                            AppNeutralColors.white.withValues(alpha: 0.08),
                           ),
-                        ),
-                      ),
-                      child: Text(
-                        "저장하기",
-                        style: AppTypography.buttonLarge.copyWith(
-                          color: AppNeutralColors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                if (_showPolishLoading)
-                  Positioned.fill(
-                    child: Container(
-                      color: const Color(0x3D000000),
-                      alignment: Alignment.center,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          CircularProgressIndicator(
-                            color: brand.c500,
-                            strokeWidth: 3,
-                          ),
-                          const SizedBox(height: AppSpacing.s12),
-                          Text(
-                            "문장을 다듬는 중이에요...",
-                            style: AppTypography.bodySmallMedium.copyWith(
-                              color: AppNeutralColors.grey900,
+                          shape: WidgetStatePropertyAll<RoundedRectangleBorder>(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppSpacing.s8),
                             ),
                           ),
-                        ],
+                        ),
+                        child: Text(
+                          "저장하기",
+                          style: AppTypography.buttonLarge.copyWith(
+                            color: AppNeutralColors.white,
+                          ),
+                        ),
                       ),
                     ),
+                    SizedBox(height: safeBottomInset + 8),
+                  ],
                 ),
-              ],
+              ),
+            ),
+            if (_showPolishLoading)
+              Positioned.fill(
+                child: Container(
+                  color: const Color(0x3D000000),
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      CircularProgressIndicator(
+                        color: brand.c500,
+                        strokeWidth: 3,
+                      ),
+                      const SizedBox(height: AppSpacing.s12),
+                      Text(
+                        "문장을 다듬는 중이에요...",
+                        style: AppTypography.bodySmallMedium.copyWith(
+                          color: AppNeutralColors.grey900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
