@@ -354,11 +354,15 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.s24,
                           ),
-                          child: Text(
-                            _answer,
-                            style: AppTypography.bodyLargeRegular.copyWith(
-                              color: AppNeutralColors.grey800,
-                              height: 1.8,
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 370),
+                            alignment: Alignment.topLeft,
+                            child: Text(
+                              _answer,
+                              style: AppTypography.bodyLargeRegular.copyWith(
+                                color: AppNeutralColors.grey800,
+                                height: 1.8,
+                              ),
                             ),
                           ),
                         ),

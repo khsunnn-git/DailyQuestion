@@ -7,9 +7,18 @@ import "streak_completion_screen.dart";
 import "today_question_store.dart";
 
 class TodayQuestionAnswerScreen extends StatefulWidget {
-  const TodayQuestionAnswerScreen({super.key, this.editingRecord});
+  const TodayQuestionAnswerScreen({
+    super.key,
+    this.editingRecord,
+    this.initialDate,
+    this.headerTitle,
+    this.questionText,
+  });
 
   final TodayQuestionRecord? editingRecord;
+  final DateTime? initialDate;
+  final String? headerTitle;
+  final String? questionText;
 
   @override
   State<TodayQuestionAnswerScreen> createState() =>
@@ -31,6 +40,14 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
 
   Future<void> _saveRecord() async {
     final bool isEditMode = widget.editingRecord != null;
+    final DateTime? targetDate = widget.initialDate == null
+        ? null
+        : DateTime(
+            widget.initialDate!.year,
+            widget.initialDate!.month,
+            widget.initialDate!.day,
+            12,
+          );
     final TodayQuestionRecord? savedRecord = isEditMode
         ? TodayQuestionStore.instance.updateRecord(
             createdAt: widget.editingRecord!.createdAt,
@@ -42,6 +59,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
             answer: _answerController.text,
             isPublic: _isPublic,
             bucketTags: _bucketTags,
+            createdAt: targetDate,
           );
 
     if (savedRecord == null) {
@@ -56,11 +74,17 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       return;
     }
 
+    final DateTime now = DateTime.now();
+    final DateTime resolvedDate = widget.initialDate ?? now;
+    final bool isTodayTarget =
+        resolvedDate.year == now.year &&
+        resolvedDate.month == now.month &&
+        resolvedDate.day == now.day;
     final int streak = TodayQuestionStore.instance.consecutiveRecordDays;
     if (!mounted) {
       return;
     }
-    if (streak >= 2) {
+    if (isTodayTarget && streak >= 2) {
       final List<bool> weeklyCompleted = TodayQuestionStore.instance
           .weeklyCompletion();
       await Navigator.of(context).push(
@@ -579,7 +603,11 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
     final BrandScale brand = context.appBrandScale;
     final DateTime now = DateTime.now();
     final double safeBottomInset = MediaQuery.of(context).viewPadding.bottom;
-    final DateTime displayDate = widget.editingRecord?.createdAt ?? now;
+    final DateTime displayDate =
+        widget.editingRecord?.createdAt ?? widget.initialDate ?? now;
+    final String headerTitle = widget.headerTitle ?? "오늘의 질문";
+    final String questionText =
+        widget.questionText ?? "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?";
     final String currentDate =
         "${displayDate.year.toString().padLeft(4, "0")}."
         "${displayDate.month.toString().padLeft(2, "0")}."
@@ -621,7 +649,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                               );
                             },
                             child: Text(
-                              "오늘의 질문",
+                              headerTitle,
                               textAlign: TextAlign.center,
                               style: AppTypography.headingXSmall.copyWith(
                                 color: AppNeutralColors.grey900,
@@ -640,7 +668,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                       child: Column(
                         children: <Widget>[
                           Text(
-                            "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+                            questionText,
                             textAlign: TextAlign.center,
                             style: AppTypography.headingLarge.copyWith(
                               color: AppNeutralColors.grey900,

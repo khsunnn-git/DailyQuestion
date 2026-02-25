@@ -92,6 +92,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     required bool isPublic,
     String? bucketTag,
     List<String> bucketTags = const <String>[],
+    DateTime? createdAt,
   }) {
     final String normalized = answer.trim();
     if (normalized.isEmpty) {
@@ -104,16 +105,49 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     final String? resolvedBucketTag = normalizedTags.isNotEmpty
         ? normalizedTags.last
         : bucketTag?.trim();
+    final DateTime resolvedCreatedAt = createdAt ?? DateTime.now();
+
+    if (createdAt != null) {
+      final int existingIndex = value.indexWhere(
+        (TodayQuestionRecord item) =>
+            _dateOnly(item.createdAt) == _dateOnly(resolvedCreatedAt),
+      );
+      if (existingIndex >= 0) {
+        final TodayQuestionRecord existing = value[existingIndex];
+        final TodayQuestionRecord updated = TodayQuestionRecord(
+          createdAt: existing.createdAt,
+          answer: normalized,
+          author: isPublic
+              ? (existing.isPublic ? existing.author : _buildRandomNickname())
+              : "나의 기록",
+          bucketTag: resolvedBucketTag,
+          bucketTags: normalizedTags,
+          isPublic: isPublic,
+        );
+        final List<TodayQuestionRecord> next = List<TodayQuestionRecord>.from(
+          value,
+        );
+        next[existingIndex] = updated;
+        value = next;
+        return updated;
+      }
+    }
 
     final TodayQuestionRecord next = TodayQuestionRecord(
-      createdAt: DateTime.now(),
+      createdAt: resolvedCreatedAt,
       answer: normalized,
       author: isPublic ? _buildRandomNickname() : "나의 기록",
       bucketTag: resolvedBucketTag,
       bucketTags: normalizedTags,
       isPublic: isPublic,
     );
-    value = <TodayQuestionRecord>[next, ...value];
+    final List<TodayQuestionRecord> merged = <TodayQuestionRecord>[
+      next,
+      ...value,
+    ]..sort((TodayQuestionRecord a, TodayQuestionRecord b) {
+        return b.createdAt.compareTo(a.createdAt);
+      });
+    value = merged;
     return next;
   }
 
