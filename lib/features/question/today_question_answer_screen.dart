@@ -4,6 +4,7 @@ import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
 import "streak_completion_screen.dart";
+import "today_question_prompt_store.dart";
 import "today_question_store.dart";
 
 class TodayQuestionAnswerScreen extends StatefulWidget {
@@ -49,13 +50,13 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
             12,
           );
     final TodayQuestionRecord? savedRecord = isEditMode
-        ? TodayQuestionStore.instance.updateRecord(
+        ? await TodayQuestionStore.instance.updateRecord(
             createdAt: widget.editingRecord!.createdAt,
             answer: _answerController.text,
             isPublic: _isPublic,
             bucketTags: _bucketTags,
           )
-        : TodayQuestionStore.instance.saveRecord(
+        : await TodayQuestionStore.instance.saveRecord(
             answer: _answerController.text,
             isPublic: _isPublic,
             bucketTags: _bucketTags,
@@ -105,6 +106,9 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.questionText == null) {
+      unawaited(TodayQuestionPromptStore.instance.initialize());
+    }
     final TodayQuestionRecord? editingRecord = widget.editingRecord;
     if (editingRecord != null) {
       _answerController.text = editingRecord.answer;
@@ -607,7 +611,8 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
         widget.editingRecord?.createdAt ?? widget.initialDate ?? now;
     final String headerTitle = widget.headerTitle ?? "오늘의 질문";
     final String questionText =
-        widget.questionText ?? "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?";
+        widget.questionText ??
+        TodayQuestionPromptStore.instance.value.currentQuestionText;
     final String currentDate =
         "${displayDate.year.toString().padLeft(4, "0")}."
         "${displayDate.month.toString().padLeft(2, "0")}."
@@ -917,23 +922,26 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                       child: FilledButton(
                         onPressed: _hasInput ? _saveRecord : null,
                         style: ButtonStyle(
-                          backgroundColor: WidgetStateProperty.resolveWith<Color>((
-                            Set<WidgetState> states,
-                          ) {
-                            if (states.contains(WidgetState.disabled)) {
-                              return brand.c300;
-                            }
-                            if (states.contains(WidgetState.hovered)) {
-                              return brand.c600;
-                            }
-                            return brand.c500;
-                          }),
+                          backgroundColor:
+                              WidgetStateProperty.resolveWith<Color>((
+                                Set<WidgetState> states,
+                              ) {
+                                if (states.contains(WidgetState.disabled)) {
+                                  return brand.c300;
+                                }
+                                if (states.contains(WidgetState.hovered)) {
+                                  return brand.c600;
+                                }
+                                return brand.c500;
+                              }),
                           overlayColor: WidgetStatePropertyAll<Color>(
                             AppNeutralColors.white.withValues(alpha: 0.08),
                           ),
                           shape: WidgetStatePropertyAll<RoundedRectangleBorder>(
                             RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppSpacing.s8),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.s8,
+                              ),
                             ),
                           ),
                         ),

@@ -1,4 +1,4 @@
-package com.example.dailyquestion
+package com.pland.dailyquestion
 
 import io.flutter.embedding.android.FlutterActivity
 

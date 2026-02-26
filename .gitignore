@@ -20,3 +20,8 @@ build/
 
 # Misc
 coverage/
+node_modules/
+
+# Firebase admin key
+serviceAccountKey.json
+**/serviceAccountKey.json

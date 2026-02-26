@@ -1,11 +1,17 @@
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
+import "package:firebase_core/firebase_core.dart";
 
+import "data/local_db/local_database.dart";
 import "design_system/design_system.dart";
+import "features/question/today_question_store.dart";
 import "features/splash/splash_screen.dart";
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  await LocalDatabase.instance.initialize();
+  await TodayQuestionStore.instance.initialize();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(

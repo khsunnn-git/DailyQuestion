@@ -9,6 +9,7 @@ import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
 import "my_records_screen.dart";
 import "../question/today_question_answer_screen.dart";
+import "../question/today_question_prompt_store.dart";
 import "../question/today_question_store.dart";
 import "today_records_data_source.dart";
 import "today_records_screen.dart";
@@ -27,10 +28,13 @@ class HomeScreen extends StatelessWidget {
   static const String _decoBubbleAsset =
       "assets/images/home/home_deco_bubble_blue.png";
 
-  static void openTodayQuestionAnswer(BuildContext context) {
+  static void openTodayQuestionAnswer(
+    BuildContext context, {
+    String? questionText,
+  }) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => const TodayQuestionAnswerScreen(),
+        builder: (_) => TodayQuestionAnswerScreen(questionText: questionText),
       ),
     );
   }
@@ -228,6 +232,7 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
   @override
   void initState() {
     super.initState();
+    TodayQuestionPromptStore.instance.initialize();
     _fishController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1700),
@@ -261,124 +266,156 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return Column(
-      children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.s8,
-            vertical: AppSpacing.s24,
-          ),
-          child: Text(
-            "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
-            textAlign: TextAlign.center,
-            style: AppTypography.headingLarge.copyWith(
-              color: AppNeutralColors.grey900,
-            ),
-          ),
-        ),
-        _QuestionWrittenSpeechBubble(
-          text: _messages[_messageIndex],
-          color: AppNeutralColors.white,
-          tailDirection: _SpeechTailDirection.down,
-        ),
-        const SizedBox(height: AppSpacing.s24),
-        SizedBox(
-          width: 150,
-          height: 150,
-          child: AnimatedBuilder(
-            animation: Listenable.merge(<Listenable>[
-              _fishController,
-              _bubbleController,
-            ]),
-            builder: (BuildContext context, Widget? child) {
-              return Stack(
-                clipBehavior: Clip.none,
-                children: <Widget>[
-                  Positioned(
-                    left: -2,
-                    top: -4,
-                    child: Transform.translate(
-                      offset: Offset(0, _bubbleDy.value),
-                      child: Opacity(
-                        opacity: 0.92,
-                        child: Image.asset(
-                          HomeScreen._decoBubbleAsset,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.contain,
-                          errorBuilder:
-                              (
-                                BuildContext context,
-                                Object error,
-                                StackTrace? stackTrace,
-                              ) => Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  color: const Color(0x9937B8FF),
-                                  shape: BoxShape.circle,
-                                  boxShadow: const <BoxShadow>[
-                                    BoxShadow(
-                                      color: Color(0x33017AF7),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
+    return ValueListenableBuilder<TodayQuestionPromptState>(
+      valueListenable: TodayQuestionPromptStore.instance,
+      builder:
+          (
+            BuildContext context,
+            TodayQuestionPromptState questionState,
+            Widget? _,
+          ) {
+            final String questionText = questionState.currentQuestionText;
+            return Column(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.s8,
+                    vertical: AppSpacing.s24,
+                  ),
+                  child: Text(
+                    questionText,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.headingLarge.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
+                ),
+                _QuestionWrittenSpeechBubble(
+                  text: _messages[_messageIndex],
+                  color: AppNeutralColors.white,
+                  tailDirection: _SpeechTailDirection.down,
+                ),
+                const SizedBox(height: AppSpacing.s24),
+                SizedBox(
+                  width: 150,
+                  height: 150,
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge(<Listenable>[
+                      _fishController,
+                      _bubbleController,
+                    ]),
+                    builder: (BuildContext context, Widget? child) {
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: <Widget>[
+                          Positioned(
+                            left: -2,
+                            top: -4,
+                            child: Transform.translate(
+                              offset: Offset(0, _bubbleDy.value),
+                              child: Opacity(
+                                opacity: 0.92,
+                                child: Image.asset(
+                                  HomeScreen._decoBubbleAsset,
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.contain,
+                                  errorBuilder:
+                                      (
+                                        BuildContext context,
+                                        Object error,
+                                        StackTrace? stackTrace,
+                                      ) => Container(
+                                        width: 60,
+                                        height: 60,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0x9937B8FF),
+                                          shape: BoxShape.circle,
+                                          boxShadow: const <BoxShadow>[
+                                            BoxShadow(
+                                              color: Color(0x33017AF7),
+                                              blurRadius: 8,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                 ),
                               ),
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: Transform.translate(
+                              offset: Offset(0, _fishDy.value),
+                              child: Image.asset(
+                                HomeScreen._heroFishAsset,
+                                width: 150,
+                                height: 150,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, error, stackTrace) {
+                                  return const Center(
+                                    child: Text(
+                                      "🐟",
+                                      style: TextStyle(fontSize: 64),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s24),
+                TextButton(
+                  onPressed: () async {
+                    final bool moved = await TodayQuestionPromptStore.instance
+                        .advanceToNextQuestion();
+                    if (moved || !context.mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(
+                        const SnackBar(
+                          content: Text("오늘 받을 수 있는 새로운 질문을 모두 확인했어요."),
+                          behavior: SnackBarBehavior.floating,
+                          duration: Duration(seconds: 2),
                         ),
+                      );
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: brand.c500,
+                    textStyle: AppTypography.buttonSmall,
+                  ),
+                  child: const Text("새로운 질문 받기"),
+                ),
+                const SizedBox(height: AppSpacing.s24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 60,
+                  child: FilledButton(
+                    onPressed: () => HomeScreen.openTodayQuestionAnswer(
+                      context,
+                      questionText: questionText,
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: brand.c500,
+                      shape: const StadiumBorder(),
+                    ),
+                    child: Text(
+                      "기록하기",
+                      style: AppTypography.buttonLarge.copyWith(
+                        color: AppNeutralColors.white,
                       ),
                     ),
                   ),
-                  Positioned.fill(
-                    child: Transform.translate(
-                      offset: Offset(0, _fishDy.value),
-                      child: Image.asset(
-                        HomeScreen._heroFishAsset,
-                        width: 150,
-                        height: 150,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, error, stackTrace) {
-                          return const Center(
-                            child: Text("🐟", style: TextStyle(fontSize: 64)),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: AppSpacing.s24),
-        TextButton(
-          onPressed: () {},
-          style: TextButton.styleFrom(
-            foregroundColor: brand.c500,
-            textStyle: AppTypography.buttonSmall,
-          ),
-          child: const Text("새로운 질문 받기"),
-        ),
-        const SizedBox(height: AppSpacing.s24),
-        SizedBox(
-          width: double.infinity,
-          height: 60,
-          child: FilledButton(
-            onPressed: () => HomeScreen.openTodayQuestionAnswer(context),
-            style: FilledButton.styleFrom(
-              backgroundColor: brand.c500,
-              shape: const StadiumBorder(),
-            ),
-            child: Text(
-              "기록하기",
-              style: AppTypography.buttonLarge.copyWith(
-                color: AppNeutralColors.white,
-              ),
-            ),
-          ),
-        ),
-      ],
+                ),
+              ],
+            );
+          },
     );
   }
 }
@@ -517,7 +554,7 @@ class _QuestionWrittenPreviewCardState
     if (!mounted || confirmed != true) {
       return;
     }
-    TodayQuestionStore.instance.deleteRecord(createdAt: latest.createdAt);
+    await TodayQuestionStore.instance.deleteRecord(createdAt: latest.createdAt);
   }
 
   void _showHistoryDisabledToast() {
