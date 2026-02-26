@@ -213,29 +213,34 @@ class _QuestionBeforeRecordCard extends StatefulWidget {
 }
 
 class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const List<String> _messages = <String>[
     "오늘은 아직 답변하지 않았어요",
     "무엇이든 가볍게 적어보세요",
   ];
   int _messageIndex = 0;
   Timer? _messageTimer;
-  late final AnimationController _floatController;
+  late final AnimationController _fishController;
+  late final AnimationController _bubbleController;
   late final Animation<double> _fishDy;
   late final Animation<double> _bubbleDy;
 
   @override
   void initState() {
     super.initState();
-    _floatController = AnimationController(
+    _fishController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 1700),
+    )..repeat(reverse: true);
+    _bubbleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2300),
     )..repeat(reverse: true);
     _fishDy = Tween<double>(begin: 2, end: -6).animate(
-      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _fishController, curve: Curves.easeInOut),
     );
     _bubbleDy = Tween<double>(begin: 0, end: -8).animate(
-      CurvedAnimation(parent: _floatController, curve: Curves.easeInOutSine),
+      CurvedAnimation(parent: _bubbleController, curve: Curves.easeInOutSine),
     );
     _messageTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
@@ -248,7 +253,8 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
   @override
   void dispose() {
     _messageTimer?.cancel();
-    _floatController.dispose();
+    _fishController.dispose();
+    _bubbleController.dispose();
     super.dispose();
   }
 
@@ -280,7 +286,10 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
           width: 150,
           height: 150,
           child: AnimatedBuilder(
-            animation: _floatController,
+            animation: Listenable.merge(<Listenable>[
+              _fishController,
+              _bubbleController,
+            ]),
             builder: (BuildContext context, Widget? child) {
               return Stack(
                 clipBehavior: Clip.none,
@@ -297,12 +306,12 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
                           width: 60,
                           height: 60,
                           fit: BoxFit.contain,
-                          errorBuilder: (
-                            BuildContext context,
-                            Object error,
-                            StackTrace? stackTrace,
-                          ) =>
-                              Container(
+                          errorBuilder:
+                              (
+                                BuildContext context,
+                                Object error,
+                                StackTrace? stackTrace,
+                              ) => Container(
                                 width: 60,
                                 height: 60,
                                 decoration: BoxDecoration(
@@ -946,29 +955,35 @@ class _TopCharacterDecorations extends StatefulWidget {
 }
 
 class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
+    with TickerProviderStateMixin {
+  late final AnimationController _fishController;
+  late final AnimationController _bubbleController;
   late final Animation<double> _fishDy;
   late final Animation<double> _bubbleDy;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
+    _fishController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 1700),
+    )..repeat(reverse: true);
+    _bubbleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2300),
     )..repeat(reverse: true);
     _fishDy = Tween<double>(begin: 2, end: -6).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _fishController, curve: Curves.easeInOut),
     );
     _bubbleDy = Tween<double>(begin: 0, end: -8).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
+      CurvedAnimation(parent: _bubbleController, curve: Curves.easeInOutSine),
     );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _fishController.dispose();
+    _bubbleController.dispose();
     super.dispose();
   }
 
@@ -1017,7 +1032,7 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
                   width: 150,
                   height: 124,
                   child: AnimatedBuilder(
-                    animation: _controller,
+                    animation: _fishController,
                     builder: (BuildContext context, Widget? child) {
                       return Align(
                         alignment: Alignment.bottomRight,
@@ -1053,7 +1068,7 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
             right: 66,
             top: -14,
             child: AnimatedBuilder(
-              animation: _controller,
+              animation: _bubbleController,
               builder: (BuildContext context, Widget? child) {
                 return Transform.translate(
                   offset: Offset(0, _bubbleDy.value),
@@ -1065,12 +1080,12 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
                         width: 60,
                         height: 60,
                         fit: BoxFit.contain,
-                        errorBuilder: (
-                          BuildContext context,
-                          Object error,
-                          StackTrace? stackTrace,
-                        ) =>
-                            Container(
+                        errorBuilder:
+                            (
+                              BuildContext context,
+                              Object error,
+                              StackTrace? stackTrace,
+                            ) => Container(
                               width: 60,
                               height: 60,
                               decoration: BoxDecoration(

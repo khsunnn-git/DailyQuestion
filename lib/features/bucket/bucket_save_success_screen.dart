@@ -5,10 +5,23 @@ import "package:flutter/material.dart";
 import "../../design_system/design_system.dart";
 
 class BucketSaveSuccessScreen extends StatefulWidget {
-  const BucketSaveSuccessScreen({super.key});
+  const BucketSaveSuccessScreen({
+    super.key,
+    this.title = "버킷리스트 저장!",
+    this.subtitle,
+    this.imageAsset = successAsset,
+    this.autoCloseDuration = const Duration(seconds: 2),
+  });
 
   static const String successAsset =
       "assets/images/bucket/bucketlist_save_success.png";
+  static const String completionAsset =
+      "assets/images/bucket/bucketlist_complete_success.png";
+
+  final String title;
+  final String? subtitle;
+  final String imageAsset;
+  final Duration autoCloseDuration;
 
   @override
   State<BucketSaveSuccessScreen> createState() =>
@@ -21,7 +34,7 @@ class _BucketSaveSuccessScreenState extends State<BucketSaveSuccessScreen> {
   @override
   void initState() {
     super.initState();
-    _autoCloseTimer = Timer(const Duration(seconds: 3), _close);
+    _autoCloseTimer = Timer(widget.autoCloseDuration, _close);
   }
 
   @override
@@ -58,17 +71,27 @@ class _BucketSaveSuccessScreenState extends State<BucketSaveSuccessScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Text(
-                      "버킷리스트 저장!",
+                      widget.title,
                       textAlign: TextAlign.center,
                       style: AppTypography.headingLarge.copyWith(
                         color: AppNeutralColors.grey900,
                       ),
                     ),
+                    if (widget.subtitle != null) ...<Widget>[
+                      const SizedBox(height: AppSpacing.s8),
+                      Text(
+                        widget.subtitle!,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.bodyLargeMedium.copyWith(
+                          color: AppNeutralColors.grey600,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: AppSpacing.s24),
                     Image.asset(
-                      BucketSaveSuccessScreen.successAsset,
-                      width: 160,
-                      height: 160,
+                      widget.imageAsset,
+                      width: widget.subtitle == null ? 160 : 200,
+                      height: widget.subtitle == null ? 160 : 200,
                       fit: BoxFit.contain,
                     ),
                   ],

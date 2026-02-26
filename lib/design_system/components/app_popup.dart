@@ -9,12 +9,16 @@ class AppPopup extends StatelessWidget {
     required this.body,
     required this.actions,
     this.width = AppPopupTokens.mobileWidth,
+    this.contentPadding = AppPopupTokens.contentPadding,
+    this.actionTopGap = AppPopupTokens.contentGap,
   });
 
   final String title;
   final String body;
   final List<Widget> actions;
   final double width;
+  final EdgeInsets contentPadding;
+  final double actionTopGap;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +29,7 @@ class AppPopup extends StatelessWidget {
       ),
       child: Container(
         width: width,
-        padding: AppPopupTokens.contentPadding,
+        padding: contentPadding,
         decoration: BoxDecoration(
           color: AppPopupTokens.background,
           borderRadius: AppPopupTokens.radius,
@@ -52,16 +56,19 @@ class AppPopup extends StatelessWidget {
               ),
             ),
             if (actions.isNotEmpty) ...<Widget>[
-              const SizedBox(height: AppPopupTokens.contentGap),
+              SizedBox(height: actionTopGap),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: actions
-                    .expand(
-                      (Widget e) =>
-                          <Widget>[e, const SizedBox(width: AppPopupTokens.actionGap)],
-                    )
-                    .toList()
-                  ..removeLast(),
+                children:
+                    actions
+                        .expand(
+                          (Widget e) => <Widget>[
+                            e,
+                            const SizedBox(width: AppPopupTokens.actionGap),
+                          ],
+                        )
+                        .toList()
+                      ..removeLast(),
               ),
             ],
           ],
@@ -85,19 +92,13 @@ class AppDimmedOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: AppPopupTokens.dimmed,
-      child: Align(
-        alignment: alignment,
-        child: child,
-      ),
+      child: Align(alignment: alignment, child: child),
     );
   }
 }
 
 class AppStreakPillCard extends StatelessWidget {
-  const AppStreakPillCard({
-    super.key,
-    required this.text,
-  });
+  const AppStreakPillCard({super.key, required this.text});
 
   final String text;
 
@@ -112,7 +113,9 @@ class AppStreakPillCard extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: AppStreakPillTokens.textStyle.copyWith(color: AppStreakPillTokens.textColor),
+        style: AppStreakPillTokens.textStyle.copyWith(
+          color: AppStreakPillTokens.textColor,
+        ),
       ),
     );
   }
