@@ -1,5 +1,9 @@
 import "package:flutter/material.dart";
+import "package:isar/isar.dart";
 
+import "../../data/local_db/entities/bucket_category_entity.dart";
+import "../../data/local_db/entities/bucket_item_entity.dart";
+import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
 import "bucket_add_screen.dart";
 import "bucket_category_empty_screen.dart";
@@ -20,6 +24,13 @@ class _BucketListScreenState extends State<BucketListScreen> {
   final List<_BucketEntry> _entries = <_BucketEntry>[];
   final List<BucketCategorySelection> _customCategories =
       <BucketCategorySelection>[];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPersistedData();
+  }
 
   List<String> get _tabs {
     return <String>[
@@ -63,6 +74,99 @@ class _BucketListScreenState extends State<BucketListScreen> {
     return <_BucketEntry>[];
   }
 
+  Future<void> _loadPersistedData() async {
+    final isar = await LocalDatabase.instance.isar;
+    final List<BucketCategoryEntity> categories = await isar
+        .bucketCategoryEntitys
+        .where()
+        .findAll();
+    final List<BucketItemEntity> items = await isar.bucketItemEntitys
+        .where()
+        .findAll();
+    if (!mounted) {
+      return;
+    }
+    final List<_BucketEntry> entries =
+        items.map(_fromBucketEntity).toList(growable: false)
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    setState(() {
+      _customCategories
+        ..clear()
+        ..addAll(
+          categories.map((BucketCategoryEntity item) {
+            return BucketCategorySelection(
+              name: item.name,
+              color: Color(item.colorValue),
+            );
+          }),
+        );
+      _entries
+        ..clear()
+        ..addAll(entries);
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _saveCategories() async {
+    final isar = await LocalDatabase.instance.isar;
+    final List<BucketCategoryEntity> categories = _customCategories
+        .map((BucketCategorySelection item) {
+          final BucketCategoryEntity entity = BucketCategoryEntity();
+          entity.name = item.name;
+          entity.colorValue = item.color.toARGB32();
+          return entity;
+        })
+        .toList(growable: false);
+    await isar.writeTxn(() async {
+      await isar.bucketCategoryEntitys.clear();
+      if (categories.isEmpty) {
+        return;
+      }
+      await isar.bucketCategoryEntitys.putAll(categories);
+    });
+  }
+
+  Future<_BucketEntry> _putEntry(_BucketEntry entry) async {
+    final isar = await LocalDatabase.instance.isar;
+    final BucketItemEntity entity = BucketItemEntity();
+    if (entry.id != null) {
+      entity.id = entry.id!;
+    }
+    entity.title = entry.title;
+    entity.category = entry.category;
+    entity.categoryColorValue = entry.categoryColor.toARGB32();
+    entity.createdAt = entry.createdAt;
+    entity.dueDate = entry.dueDate;
+    entity.isCompleted = entry.isCompleted;
+    entity.updatedAt = DateTime.now();
+    final int savedId = await isar.writeTxn(() async {
+      return isar.bucketItemEntitys.put(entity);
+    });
+    return entry.copyWith(id: savedId);
+  }
+
+  Future<void> _deleteEntry(_BucketEntry entry) async {
+    if (entry.id == null) {
+      return;
+    }
+    final isar = await LocalDatabase.instance.isar;
+    await isar.writeTxn(() async {
+      await isar.bucketItemEntitys.delete(entry.id!);
+    });
+  }
+
+  _BucketEntry _fromBucketEntity(BucketItemEntity entity) {
+    return _BucketEntry(
+      id: entity.id,
+      title: entity.title,
+      category: entity.category,
+      categoryColor: Color(entity.categoryColorValue),
+      createdAt: entity.createdAt,
+      dueDate: entity.dueDate,
+      isCompleted: entity.isCompleted,
+    );
+  }
+
   Future<void> _openAddScreen() async {
     final BucketAddResult? result = await Navigator.of(context)
         .push<BucketAddResult>(
@@ -75,23 +179,27 @@ class _BucketListScreenState extends State<BucketListScreen> {
       return;
     }
 
+    final _BucketEntry saved = await _putEntry(
+      _BucketEntry(
+        title: result.item.title,
+        category: result.item.categoryName,
+        categoryColor: result.item.categoryColor,
+        createdAt: result.item.createdAt,
+        dueDate: result.item.dueDate,
+        isCompleted: result.item.isCompleted,
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _customCategories
         ..clear()
         ..addAll(result.categories);
-      _entries.insert(
-        0,
-        _BucketEntry(
-          title: result.item.title,
-          category: result.item.categoryName,
-          categoryColor: result.item.categoryColor,
-          createdAt: result.item.createdAt,
-          dueDate: result.item.dueDate,
-          isCompleted: result.item.isCompleted,
-        ),
-      );
+      _entries.insert(0, saved);
       _selectedTabIndex = 0;
     });
+    await _saveCategories();
   }
 
   Future<void> _openCategoryScreen() async {
@@ -110,6 +218,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
         ..clear()
         ..addAll(result.categories);
     });
+    await _saveCategories();
   }
 
   Future<void> _onEntryMenuAction(
@@ -131,22 +240,24 @@ class _BucketListScreenState extends State<BucketListScreen> {
         setState(() {
           _entries.remove(entry);
         });
+        await _deleteEntry(entry);
         return;
       case _BucketItemMenuAction.complete:
         final bool confirmed = await _confirmMoveToCompleted();
         if (!confirmed || !mounted) {
           return;
         }
+        final int index = _entries.indexOf(entry);
+        if (index < 0) {
+          return;
+        }
+        final _BucketEntry updated = _entries[index].copyWith(
+          isCompleted: true,
+          dueDate: _entries[index].dueDate ?? DateTime.now(),
+        );
+        final _BucketEntry saved = await _putEntry(updated);
         setState(() {
-          final int index = _entries.indexOf(entry);
-          if (index < 0) {
-            return;
-          }
-          final _BucketEntry current = _entries[index];
-          _entries[index] = current.copyWith(
-            isCompleted: true,
-            dueDate: current.dueDate ?? DateTime.now(),
-          );
+          _entries[index] = saved;
           _selectedTabIndex = _tabs.length - 1;
         });
         if (!mounted) {
@@ -364,23 +475,29 @@ class _BucketListScreenState extends State<BucketListScreen> {
       return;
     }
 
+    final _BucketEntry updated = _BucketEntry(
+      id: entry.id,
+      title: result.item.title,
+      category: result.item.categoryName,
+      categoryColor: result.item.categoryColor,
+      createdAt: result.item.createdAt,
+      dueDate: result.item.dueDate,
+      isCompleted: result.item.isCompleted,
+    );
+    final _BucketEntry saved = await _putEntry(updated);
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _customCategories
         ..clear()
         ..addAll(result.categories);
       final int index = _entries.indexOf(entry);
-      final _BucketEntry updated = _BucketEntry(
-        title: result.item.title,
-        category: result.item.categoryName,
-        categoryColor: result.item.categoryColor,
-        createdAt: result.item.createdAt,
-        dueDate: result.item.dueDate,
-        isCompleted: result.item.isCompleted,
-      );
       if (index >= 0) {
-        _entries[index] = updated;
+        _entries[index] = saved;
       }
     });
+    await _saveCategories();
   }
 
   Future<void> _openEntryMenu({
@@ -509,6 +626,12 @@ class _BucketListScreenState extends State<BucketListScreen> {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: brand.bg,
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     final bool isEmpty = _entries.isEmpty;
     final double bottomInset =
         AppNavigationBar.totalHeight(context) + AppSpacing.s24;
@@ -756,6 +879,7 @@ enum _BucketItemMenuAction { edit, delete, complete }
 
 class _BucketEntry {
   const _BucketEntry({
+    this.id,
     required this.title,
     required this.category,
     required this.categoryColor,
@@ -764,6 +888,7 @@ class _BucketEntry {
     this.isCompleted = false,
   });
 
+  final int? id;
   final String title;
   final String category;
   final Color categoryColor;
@@ -772,6 +897,7 @@ class _BucketEntry {
   final bool isCompleted;
 
   _BucketEntry copyWith({
+    int? id,
     String? title,
     String? category,
     Color? categoryColor,
@@ -780,6 +906,7 @@ class _BucketEntry {
     bool? isCompleted,
   }) {
     return _BucketEntry(
+      id: id ?? this.id,
       title: title ?? this.title,
       category: category ?? this.category,
       categoryColor: categoryColor ?? this.categoryColor,

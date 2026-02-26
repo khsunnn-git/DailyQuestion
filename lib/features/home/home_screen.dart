@@ -31,10 +31,14 @@ class HomeScreen extends StatelessWidget {
   static void openTodayQuestionAnswer(
     BuildContext context, {
     String? questionText,
+    int? questionSlot,
   }) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => TodayQuestionAnswerScreen(questionText: questionText),
+        builder: (_) => TodayQuestionAnswerScreen(
+          questionText: questionText,
+          questionSlot: questionSlot,
+        ),
       ),
     );
   }
@@ -400,6 +404,7 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
                     onPressed: () => HomeScreen.openTodayQuestionAnswer(
                       context,
                       questionText: questionText,
+                      questionSlot: questionState.refreshIndex,
                     ),
                     style: FilledButton.styleFrom(
                       backgroundColor: brand.c500,

@@ -14,12 +14,14 @@ class TodayQuestionAnswerScreen extends StatefulWidget {
     this.initialDate,
     this.headerTitle,
     this.questionText,
+    this.questionSlot,
   });
 
   final TodayQuestionRecord? editingRecord;
   final DateTime? initialDate;
   final String? headerTitle;
   final String? questionText;
+  final int? questionSlot;
 
   @override
   State<TodayQuestionAnswerScreen> createState() =>
@@ -49,6 +51,11 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
             widget.initialDate!.day,
             12,
           );
+    final int resolvedQuestionSlot = _resolveQuestionSlot();
+    final String resolvedQuestionText =
+        widget.questionText ??
+        TodayQuestionPromptStore.instance.value.currentQuestionText;
+    final DateTime groupDate = targetDate ?? DateTime.now();
     final TodayQuestionRecord? savedRecord = isEditMode
         ? await TodayQuestionStore.instance.updateRecord(
             createdAt: widget.editingRecord!.createdAt,
@@ -61,6 +68,9 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
             isPublic: _isPublic,
             bucketTags: _bucketTags,
             createdAt: targetDate,
+            questionSlot: resolvedQuestionSlot,
+            questionDateKey: _dateKey(groupDate),
+            questionText: resolvedQuestionText,
           );
 
     if (savedRecord == null) {
@@ -101,6 +111,22 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       return;
     }
     Navigator.of(context).pop(savedRecord);
+  }
+
+  int _resolveQuestionSlot() {
+    if (widget.questionSlot != null) {
+      return widget.questionSlot!.clamp(0, 2);
+    }
+    if (widget.initialDate != null && widget.questionText != null) {
+      return 0;
+    }
+    return TodayQuestionPromptStore.instance.value.refreshIndex.clamp(0, 2);
+  }
+
+  String _dateKey(DateTime dateTime) {
+    final String mm = dateTime.month.toString().padLeft(2, "0");
+    final String dd = dateTime.day.toString().padLeft(2, "0");
+    return "${dateTime.year}$mm$dd";
   }
 
   @override

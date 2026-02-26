@@ -91,14 +91,14 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
       );
   }
 
-  void _removeTag(int index) {
+  Future<void> _removeTag(int index) async {
     if (index < 0 || index >= _bucketTags.length) {
       return;
     }
     setState(() {
       _bucketTags.removeAt(index);
     });
-    TodayQuestionStore.instance.updateRecordBucketTags(
+    await TodayQuestionStore.instance.updateRecordBucketTags(
       createdAt: widget.record.createdAt,
       bucketTags: _bucketTags,
     );
@@ -114,9 +114,9 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
     });
   }
 
-  void _handleTagTap(int index) {
+  Future<void> _handleTagTap(int index) async {
     if (_armedDeleteTagIndex == index) {
-      _removeTag(index);
+      await _removeTag(index);
       setState(() {
         _armedDeleteTagIndex = null;
       });
@@ -132,6 +132,9 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
       bucketTag: _bucketTags.isEmpty ? null : _bucketTags.last,
       bucketTags: List<String>.from(_bucketTags),
       isPublic: _isPublic,
+      questionSlot: widget.record.questionSlot,
+      questionDateKey: widget.record.questionDateKey,
+      questionText: widget.record.questionText,
     );
 
     final TodayQuestionRecord? updatedRecord = await Navigator.of(context)
@@ -235,7 +238,7 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
       return;
     }
 
-    final bool removed = TodayQuestionStore.instance.deleteRecord(
+    final bool removed = await TodayQuestionStore.instance.deleteRecord(
       createdAt: widget.record.createdAt,
     );
     if (!mounted) {
@@ -261,78 +264,120 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
         padding: EdgeInsets.zero,
         child: Stack(
           children: <Widget>[
-                Positioned.fill(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      AppSpacing.s20,
-                      49,
-                      AppSpacing.s20,
-                      AppNavigationBar.totalHeight(context) + AppSpacing.s20,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+            Positioned.fill(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.s20,
+                  49,
+                  AppSpacing.s20,
+                  AppNavigationBar.totalHeight(context) + AppSpacing.s20,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Row(
                       children: <Widget>[
-                        Row(
-                          children: <Widget>[
-                            SizedBox(
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: IconButton(
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
                               width: 24,
                               height: 24,
-                              child: IconButton(
-                                onPressed: () =>
-                                    Navigator.of(context).maybePop(),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints.tightFor(
-                                  width: 24,
-                                  height: 24,
-                                ),
-                                icon: const Icon(
-                                  Icons.arrow_back,
-                                  color: AppNeutralColors.grey900,
-                                  size: 24,
-                                ),
-                              ),
                             ),
-                            Expanded(
-                              child: Text(
-                                createdDate,
-                                textAlign: TextAlign.center,
-                                style: AppTypography.headingXSmall.copyWith(
-                                  color: AppNeutralColors.grey900,
-                                ),
-                              ),
+                            icon: const Icon(
+                              Icons.arrow_back,
+                              color: AppNeutralColors.grey900,
+                              size: 24,
                             ),
-                            SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: IconButton(
-                                onPressed: _toggleMoreMenu,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints.tightFor(
-                                  width: 24,
-                                  height: 24,
-                                ),
-                                visualDensity: VisualDensity.compact,
-                                icon: const Icon(
-                                  Icons.more_horiz,
-                                  color: AppNeutralColors.grey400,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.s24),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s24,
                           ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            createdDate,
+                            textAlign: TextAlign.center,
+                            style: AppTypography.headingXSmall.copyWith(
+                              color: AppNeutralColors.grey900,
+                            ),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: IconButton(
+                            onPressed: _toggleMoreMenu,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 24,
+                              height: 24,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.more_horiz,
+                              color: AppNeutralColors.grey400,
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.s24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.s24,
+                      ),
+                      child: Container(
+                        width: 300,
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.s8,
+                          AppSpacing.s24,
+                          AppSpacing.s8,
+                          AppSpacing.s24,
+                        ),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: AppNeutralColors.grey100),
+                          ),
+                        ),
+                        child: Text(
+                          "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+                          textAlign: TextAlign.center,
+                          style: AppTypography.headingLarge.copyWith(
+                            color: AppNeutralColors.grey900,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.s24,
+                      ),
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 370),
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          _answer,
+                          style: AppTypography.bodyLargeRegular.copyWith(
+                            color: AppNeutralColors.grey800,
+                            height: 1.8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_bucketTags.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: AppSpacing.s24),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.s24,
+                        ),
+                        child: SizedBox(
+                          width: 300,
                           child: Container(
-                            width: 300,
-                            padding: const EdgeInsets.fromLTRB(
-                              AppSpacing.s8,
-                              AppSpacing.s24,
-                              AppSpacing.s8,
-                              AppSpacing.s24,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.s8,
                             ),
                             decoration: const BoxDecoration(
                               border: Border(
@@ -342,229 +387,176 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                               ),
                             ),
                             child: Text(
-                              "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
-                              textAlign: TextAlign.center,
-                              style: AppTypography.headingLarge.copyWith(
+                              "버킷리스트",
+                              style: AppTypography.headingXSmall.copyWith(
                                 color: AppNeutralColors.grey900,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.s24),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s24,
-                          ),
-                          child: Container(
-                            constraints: const BoxConstraints(minHeight: 370),
-                            alignment: Alignment.topLeft,
-                            child: Text(
-                              _answer,
-                              style: AppTypography.bodyLargeRegular.copyWith(
-                                color: AppNeutralColors.grey800,
-                                height: 1.8,
-                              ),
-                            ),
-                          ),
+                      ),
+                      const SizedBox(height: AppSpacing.s8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.s24,
                         ),
-                        if (_bucketTags.isNotEmpty) ...<Widget>[
-                          const SizedBox(height: AppSpacing.s24),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.s24,
-                            ),
-                            child: SizedBox(
-                              width: 300,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: AppSpacing.s8,
-                                ),
-                                decoration: const BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(
-                                      color: AppNeutralColors.grey100,
-                                    ),
-                                  ),
-                                ),
-                                child: Text(
-                                  "버킷리스트",
-                                  style: AppTypography.headingXSmall.copyWith(
-                                    color: AppNeutralColors.grey900,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.s8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.s24,
-                            ),
-                            child: SizedBox(
-                              width: 300,
-                              child: Wrap(
-                                spacing: AppSpacing.s8,
-                                runSpacing: AppSpacing.s8,
-                                children: _bucketTags
-                                    .asMap()
-                                    .entries
-                                    .map((MapEntry<int, String> entry) {
-                                      final int index = entry.key;
-                                      final String tag = entry.value;
-                                      return Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onLongPress: () =>
-                                              _armTagDelete(index),
-                                          onTap: () => _handleTagTap(index),
-                                          borderRadius: AppRadius.pill,
-                                          child: Container(
-                                            height: 38,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: AppSpacing.s12,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: brand.c500,
-                                              borderRadius: AppRadius.pill,
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: <Widget>[
-                                                Text(
-                                                  "#$tag",
-                                                  style: AppTypography
-                                                      .buttonSmall
-                                                      .copyWith(
-                                                        color: AppNeutralColors
-                                                            .white,
-                                                      ),
-                                                ),
-                                                if (_armedDeleteTagIndex ==
-                                                    index) ...<Widget>[
-                                                  const SizedBox(
-                                                    width: AppSpacing.s6,
-                                                  ),
-                                                  Container(
-                                                    width: 20,
-                                                    height: 20,
-                                                    decoration:
-                                                        const BoxDecoration(
-                                                          color:
-                                                              AppNeutralColors
-                                                                  .white,
-                                                          shape:
-                                                              BoxShape.circle,
-                                                        ),
-                                                    child: Icon(
-                                                      Icons.close,
-                                                      size: 16,
-                                                      color: brand.c500,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                          ),
+                        child: SizedBox(
+                          width: 300,
+                          child: Wrap(
+                            spacing: AppSpacing.s8,
+                            runSpacing: AppSpacing.s8,
+                            children: _bucketTags
+                                .asMap()
+                                .entries
+                                .map((MapEntry<int, String> entry) {
+                                  final int index = entry.key;
+                                  final String tag = entry.value;
+                                  return Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      onLongPress: () => _armTagDelete(index),
+                                      onTap: () => _handleTagTap(index),
+                                      borderRadius: AppRadius.pill,
+                                      child: Container(
+                                        height: 38,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: AppSpacing.s12,
                                         ),
-                                      );
-                                    })
-                                    .toList(growable: false),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-                if (_showMoreMenu)
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onTap: _dismissMoreMenu,
-                      child: const SizedBox.expand(),
-                    ),
-                  ),
-                if (_showMoreMenu)
-                  Positioned(
-                    top: 70,
-                    right: AppSpacing.s28,
-                    child: AppDropdownMenu(
-                      size: AppDropdownMenuSize.lg,
-                      items: <AppDropdownItem>[
-                        AppDropdownItem(
-                          label: "수정",
-                          state: _selectedMoreMenuIndex == 0
-                              ? AppDropdownItemState.selected
-                              : AppDropdownItemState.defaultState,
-                          onTap: () => _handleMoreMenuTap(
-                            index: 0,
-                            action: _openEditScreen,
-                          ),
-                        ),
-                        AppDropdownItem(
-                          label: "삭제",
-                          state: _selectedMoreMenuIndex == 1
-                              ? AppDropdownItemState.selected
-                              : AppDropdownItemState.defaultState,
-                          onTap: () => _handleMoreMenuTap(
-                            index: 1,
-                            action: _deleteRecordWithPopup,
+                                        decoration: BoxDecoration(
+                                          color: brand.c500,
+                                          borderRadius: AppRadius.pill,
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: <Widget>[
+                                            Text(
+                                              "#$tag",
+                                              style: AppTypography.buttonSmall
+                                                  .copyWith(
+                                                    color:
+                                                        AppNeutralColors.white,
+                                                  ),
+                                            ),
+                                            if (_armedDeleteTagIndex ==
+                                                index) ...<Widget>[
+                                              const SizedBox(
+                                                width: AppSpacing.s6,
+                                              ),
+                                              Container(
+                                                width: 20,
+                                                height: 20,
+                                                decoration: const BoxDecoration(
+                                                  color: AppNeutralColors.white,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(
+                                                  Icons.close,
+                                                  size: 16,
+                                                  color: brand.c500,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                })
+                                .toList(growable: false),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: AppNavigationBar(
-                    currentIndex: 2,
-                    onTap: (int index) {
-                      if (index == 0) {
-                        Navigator.of(
-                          context,
-                        ).popUntil((Route<dynamic> route) => route.isFirst);
-                        return;
-                      }
-                      if (index == 1) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const BucketListScreen(),
-                          ),
-                        );
-                        return;
-                      }
-                      if (index == 2) {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const MyRecordsScreen(),
-                          ),
-                        );
-                      }
-                    },
-                    items: const <AppNavigationBarItemData>[
-                      AppNavigationBarItemData(
-                        label: "오늘의 질문",
-                        icon: Icons.home_outlined,
-                      ),
-                      AppNavigationBarItemData(
-                        label: "버킷리스트",
-                        icon: Icons.format_list_bulleted,
-                      ),
-                      AppNavigationBarItemData(
-                        label: "나의기록",
-                        icon: Icons.assignment_outlined,
-                      ),
-                      AppNavigationBarItemData(
-                        label: "더보기",
-                        icon: Icons.more_horiz,
                       ),
                     ],
-                  ),
+                  ],
                 ),
-              ],
+              ),
+            ),
+            if (_showMoreMenu)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _dismissMoreMenu,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            if (_showMoreMenu)
+              Positioned(
+                top: 70,
+                right: AppSpacing.s28,
+                child: AppDropdownMenu(
+                  size: AppDropdownMenuSize.lg,
+                  items: <AppDropdownItem>[
+                    AppDropdownItem(
+                      label: "수정",
+                      state: _selectedMoreMenuIndex == 0
+                          ? AppDropdownItemState.selected
+                          : AppDropdownItemState.defaultState,
+                      onTap: () =>
+                          _handleMoreMenuTap(index: 0, action: _openEditScreen),
+                    ),
+                    AppDropdownItem(
+                      label: "삭제",
+                      state: _selectedMoreMenuIndex == 1
+                          ? AppDropdownItemState.selected
+                          : AppDropdownItemState.defaultState,
+                      onTap: () => _handleMoreMenuTap(
+                        index: 1,
+                        action: _deleteRecordWithPopup,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AppNavigationBar(
+                currentIndex: 2,
+                onTap: (int index) {
+                  if (index == 0) {
+                    Navigator.of(
+                      context,
+                    ).popUntil((Route<dynamic> route) => route.isFirst);
+                    return;
+                  }
+                  if (index == 1) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const BucketListScreen(),
+                      ),
+                    );
+                    return;
+                  }
+                  if (index == 2) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const MyRecordsScreen(),
+                      ),
+                    );
+                  }
+                },
+                items: const <AppNavigationBarItemData>[
+                  AppNavigationBarItemData(
+                    label: "오늘의 질문",
+                    icon: Icons.home_outlined,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "버킷리스트",
+                    icon: Icons.format_list_bulleted,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "나의기록",
+                    icon: Icons.assignment_outlined,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "더보기",
+                    icon: Icons.more_horiz,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

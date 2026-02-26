@@ -164,13 +164,24 @@ class MyRecordsScreen extends StatefulWidget {
 
     return <TodayQuestionRecord>[
       TodayQuestionRecord(
-        createdAt: DateTime(_debugMockRecordYear - 1, baseDate.month, baseDate.day, 12),
-        answer: "스페인에 가서 성지순례를 다녀오고 싶어. 사람들도 많이 만나고 나 자신에 대해 좀 더 알아갈 수 있는 시간이 될 것 같아.",
+        createdAt: DateTime(
+          _debugMockRecordYear - 1,
+          baseDate.month,
+          baseDate.day,
+          12,
+        ),
+        answer:
+            "스페인에 가서 성지순례를 다녀오고 싶어. 사람들도 많이 만나고 나 자신에 대해 좀 더 알아갈 수 있는 시간이 될 것 같아.",
         author: "나의 기록",
         isPublic: false,
       ),
       TodayQuestionRecord(
-        createdAt: DateTime(_debugMockRecordYear - 2, baseDate.month, baseDate.day, 12),
+        createdAt: DateTime(
+          _debugMockRecordYear - 2,
+          baseDate.month,
+          baseDate.day,
+          12,
+        ),
         answer: "기타로 노래 한 곡 완주하기",
         author: "나의 기록",
         isPublic: false,
@@ -563,10 +574,7 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                   month: widget.selectedMonth,
                 );
             if (debugMock != null) {
-              recordByDay.putIfAbsent(
-                debugMock.createdAt.day,
-                () => debugMock,
-              );
+              recordByDay.putIfAbsent(debugMock.createdAt.day, () => debugMock);
             }
             final Map<int, _MonthlyRecordPreview> seedByDay =
                 <int, _MonthlyRecordPreview>{
@@ -615,7 +623,8 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                       day: day,
                       date: seed?.date ?? "$day일 $weekday",
                       question:
-                          seed?.question ?? MyRecordsScreen.questionTextForDay(day),
+                          seed?.question ??
+                          MyRecordsScreen.questionTextForDay(day),
                       body: record.answer,
                       tags: tags,
                       record: record,
@@ -875,19 +884,14 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
     if (!mounted || confirmed != true) {
       return;
     }
-    TodayQuestionStore.instance.deleteRecord(createdAt: record.createdAt);
+    await TodayQuestionStore.instance.deleteRecord(createdAt: record.createdAt);
   }
 
   DateTime _baseDate() {
     final _MonthlyRecordPreview item = widget.item;
     final DateTime now = DateTime.now();
     return item.record?.createdAt ??
-        DateTime(
-          item.year ?? now.year,
-          item.month ?? now.month,
-          item.day,
-          12,
-        );
+        DateTime(item.year ?? now.year, item.month ?? now.month, item.day, 12);
   }
 
   List<AnnualRecordEntry> _buildAnnualEntries() {
@@ -941,7 +945,9 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
   Future<void> _openQuestionHistory(List<AnnualRecordEntry> entries) async {
     final _MonthlyRecordPreview item = widget.item;
     final int baseYear = _baseDate().year;
-    final int pastYearCount = entries.where((entry) => entry.year < baseYear).length;
+    final int pastYearCount = entries
+        .where((entry) => entry.year < baseYear)
+        .length;
     if (pastYearCount == 0) {
       return;
     }
@@ -1309,10 +1315,7 @@ class _StreakCard extends StatelessWidget {
             .weeklyCompletion(referenceDate: latestDate);
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 40,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           decoration: BoxDecoration(
             color: AppNeutralColors.white,
             borderRadius: AppRadius.br16,
@@ -1486,7 +1489,9 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                   onTap: _openPastRecordsScreen,
                   borderRadius: AppRadius.br8,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.s4),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.s4,
+                    ),
                     child: Text(
                       "나의 지난 기록",
                       style: AppTypography.headingSmall.copyWith(
@@ -1525,11 +1530,7 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
           child: ValueListenableBuilder<List<TodayQuestionRecord>>(
             valueListenable: TodayQuestionStore.instance,
             builder:
-                (
-                  BuildContext context,
-                  List<TodayQuestionRecord> records,
-                  _,
-                ) {
+                (BuildContext context, List<TodayQuestionRecord> records, _) {
                   final int lastDay = _lastVisibleDayOfMonth();
                   final Map<int, TodayQuestionRecord> recordByDay =
                       <int, TodayQuestionRecord>{};
@@ -1553,25 +1554,21 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                   }
 
                   final List<_RecordListItem> monthlyItems =
-                      List<_RecordListItem>.generate(
-                        lastDay,
-                        (int index) {
-                          final int day = lastDay - index;
-                          return _RecordListItem(
-                            day: day.toString().padLeft(2, "0"),
-                            weekday: _weekdayLabel(
-                              DateTime(
-                                widget.selectedYear,
-                                widget.selectedMonth,
-                                day,
-                              ),
+                      List<_RecordListItem>.generate(lastDay, (int index) {
+                        final int day = lastDay - index;
+                        return _RecordListItem(
+                          day: day.toString().padLeft(2, "0"),
+                          weekday: _weekdayLabel(
+                            DateTime(
+                              widget.selectedYear,
+                              widget.selectedMonth,
+                              day,
                             ),
-                            text: _questionForDay(day),
-                            isCompleted: recordByDay.containsKey(day),
-                          );
-                        },
-                        growable: false,
-                      );
+                          ),
+                          text: _questionForDay(day),
+                          isCompleted: recordByDay.containsKey(day),
+                        );
+                      }, growable: false);
 
                   final int total = monthlyItems.length;
                   final int visibleCount = _visibleCount > total
@@ -1593,7 +1590,9 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                                 item: monthlyItems[i],
                                 isLast: i == visibleCount - 1,
                                 onTap: () {
-                                  final int day = int.parse(monthlyItems[i].day);
+                                  final int day = int.parse(
+                                    monthlyItems[i].day,
+                                  );
                                   final DateTime selectedDate = DateTime(
                                     widget.selectedYear,
                                     widget.selectedMonth,
@@ -1602,22 +1601,20 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                                   if (recordByDay.containsKey(day)) {
                                     Navigator.of(context).push(
                                       MaterialPageRoute<void>(
-                                        builder:
-                                            (_) => MyRecordDetailScreen(
-                                              record: recordByDay[day]!,
-                                            ),
+                                        builder: (_) => MyRecordDetailScreen(
+                                          record: recordByDay[day]!,
+                                        ),
                                       ),
                                     );
                                     return;
                                   }
                                   Navigator.of(context).push(
                                     MaterialPageRoute<void>(
-                                      builder:
-                                          (_) => TodayQuestionAnswerScreen(
-                                            initialDate: selectedDate,
-                                            headerTitle: "지난 질문",
-                                            questionText: monthlyItems[i].text,
-                                          ),
+                                      builder: (_) => TodayQuestionAnswerScreen(
+                                        initialDate: selectedDate,
+                                        headerTitle: "지난 질문",
+                                        questionText: monthlyItems[i].text,
+                                      ),
                                     ),
                                   );
                                 },
@@ -1634,7 +1631,8 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                             style: TextButton.styleFrom(
                               minimumSize: Size(0, smallButtonMetrics.height),
                               padding: EdgeInsets.symmetric(
-                                horizontal: smallButtonMetrics.horizontalPadding,
+                                horizontal:
+                                    smallButtonMetrics.horizontalPadding,
                               ),
                               foregroundColor: AppNeutralColors.grey600,
                               textStyle: smallButtonMetrics.textStyle,
@@ -1761,155 +1759,148 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
           Positioned.fill(
             child: ValueListenableBuilder<List<TodayQuestionRecord>>(
               valueListenable: TodayQuestionStore.instance,
-              builder:
-                  (
-                    BuildContext context,
-                    List<TodayQuestionRecord> records,
-                    _,
-                  ) {
-                    final int lastDay = _lastVisibleDayOfMonth();
-                    final Map<int, TodayQuestionRecord> recordByDay =
-                        <int, TodayQuestionRecord>{};
-                    for (final TodayQuestionRecord record in records) {
-                      if (record.createdAt.year != _selectedYear ||
-                          record.createdAt.month != _selectedMonth) {
-                        continue;
-                      }
-                      recordByDay.putIfAbsent(record.createdAt.day, () => record);
-                    }
-                    final TodayQuestionRecord? debugMock =
-                        MyRecordsScreen.debugMockRecordForMonth(
-                          year: _selectedYear,
-                          month: _selectedMonth,
-                        );
-                    if (debugMock != null) {
-                      recordByDay.putIfAbsent(
-                        debugMock.createdAt.day,
-                        () => debugMock,
-                      );
-                    }
+              builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
+                final int lastDay = _lastVisibleDayOfMonth();
+                final Map<int, TodayQuestionRecord> recordByDay =
+                    <int, TodayQuestionRecord>{};
+                for (final TodayQuestionRecord record in records) {
+                  if (record.createdAt.year != _selectedYear ||
+                      record.createdAt.month != _selectedMonth) {
+                    continue;
+                  }
+                  recordByDay.putIfAbsent(record.createdAt.day, () => record);
+                }
+                final TodayQuestionRecord? debugMock =
+                    MyRecordsScreen.debugMockRecordForMonth(
+                      year: _selectedYear,
+                      month: _selectedMonth,
+                    );
+                if (debugMock != null) {
+                  recordByDay.putIfAbsent(
+                    debugMock.createdAt.day,
+                    () => debugMock,
+                  );
+                }
 
-                    return SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(
-                        AppSpacing.s20,
-                        49 + AppSpacing.s20,
-                        AppSpacing.s20,
-                        AppNavigationBar.totalHeight(context) + AppSpacing.s20,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                return SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.s20,
+                    49 + AppSpacing.s20,
+                    AppSpacing.s20,
+                    AppNavigationBar.totalHeight(context) + AppSpacing.s20,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Row(
                         children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              SizedBox(
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: IconButton(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
                                 width: 24,
                                 height: 24,
-                                child: IconButton(
-                                  onPressed: () => Navigator.of(context).maybePop(),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 24,
-                                    height: 24,
-                                  ),
-                                  icon: const Icon(
-                                    Icons.arrow_back,
-                                    color: AppNeutralColors.grey900,
-                                    size: 24,
-                                  ),
-                                ),
                               ),
-                              Expanded(
-                                child: Text(
-                                  "나의 지난기록",
-                                  textAlign: TextAlign.center,
-                                  style: AppTypography.headingXSmall.copyWith(
-                                    color: AppNeutralColors.grey900,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 24, height: 24),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.s24),
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: _handleTapYearMonth,
-                              borderRadius: AppRadius.br8,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.s12,
-                                  vertical: AppSpacing.s8,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    Text(
-                                      "${_selectedYear.toString().padLeft(4, "0")}."
-                                      "${_selectedMonth.toString().padLeft(2, "0")}",
-                                      style: AppTypography.headingSmall.copyWith(
-                                        color: AppNeutralColors.grey900,
-                                      ),
-                                    ),
-                                    const SizedBox(width: AppSpacing.s4),
-                                    const Icon(
-                                      Icons.keyboard_arrow_down,
-                                      size: 20,
-                                      color: AppNeutralColors.grey900,
-                                    ),
-                                  ],
-                                ),
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: AppNeutralColors.grey900,
+                                size: 24,
                               ),
                             ),
                           ),
-                          const SizedBox(height: AppSpacing.s16),
-                          for (int day = 1; day <= lastDay; day++)
-                            _PastRecordsListRow(
-                              item: _RecordListItem(
-                                day: day.toString().padLeft(2, "0"),
-                                weekday: _weekdayLabel(
-                                  DateTime(_selectedYear, _selectedMonth, day),
-                                ),
-                                text: _questionForDay(day),
-                                isCompleted: recordByDay.containsKey(day),
+                          Expanded(
+                            child: Text(
+                              "나의 지난기록",
+                              textAlign: TextAlign.center,
+                              style: AppTypography.headingXSmall.copyWith(
+                                color: AppNeutralColors.grey900,
                               ),
-                              isLast: day == lastDay,
-                              onTap: () {
-                                final DateTime selectedDate = DateTime(
-                                  _selectedYear,
-                                  _selectedMonth,
-                                  day,
-                                );
-                                final String selectedQuestion = _questionForDay(
-                                  day,
-                                );
-                                if (recordByDay.containsKey(day)) {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder:
-                                          (_) => MyRecordDetailScreen(
-                                            record: recordByDay[day]!,
-                                          ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder:
-                                        (_) => TodayQuestionAnswerScreen(
-                                          initialDate: selectedDate,
-                                          headerTitle: "지난 질문",
-                                          questionText: selectedQuestion,
-                                        ),
-                                  ),
-                                );
-                              },
                             ),
+                          ),
+                          const SizedBox(width: 24, height: 24),
                         ],
                       ),
-                    );
-                  },
+                      const SizedBox(height: AppSpacing.s24),
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: _handleTapYearMonth,
+                          borderRadius: AppRadius.br8,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s12,
+                              vertical: AppSpacing.s8,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  "${_selectedYear.toString().padLeft(4, "0")}."
+                                  "${_selectedMonth.toString().padLeft(2, "0")}",
+                                  style: AppTypography.headingSmall.copyWith(
+                                    color: AppNeutralColors.grey900,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.s4),
+                                const Icon(
+                                  Icons.keyboard_arrow_down,
+                                  size: 20,
+                                  color: AppNeutralColors.grey900,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.s16),
+                      for (int day = 1; day <= lastDay; day++)
+                        _PastRecordsListRow(
+                          item: _RecordListItem(
+                            day: day.toString().padLeft(2, "0"),
+                            weekday: _weekdayLabel(
+                              DateTime(_selectedYear, _selectedMonth, day),
+                            ),
+                            text: _questionForDay(day),
+                            isCompleted: recordByDay.containsKey(day),
+                          ),
+                          isLast: day == lastDay,
+                          onTap: () {
+                            final DateTime selectedDate = DateTime(
+                              _selectedYear,
+                              _selectedMonth,
+                              day,
+                            );
+                            final String selectedQuestion = _questionForDay(
+                              day,
+                            );
+                            if (recordByDay.containsKey(day)) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => MyRecordDetailScreen(
+                                    record: recordByDay[day]!,
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => TodayQuestionAnswerScreen(
+                                  initialDate: selectedDate,
+                                  headerTitle: "지난 질문",
+                                  questionText: selectedQuestion,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
           Positioned(
@@ -1920,7 +1911,9 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
               currentIndex: 2,
               onTap: (int index) {
                 if (index == 0) {
-                  Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+                  Navigator.of(
+                    context,
+                  ).popUntil((Route<dynamic> route) => route.isFirst);
                   return;
                 }
                 if (index == 1) {
@@ -1944,10 +1937,7 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                   label: "나의기록",
                   icon: Icons.assignment_outlined,
                 ),
-                AppNavigationBarItemData(
-                  label: "더보기",
-                  icon: Icons.more_horiz,
-                ),
+                AppNavigationBarItemData(label: "더보기", icon: Icons.more_horiz),
               ],
             ),
           ),
@@ -2030,11 +2020,7 @@ class _PastRecordsListRow extends StatelessWidget {
 }
 
 class _PastRecordRow extends StatelessWidget {
-  const _PastRecordRow({
-    required this.item,
-    required this.isLast,
-    this.onTap,
-  });
+  const _PastRecordRow({required this.item, required this.isLast, this.onTap});
 
   final _RecordListItem item;
   final bool isLast;
