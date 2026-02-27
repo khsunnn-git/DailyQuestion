@@ -20,6 +20,8 @@ class BucketListScreen extends StatefulWidget {
 class _BucketListScreenState extends State<BucketListScreen> {
   static const String _emptyBucketAsset =
       "assets/images/bucket/bucketlist_empty_state_note.png";
+  static const String _allCategoryName = "ALL";
+  static const Color _allCategoryColor = AppNeutralColors.grey100;
   int _selectedTabIndex = 0;
   final List<_BucketEntry> _entries = <_BucketEntry>[];
   final List<BucketCategorySelection> _customCategories =
@@ -213,12 +215,48 @@ class _BucketListScreenState extends State<BucketListScreen> {
     if (result == null || !mounted) {
       return;
     }
+    final Set<String> previousCategoryNames = _customCategories
+        .map((BucketCategorySelection e) => e.name)
+        .toSet();
+    final Set<String> nextCategoryNames = result.categories
+        .map((BucketCategorySelection e) => e.name)
+        .toSet();
+    final Set<String> removedCategoryNames = previousCategoryNames.difference(
+      nextCategoryNames,
+    );
+    final List<_BucketEntry> updatedEntries = removedCategoryNames.isEmpty
+        ? List<_BucketEntry>.from(_entries)
+        : await _reassignEntriesToAll(removedCategoryNames);
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _customCategories
         ..clear()
         ..addAll(result.categories);
+      _entries
+        ..clear()
+        ..addAll(updatedEntries);
     });
     await _saveCategories();
+  }
+
+  Future<List<_BucketEntry>> _reassignEntriesToAll(
+    Set<String> removedCategoryNames,
+  ) async {
+    final List<_BucketEntry> nextEntries = List<_BucketEntry>.from(_entries);
+    for (int index = 0; index < nextEntries.length; index++) {
+      final _BucketEntry current = nextEntries[index];
+      if (!removedCategoryNames.contains(current.category)) {
+        continue;
+      }
+      final _BucketEntry reassigned = current.copyWith(
+        category: _allCategoryName,
+        categoryColor: _allCategoryColor,
+      );
+      nextEntries[index] = await _putEntry(reassigned);
+    }
+    return nextEntries;
   }
 
   Future<void> _onEntryMenuAction(
@@ -269,7 +307,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
               title: "멋져요!\n버킷리스트 달성완료!",
               subtitle: "완료 카테고리로 이동되었습니다!",
               imageAsset: BucketSaveSuccessScreen.completionAsset,
-              autoCloseDuration: Duration(seconds: 2),
+              autoCloseDuration: Duration(seconds: 1),
             ),
           ),
         );
@@ -293,8 +331,9 @@ class _BucketListScreenState extends State<BucketListScreen> {
               AppSpacing.s20,
               AppSpacing.s20,
             ),
+            actionTopGap: AppSpacing.s20,
             title: "해당 버킷리스트를\n완료 카테고리로\n이동하시겠습니까?",
-            body: "",
+            body: "완료 날짜는 자동으로 오늘로 설정됩니다.\n바꾸고 싶으시다면 수정하기 버튼을 눌러주세요.",
             actions: <Widget>[
               SizedBox(
                 width: 100,
@@ -661,16 +700,20 @@ class _BucketListScreenState extends State<BucketListScreen> {
               right: AppSpacing.s20,
               bottom: AppNavigationBar.totalHeight(context) + AppSpacing.s32,
               child: SizedBox(
-                height: AppSpacing.s48,
+                height: AppButtonTokens.metrics(AppButtonSize.large).height,
                 child: FilledButton(
                   onPressed: _openAddScreen,
                   style: FilledButton.styleFrom(
                     backgroundColor: brand.c500,
                     foregroundColor: AppNeutralColors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                      borderRadius: AppButtonTokens.metrics(
+                        AppButtonSize.large,
+                      ).radius,
                     ),
-                    textStyle: AppTypography.buttonMedium,
+                    textStyle: AppButtonTokens.metrics(
+                      AppButtonSize.large,
+                    ).textStyle,
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.s24,
                     ),

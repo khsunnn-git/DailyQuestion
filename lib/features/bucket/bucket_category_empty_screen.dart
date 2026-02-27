@@ -105,6 +105,25 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
       );
   }
 
+  void _showCategoryActionErrorToast() {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Center(child: AppToastMessage(text: "잠시 후 다시 시도해주세요.")),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          margin: EdgeInsets.fromLTRB(50, 0, 50, 98),
+        ),
+      );
+  }
+
   Future<BucketCategorySelection?> _openCategoryBottomSheet(
     BuildContext context, {
     BucketCategorySelection? initialCategory,
@@ -120,7 +139,6 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
     }
     final bool isEditMode = initialCategory != null;
     bool showColorToast = false;
-    Timer? toastTimer;
 
     final BucketCategorySelection?
     result = await showModalBottomSheet<BucketCategorySelection>(
@@ -155,17 +173,8 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
               AppButtonSize.medium,
             );
             void showMissingColorToast() {
-              toastTimer?.cancel();
               setModalState(() {
                 showColorToast = true;
-              });
-              toastTimer = Timer(const Duration(seconds: 2), () {
-                if (!context.mounted) {
-                  return;
-                }
-                setModalState(() {
-                  showColorToast = false;
-                });
               });
             }
 
@@ -185,6 +194,7 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
                     onTap: () {
                       setModalState(() {
                         selectedColorIndex = index;
+                        showColorToast = false;
                       });
                     },
                     child: SizedBox(
@@ -228,7 +238,7 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
                       AppSpacing.s20,
                       AppSpacing.s16,
                       AppSpacing.s20,
-                      AppSpacing.s48,
+                      AppSpacing.s20,
                     ),
                     decoration: const BoxDecoration(
                       color: AppNeutralColors.white,
@@ -374,8 +384,16 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
                             children: <Widget>[
                               Expanded(
                                 child: FilledButton(
-                                  onPressed: () => Navigator.of(context).pop(),
+                                  onPressed: () {
+                                    FocusManager.instance.primaryFocus
+                                        ?.unfocus();
+                                    Navigator.of(context).pop();
+                                  },
                                   style: FilledButton.styleFrom(
+                                    fixedSize: const Size.fromHeight(48),
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                     backgroundColor: AppNeutralColors.grey100,
                                     overlayColor: Colors.transparent,
                                     splashFactory: NoSplash.splashFactory,
@@ -393,41 +411,45 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
                               ),
                               const SizedBox(width: AppSpacing.s8),
                               Expanded(
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: !canAdd && canSubmitName
-                                      ? showMissingColorToast
-                                      : null,
-                                  child: FilledButton(
-                                    onPressed: canAdd
-                                        ? () {
-                                            Navigator.of(context).pop(
-                                              BucketCategorySelection(
-                                                name: trimmedName,
-                                                color:
-                                                    _accentColors[selectedColorIndex!],
-                                              ),
-                                            );
+                                child: FilledButton(
+                                  onPressed: !canSubmitName
+                                      ? null
+                                      : () {
+                                          if (!canAdd) {
+                                            showMissingColorToast();
+                                            return;
                                           }
-                                        : null,
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: brand.c500,
-                                      disabledBackgroundColor: Color.alphaBlend(
-                                        AppTransparentColors.light64,
-                                        brand.c500,
-                                      ),
-                                      foregroundColor: AppNeutralColors.white,
-                                      disabledForegroundColor: brand.c100,
-                                      overlayColor: Colors.transparent,
-                                      splashFactory: NoSplash.splashFactory,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: buttonMetrics.radius,
-                                      ),
+                                          FocusManager.instance.primaryFocus
+                                              ?.unfocus();
+                                          Navigator.of(context).pop(
+                                            BucketCategorySelection(
+                                              name: trimmedName,
+                                              color:
+                                                  _accentColors[selectedColorIndex!],
+                                            ),
+                                          );
+                                        },
+                                  style: FilledButton.styleFrom(
+                                    fixedSize: const Size.fromHeight(48),
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    backgroundColor: brand.c500,
+                                    disabledBackgroundColor: Color.alphaBlend(
+                                      AppTransparentColors.light64,
+                                      brand.c500,
                                     ),
-                                    child: Text(
-                                      isEditMode ? "수정" : "추가",
-                                      style: buttonMetrics.textStyle,
+                                    foregroundColor: AppNeutralColors.white,
+                                    disabledForegroundColor: brand.c100,
+                                    overlayColor: Colors.transparent,
+                                    splashFactory: NoSplash.splashFactory,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: buttonMetrics.radius,
                                     ),
+                                  ),
+                                  child: Text(
+                                    isEditMode ? "수정" : "추가",
+                                    style: buttonMetrics.textStyle,
                                   ),
                                 ),
                               ),
@@ -444,9 +466,9 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
         );
       },
     );
-    toastTimer?.cancel();
 
-    nameController.dispose();
+    // Intentionally skip explicit dispose here: this controller can still be
+    // touched by delayed focus callbacks while bottom-sheet teardown finishes.
     return result;
   }
 
@@ -639,10 +661,7 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
             const SizedBox(height: AppSpacing.s48),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.s16,
-                vertical: AppSpacing.s8,
-              ),
+              padding: const EdgeInsets.all(AppSpacing.s16),
               decoration: BoxDecoration(
                 color: AppNeutralColors.white,
                 borderRadius: BorderRadius.circular(AppSpacing.s12),
@@ -734,27 +753,29 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
                   GestureDetector(
                     onTap: canCreateMore
                         ? () async {
-                            final BucketCategorySelection? selection =
-                                await _openCategoryBottomSheet(context);
-                            if (selection == null || !mounted) {
-                              return;
+                            try {
+                              final BucketCategorySelection? selection =
+                                  await _openCategoryBottomSheet(context);
+                              if (selection == null || !mounted) {
+                                return;
+                              }
+                              setState(() {
+                                _categories.add(selection);
+                                _selectedName = selection.name;
+                              });
+                            } catch (_) {
+                              _showCategoryActionErrorToast();
                             }
-                            setState(() {
-                              _categories.add(selection);
-                              _selectedName = selection.name;
-                            });
                           }
                         : _showMaxCategoryToast,
                     behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.s16,
-                      ),
+                    child: SizedBox(
+                      height: 48,
                       child: Row(
                         children: <Widget>[
                           Icon(
                             Icons.add,
-                            size: AppSpacing.s24,
+                            size: AppSpacing.s28,
                             color: canCreateMore
                                 ? brand.c500
                                 : AppNeutralColors.grey300,

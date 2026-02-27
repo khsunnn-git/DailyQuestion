@@ -22,6 +22,7 @@ class AppPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasBody = body.trim().isNotEmpty;
     return ConstrainedBox(
       constraints: BoxConstraints(
         maxWidth: AppPopupTokens.maxWidth,
@@ -46,15 +47,17 @@ class AppPopup extends StatelessWidget {
                 decoration: TextDecoration.none,
               ),
             ),
-            const SizedBox(height: AppPopupTokens.contentGap),
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: AppPopupTokens.bodyStyle.copyWith(
-                color: AppPopupTokens.bodyColor,
-                decoration: TextDecoration.none,
+            if (hasBody) ...<Widget>[
+              const SizedBox(height: AppPopupTokens.contentGap),
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: AppPopupTokens.bodyStyle.copyWith(
+                  color: AppPopupTokens.bodyColor,
+                  decoration: TextDecoration.none,
+                ),
               ),
-            ),
+            ],
             if (actions.isNotEmpty) ...<Widget>[
               SizedBox(height: actionTopGap),
               Row(

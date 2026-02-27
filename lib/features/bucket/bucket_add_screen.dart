@@ -47,10 +47,12 @@ class BucketAddScreen extends StatefulWidget {
 
 class _BucketAddScreenState extends State<BucketAddScreen> {
   late final TextEditingController _titleController;
+  bool _isDdayAlertEnabled = false;
   bool _isCompleted = false;
   late final List<BucketCategorySelection> _categories;
   BucketCategorySelection? _selectedCategory;
   DateTime? _selectedDueDate;
+  DateTime? _selectedCompletedDate;
 
   bool get _canSave =>
       _titleController.text.trim().isNotEmpty && _selectedCategory != null;
@@ -63,7 +65,15 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
     );
     _categories = List<BucketCategorySelection>.from(widget.initialCategories);
     _isCompleted = widget.initialItem?.isCompleted ?? false;
-    _selectedDueDate = widget.initialItem?.dueDate;
+    if (_isCompleted) {
+      _selectedCompletedDate = widget.initialItem?.dueDate;
+      _selectedDueDate = null;
+      _isDdayAlertEnabled = false;
+    } else {
+      _selectedDueDate = widget.initialItem?.dueDate;
+      _isDdayAlertEnabled = _selectedDueDate != null;
+      _selectedCompletedDate = null;
+    }
     final BucketCreatedItem? initialItem = widget.initialItem;
     if (initialItem != null) {
       final int existingIndex = _categories.indexWhere(
@@ -95,281 +105,262 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
 
     return Scaffold(
       backgroundColor: brand.bg,
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.s20,
-          49,
-          AppSpacing.s20,
-          AppSpacing.s24,
-        ),
-        child: Column(
-          children: <Widget>[
-            Row(
+      body: Column(
+        children: <Widget>[
+          const SizedBox(height: 49),
+          Container(
+            height: 65,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20),
+            child: Stack(
+              alignment: Alignment.center,
               children: <Widget>[
-                IconButton(
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back),
-                  color: AppNeutralColors.grey900,
-                  iconSize: AppSpacing.s24,
-                  splashRadius: AppSpacing.s20,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back),
+                    color: AppNeutralColors.grey900,
+                    iconSize: AppSpacing.s24,
+                    splashRadius: AppSpacing.s20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: AppSpacing.s24,
+                      height: AppSpacing.s24,
+                    ),
+                  ),
+                ),
+                Text(
+                  "버킷리스트",
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headingXSmall.copyWith(
+                    color: AppNeutralColors.grey900,
+                  ),
+                ),
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
                     width: AppSpacing.s24,
                     height: AppSpacing.s24,
                   ),
                 ),
-                Expanded(
-                  child: Text(
-                    "버킷리스트",
-                    textAlign: TextAlign.center,
-                    style: AppTypography.headingXSmall.copyWith(
-                      color: AppNeutralColors.grey900,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
               ],
             ),
-            const SizedBox(height: AppSpacing.s40),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: <Widget>[
-                    _InputCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          _RequiredTitle(label: "제목"),
-                          const SizedBox(height: AppSpacing.s2),
-                          SizedBox(
-                            height: 42,
-                            child: TextField(
-                              controller: _titleController,
-                              onChanged: (_) => setState(() {}),
-                              cursorColor: brand.c500,
-                              style: AppTypography.bodyMediumMedium.copyWith(
-                                color: AppNeutralColors.grey900,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: "간단하게 버킷리스트를 작성해보세요.",
-                                hintStyle: AppTypography.bodyMediumMedium
-                                    .copyWith(color: AppNeutralColors.grey300),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                disabledBorder: InputBorder.none,
-                                hoverColor: Colors.transparent,
-                                contentPadding: EdgeInsets.zero,
-                                suffixIcon: _titleController.text.trim().isEmpty
-                                    ? null
-                                    : GestureDetector(
-                                        onTap: () {
-                                          _titleController.clear();
-                                          setState(() {});
-                                        },
-                                        child: Container(
-                                          width: AppSpacing.s20,
-                                          height: AppSpacing.s20,
-                                          decoration: const BoxDecoration(
-                                            color: AppNeutralColors.grey700,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.close,
-                                            size: 14,
-                                            color: AppNeutralColors.white,
-                                          ),
+          ),
+          const SizedBox(height: 32),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20),
+              child: Column(
+                children: <Widget>[
+                  _InputCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        _RequiredTitle(label: "제목"),
+                        const SizedBox(height: AppSpacing.s2),
+                        SizedBox(
+                          height: 42,
+                          child: TextField(
+                            controller: _titleController,
+                            onChanged: (_) => setState(() {}),
+                            cursorColor: brand.c500,
+                            style: AppTypography.bodyMediumMedium.copyWith(
+                              color: AppNeutralColors.grey900,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: "간단하게 버킷리스트를 작성해보세요.",
+                              hintStyle: AppTypography.bodyMediumMedium
+                                  .copyWith(color: AppNeutralColors.grey300),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              hoverColor: Colors.transparent,
+                              contentPadding: EdgeInsets.zero,
+                              suffixIcon: _titleController.text.trim().isEmpty
+                                  ? null
+                                  : GestureDetector(
+                                      onTap: () {
+                                        _titleController.clear();
+                                        setState(() {});
+                                      },
+                                      child: Container(
+                                        width: AppSpacing.s20,
+                                        height: AppSpacing.s20,
+                                        decoration: const BoxDecoration(
+                                          color: AppNeutralColors.grey700,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.close,
+                                          size: 14,
+                                          color: AppNeutralColors.white,
                                         ),
                                       ),
-                                suffixIconConstraints:
-                                    const BoxConstraints.tightFor(
-                                      width: AppSpacing.s20,
-                                      height: AppSpacing.s20,
                                     ),
-                              ),
+                              suffixIconConstraints:
+                                  const BoxConstraints.tightFor(
+                                    width: AppSpacing.s20,
+                                    height: AppSpacing.s20,
+                                  ),
                             ),
                           ),
-                          Container(height: 1, color: AppNeutralColors.grey900),
-                        ],
-                      ),
+                        ),
+                        Container(height: 1, color: AppNeutralColors.grey900),
+                      ],
                     ),
-                    const SizedBox(height: AppSpacing.s20),
-                    _InputCard(
-                      onTap: () async {
-                        final BucketCategoryResult? result =
-                            await Navigator.of(
-                              context,
-                            ).push<BucketCategoryResult>(
-                              MaterialPageRoute<BucketCategoryResult>(
-                                builder: (_) => BucketCategoryEmptyScreen(
-                                  initialCategories: _categories,
-                                  initialSelectedName: _selectedCategory?.name,
-                                ),
-                              ),
-                            );
-                        if (result == null || !mounted) {
-                          return;
-                        }
-                        setState(() {
-                          _categories
-                            ..clear()
-                            ..addAll(result.categories);
-                          _selectedCategory = result.selected;
-                        });
-                      },
-                      child: Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                _RequiredTitle(label: "카테고리"),
-                                const SizedBox(height: AppSpacing.s2),
-                                Text(
-                                  "나만의 카테고리를 설정해보세요.",
-                                  style: AppTypography.bodySmallMedium.copyWith(
-                                    color: AppNeutralColors.grey300,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (_selectedCategory != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.s8,
-                                vertical: AppSpacing.s2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _selectedCategory!.color,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.full,
-                                ),
-                              ),
-                              child: Text(
-                                _selectedCategory!.name,
-                                style: AppTypography.captionSmall.copyWith(
-                                  color: AppNeutralColors.grey900,
-                                ),
+                  ),
+                  const SizedBox(height: AppSpacing.s20),
+                  _InputCard(
+                    onTap: () async {
+                      final BucketCategoryResult? result =
+                          await Navigator.of(
+                            context,
+                          ).push<BucketCategoryResult>(
+                            MaterialPageRoute<BucketCategoryResult>(
+                              builder: (_) => BucketCategoryEmptyScreen(
+                                initialCategories: _categories,
+                                initialSelectedName: _selectedCategory?.name,
                               ),
                             ),
-                          if (_selectedCategory != null)
-                            const SizedBox(width: AppSpacing.s4),
-                          const Icon(
-                            Icons.chevron_right,
-                            size: AppSpacing.s24,
-                            color: AppNeutralColors.grey900,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.s20),
-                    _InputCard(
-                      child: Column(
-                        children: <Widget>[
-                          GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () async {
-                              final DateTime? selected =
-                                  await _showDdayCalendarPopup(context);
-                              if (!mounted || selected == null) {
-                                return;
-                              }
-                              setState(() {
-                                _selectedDueDate = selected;
-                              });
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: AppSpacing.s16,
-                              ),
-                              child: Row(
-                                children: <Widget>[
-                                  Expanded(
-                                    child: Text(
-                                      "D-Day",
-                                      style: AppTypography.bodyMediumSemiBold
-                                          .copyWith(
-                                            color: AppNeutralColors.grey900,
-                                          ),
-                                    ),
-                                  ),
-                                  Row(
-                                    children: <Widget>[
-                                      if (_selectedDueDate != null)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            right: AppSpacing.s4,
-                                          ),
-                                          child: Text(
-                                            _formatDate(_selectedDueDate!),
-                                            style: AppTypography.bodySmallMedium
-                                                .copyWith(
-                                                  color:
-                                                      AppNeutralColors.grey500,
-                                                ),
-                                          ),
-                                        ),
-                                      const Icon(
-                                        Icons.chevron_right,
-                                        size: AppSpacing.s24,
-                                        color: AppNeutralColors.grey900,
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.s16),
-                          Row(
+                          );
+                      if (result == null || !mounted) {
+                        return;
+                      }
+                      setState(() {
+                        _categories
+                          ..clear()
+                          ..addAll(result.categories);
+                        _selectedCategory = result.selected;
+                      });
+                    },
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Text(
-                                      "버킷리스트 완료",
-                                      style: AppTypography.bodyMediumSemiBold
-                                          .copyWith(
-                                            color: AppNeutralColors.grey900,
-                                          ),
-                                    ),
-                                    const SizedBox(height: AppSpacing.s2),
-                                    Text(
-                                      "완료 리스트로 이동합니다.",
-                                      style: AppTypography.bodySmallMedium
-                                          .copyWith(
-                                            color: AppNeutralColors.grey300,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(
-                                width: 58,
-                                height: 58,
-                                child: AppIconToggle(
-                                  value: _isCompleted,
-                                  onChanged: (bool value) {
-                                    setState(() {
-                                      _isCompleted = value;
-                                    });
-                                  },
+                              _RequiredTitle(label: "카테고리"),
+                              const SizedBox(height: AppSpacing.s2),
+                              Text(
+                                "나만의 카테고리를 설정해보세요.",
+                                style: AppTypography.bodySmallMedium.copyWith(
+                                  color: AppNeutralColors.grey300,
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                        if (_selectedCategory != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s8,
+                              vertical: AppSpacing.s2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _selectedCategory!.color,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.full,
+                              ),
+                            ),
+                            child: Text(
+                              _selectedCategory!.name,
+                              style: AppTypography.captionSmall.copyWith(
+                                color: AppNeutralColors.grey900,
+                              ),
+                            ),
+                          ),
+                        if (_selectedCategory != null)
+                          const SizedBox(width: AppSpacing.s4),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: AppSpacing.s24,
+                          color: AppNeutralColors.grey900,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: AppSpacing.s20),
+                  _InputCard(
+                    child: _OptionalToggleCard(
+                      title: "D-Day 알림 설정",
+                      subtitle: "디데이 알림이 설정됩니다.",
+                      value: _isDdayAlertEnabled,
+                      dateLabel: "D-Day",
+                      selectedDate: _selectedDueDate,
+                      showDateRow: _isDdayAlertEnabled,
+                      onTapDateRow: () async {
+                        final DateTime now = DateTime.now();
+                        final DateTime? selected = await _showCalendarPopup(
+                          initialDate:
+                              _selectedDueDate ??
+                              DateTime(now.year, now.month, now.day + 1),
+                          firstDate: DateTime(now.year, now.month, now.day + 1),
+                        );
+                        if (!mounted || selected == null) {
+                          return;
+                        }
+                        setState(() {
+                          _selectedDueDate = selected;
+                        });
+                      },
+                      onChanged: (bool value) {
+                        setState(() {
+                          _isDdayAlertEnabled = value;
+                          if (value && _selectedDueDate == null) {
+                            _selectedDueDate = DateTime.now();
+                          }
+                          if (!value && !_isCompleted) {
+                            _selectedDueDate = null;
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s20),
+                  _InputCard(
+                    child: _OptionalToggleCard(
+                      title: "버킷리스트 완료",
+                      subtitle: "완료 리스트로 이동합니다.",
+                      value: _isCompleted,
+                      dateLabel: "완료일 설정",
+                      selectedDate: _selectedCompletedDate,
+                      showDateRow: _isCompleted,
+                      onTapDateRow: () async {
+                        final DateTime? selected = await _showCalendarPopup(
+                          initialDate: _selectedCompletedDate ?? DateTime.now(),
+                          firstDate: DateTime(2000, 1, 1),
+                        );
+                        if (!mounted || selected == null) {
+                          return;
+                        }
+                        setState(() {
+                          _selectedCompletedDate = selected;
+                        });
+                      },
+                      onChanged: (bool value) {
+                        setState(() {
+                          _isCompleted = value;
+                          if (value && _selectedCompletedDate == null) {
+                            _selectedCompletedDate = DateTime.now();
+                          }
+                          if (!value) {
+                            _selectedCompletedDate = null;
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: AppSpacing.s20),
-            SizedBox(
-              width: double.infinity,
+          ),
+          const SizedBox(height: AppSpacing.s20),
+          SafeArea(
+            top: false,
+            minimum: const EdgeInsets.only(bottom: AppSpacing.s12),
+            child: SizedBox(
+              width: 344,
               height: 60,
               child: FilledButton(
                 onPressed: _canSave
@@ -393,7 +384,11 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                               categoryColor: _selectedCategory!.color,
                               createdAt: createdAt,
                               isCompleted: _isCompleted,
-                              dueDate: _selectedDueDate,
+                              dueDate: _isCompleted
+                                  ? _selectedCompletedDate
+                                  : (_isDdayAlertEnabled
+                                        ? _selectedDueDate
+                                        : null),
                             ),
                             categories:
                                 List<BucketCategorySelection>.unmodifiable(
@@ -404,10 +399,10 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                       }
                     : null,
                 style: FilledButton.styleFrom(
-                  backgroundColor: brand.c600,
+                  backgroundColor: brand.c500,
                   disabledBackgroundColor: Color.alphaBlend(
                     AppTransparentColors.light64,
-                    brand.c600,
+                    brand.c500,
                   ),
                   foregroundColor: AppNeutralColors.white,
                   disabledForegroundColor: brand.c100,
@@ -419,40 +414,51 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                 child: Text(widget.isEditing ? "수정하기" : "저장하기"),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Future<DateTime?> _showDdayCalendarPopup(BuildContext context) async {
+  Future<DateTime?> _showCalendarPopup({
+    required DateTime initialDate,
+    required DateTime firstDate,
+  }) async {
     final BrandScale brand = context.appBrandScale;
-    final DateTime now = DateTime.now();
-    final DateTime firstDate = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).add(const Duration(days: 1));
-    final DateTime lastDate = DateTime(now.year + 10, 12, 31);
-    final DateTime initial =
-        (_selectedDueDate != null && !_selectedDueDate!.isBefore(firstDate))
-        ? _selectedDueDate!
-        : firstDate;
-    DateTime selectedDate = initial;
-    DateTime visibleMonth = DateTime(initial.year, initial.month, 1);
+    final DateTime lastDate = DateTime(DateTime.now().year + 20, 12, 31);
+    final DateTime normalizedFirstDate = DateTime(
+      firstDate.year,
+      firstDate.month,
+      firstDate.day,
+    );
+    final DateTime normalizedInitialDate = DateTime(
+      initialDate.year,
+      initialDate.month,
+      initialDate.day,
+    );
+    DateTime selectedDate = normalizedInitialDate.isBefore(normalizedFirstDate)
+        ? normalizedFirstDate
+        : normalizedInitialDate;
+    DateTime visibleMonth = DateTime(selectedDate.year, selectedDate.month, 1);
     bool isYearMonthMode = false;
     int pickerYear = visibleMonth.year;
     int pickerMonth = visibleMonth.month;
-    final DateTime firstMonth = DateTime(firstDate.year, firstDate.month, 1);
+    final DateTime firstMonth = DateTime(
+      normalizedFirstDate.year,
+      normalizedFirstDate.month,
+      1,
+    );
     final DateTime lastMonth = DateTime(lastDate.year, lastDate.month, 1);
     final List<int> years = <int>[
-      for (int y = firstDate.year; y <= lastDate.year; y++) y,
+      for (int y = normalizedFirstDate.year; y <= lastDate.year; y++) y,
     ];
     final FixedExtentScrollController yearController =
         FixedExtentScrollController(initialItem: years.indexOf(pickerYear));
     final List<int> initialMonths = <int>[
       for (
-        int m = pickerYear == firstDate.year ? firstDate.month : 1;
+        int m = pickerYear == normalizedFirstDate.year
+            ? normalizedFirstDate.month
+            : 1;
         m <= (pickerYear == lastDate.year ? lastDate.month : 12);
         m++
       )
@@ -611,7 +617,7 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                               visibleMonth.month,
                               displayDay,
                             );
-                            disabled = date.isBefore(firstDate);
+                            disabled = date.isBefore(normalizedFirstDate);
                             selected =
                                 date.year == selectedDate.year &&
                                 date.month == selectedDate.month &&
@@ -716,8 +722,8 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                         Widget buildYearMonthPicker() {
                           int minMonth = 1;
                           int maxMonth = 12;
-                          if (pickerYear == firstDate.year) {
-                            minMonth = firstDate.month;
+                          if (pickerYear == normalizedFirstDate.year) {
+                            minMonth = normalizedFirstDate.month;
                           }
                           if (pickerYear == lastDate.year) {
                             maxMonth = lastDate.month;
@@ -750,8 +756,10 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                                             pickerYear = years[index];
                                             int dynamicMinMonth = 1;
                                             int dynamicMaxMonth = 12;
-                                            if (pickerYear == firstDate.year) {
-                                              dynamicMinMonth = firstDate.month;
+                                            if (pickerYear ==
+                                                normalizedFirstDate.year) {
+                                              dynamicMinMonth =
+                                                  normalizedFirstDate.month;
                                             }
                                             if (pickerYear == lastDate.year) {
                                               dynamicMaxMonth = lastDate.month;
@@ -945,8 +953,9 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                                           yearController.jumpToItem(yearIndex);
                                         }
                                         final int minMonth =
-                                            pickerYear == firstDate.year
-                                            ? firstDate.month
+                                            pickerYear ==
+                                                normalizedFirstDate.year
+                                            ? normalizedFirstDate.month
                                             : 1;
                                         final int maxMonth =
                                             pickerYear == lastDate.year
@@ -1049,8 +1058,10 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                                           targetDay,
                                         );
                                         selectedDate =
-                                            candidate.isBefore(firstDate)
-                                            ? firstDate
+                                            candidate.isBefore(
+                                              normalizedFirstDate,
+                                            )
+                                            ? normalizedFirstDate
                                             : candidate;
                                         isYearMonthMode = false;
                                       });
@@ -1076,12 +1087,6 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
     yearController.dispose();
     monthController.dispose();
     return result;
-  }
-
-  String _formatDate(DateTime date) {
-    return "${date.year.toString().padLeft(4, "0")}."
-        "${date.month.toString().padLeft(2, "0")}."
-        "${date.day.toString().padLeft(2, "0")}";
   }
 }
 
@@ -1131,6 +1136,102 @@ class _RequiredTitle extends StatelessWidget {
           "*",
           style: AppTypography.bodyMediumMedium.copyWith(color: brand.c500),
         ),
+      ],
+    );
+  }
+}
+
+class _OptionalToggleCard extends StatelessWidget {
+  const _OptionalToggleCard({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+    required this.showDateRow,
+    this.dateLabel,
+    this.selectedDate,
+    this.onTapDateRow,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool showDateRow;
+  final String? dateLabel;
+  final DateTime? selectedDate;
+  final VoidCallback? onTapDateRow;
+
+  @override
+  Widget build(BuildContext context) {
+    final String? resolvedDateText = selectedDate == null
+        ? null
+        : "${selectedDate!.year.toString().padLeft(4, "0")}."
+              "${selectedDate!.month.toString().padLeft(2, "0")}."
+              "${selectedDate!.day.toString().padLeft(2, "0")}";
+    return Column(
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: AppTypography.bodyMediumSemiBold.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s2),
+                  Text(
+                    subtitle,
+                    style: AppTypography.bodySmallMedium.copyWith(
+                      color: AppNeutralColors.grey500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(
+              width: 58,
+              height: 58,
+              child: AppIconToggle(value: value, onChanged: onChanged),
+            ),
+          ],
+        ),
+        if (showDateRow) ...<Widget>[
+          const SizedBox(height: AppSpacing.s24),
+          GestureDetector(
+            onTap: onTapDateRow,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    dateLabel ?? "",
+                    style: AppTypography.bodyMediumSemiBold.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
+                ),
+                if (resolvedDateText != null)
+                  Text(
+                    resolvedDateText,
+                    style: AppTypography.bodySmallMedium.copyWith(
+                      color: AppNeutralColors.grey500,
+                    ),
+                  ),
+                const SizedBox(width: AppSpacing.s4),
+                const Icon(
+                  Icons.chevron_right,
+                  size: AppSpacing.s24,
+                  color: AppNeutralColors.grey500,
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
