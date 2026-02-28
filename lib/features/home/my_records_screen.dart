@@ -228,8 +228,8 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
   static const int _debugInstallYear = 2024;
   static const int _debugInstallMonth = 8;
 
-  int _selectedYear = 2025;
-  int _selectedMonth = 8;
+  late int _selectedYear;
+  late int _selectedMonth;
   late DateTime _maxMonth;
   DateTime? _installMonth = DateTime(_debugInstallYear, _debugInstallMonth);
 
@@ -237,6 +237,8 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
   void initState() {
     super.initState();
     final DateTime now = DateTime.now();
+    _selectedYear = now.year;
+    _selectedMonth = now.month;
     _maxMonth = DateTime(now.year, now.month);
     _loadInstallMonth();
   }
@@ -645,6 +647,7 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
   PageController? _pageController;
   bool _didSetInitialPage = false;
   int _currentPage = 0;
+  String? _lastMonthRecordSyncKey;
 
   @override
   void initState() {
@@ -657,24 +660,24 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
       valueListenable: TodayQuestionStore.instance,
       builder:
           (BuildContext context, List<TodayQuestionRecord> records, Widget? _) {
-            final DateTime monthStart = DateTime(
-              widget.selectedYear,
-              widget.selectedMonth,
-              1,
-            );
             final DateTime monthEnd = DateTime(
               widget.selectedYear,
               widget.selectedMonth + 1,
               0,
             );
+            final List<TodayQuestionRecord> monthRecords = records
+                .where(
+                  (TodayQuestionRecord item) =>
+                      item.createdAt.year == widget.selectedYear &&
+                      item.createdAt.month == widget.selectedMonth,
+                )
+                .toList(growable: false);
 
             final Map<int, TodayQuestionRecord> recordByDay =
-                <int, TodayQuestionRecord>{
-                  for (final TodayQuestionRecord item in records)
-                    if (!item.createdAt.isBefore(monthStart) &&
-                        !item.createdAt.isAfter(monthEnd))
-                      item.createdAt.day: item,
-                };
+                <int, TodayQuestionRecord>{};
+            for (final TodayQuestionRecord item in monthRecords) {
+              recordByDay[item.createdAt.day] = item;
+            }
             final TodayQuestionRecord? debugMock =
                 MyRecordsScreen.debugMockRecordForMonth(
                   year: widget.selectedYear,
@@ -783,14 +786,25 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
 
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       final PageController? controller = _pageController;
-                      if (_didSetInitialPage ||
-                          controller == null ||
-                          !controller.hasClients) {
+                      if (controller == null || !controller.hasClients) {
+                        return;
+                      }
+                      final TodayQuestionRecord? latestMonthRecord =
+                          monthRecords.isEmpty ? null : monthRecords.first;
+                      final String? syncKey = latestMonthRecord == null
+                          ? null
+                          : "${widget.selectedYear}-${widget.selectedMonth}"
+                                "-${latestMonthRecord.createdAt.millisecondsSinceEpoch}"
+                                "-${latestMonthRecord.answer.hashCode}";
+                      final bool shouldSyncToRight =
+                          !_didSetInitialPage || _lastMonthRecordSyncKey != syncKey;
+                      if (!shouldSyncToRight || previews.isEmpty) {
                         return;
                       }
                       controller.jumpToPage(previews.length - 1);
                       _currentPage = previews.length - 1;
                       _didSetInitialPage = true;
+                      _lastMonthRecordSyncKey = syncKey;
                     });
 
                     return LayoutBuilder(
@@ -892,6 +906,10 @@ class _MonthlyPreviewCard extends StatefulWidget {
 class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
   bool _showMoreMenu = false;
   int? _selectedMoreMenuIndex;
+
+  bool get _isEmptyState =>
+      widget.item.record == null ||
+      widget.item.body == MyRecordsScreen._unansweredMessage;
 
   void _dismissMoreMenu() {
     if (!_showMoreMenu) {
@@ -1099,12 +1117,55 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
     );
   }
 
+  Future<void> _openWriteScreenForEmpty() async {
+    if (!mounted) {
+      return;
+    }
+    final _MonthlyRecordPreview item = widget.item;
+    final DateTime now = DateTime.now();
+    final DateTime selectedDate = DateTime(
+      item.year ?? now.year,
+      item.month ?? now.month,
+      item.day,
+    );
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => TodayQuestionAnswerScreen(
+          initialDate: selectedDate,
+          headerTitle: "지난 질문",
+          questionText: item.question,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openDetailFromCard() async {
+    if (!mounted) {
+      return;
+    }
+    if (_showMoreMenu) {
+      _dismissMoreMenu();
+      return;
+    }
+    final TodayQuestionRecord? record = widget.item.record;
+    if (record != null) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => MyRecordDetailScreen(record: record),
+        ),
+      );
+      return;
+    }
+    await _openWriteScreenForEmpty();
+  }
+
   @override
   Widget build(BuildContext context) {
     final _MonthlyRecordPreview item = widget.item;
     final BrandScale brand = context.appBrandScale;
     final List<AnnualRecordEntry> annualEntries = _buildAnnualEntries();
     final int baseYear = _baseDate().year;
+    final bool isEmptyState = _isEmptyState;
     final bool hasPastYearRecord = annualEntries.any(
       (AnnualRecordEntry entry) => entry.year < baseYear,
     );
@@ -1113,17 +1174,20 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
       height: 458,
       child: Stack(
         children: <Widget>[
-          Container(
-            width: _MonthlyPreviewStripState._cardWidth,
-            height: 458,
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
-            decoration: BoxDecoration(
-              color: AppNeutralColors.white,
-              borderRadius: AppRadius.br24,
-              boxShadow: AppElevation.level1,
-            ),
-            child: Column(
-              children: <Widget>[
+          GestureDetector(
+            onTap: _openDetailFromCard,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: _MonthlyPreviewStripState._cardWidth,
+              height: 458,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
+              decoration: BoxDecoration(
+                color: AppNeutralColors.white,
+                borderRadius: AppRadius.br24,
+                boxShadow: AppElevation.level1,
+              ),
+              child: Column(
+                children: <Widget>[
                 SizedBox(
                   width: 286,
                   child: Padding(
@@ -1162,58 +1226,121 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
                         SizedBox(
                           width: 24,
                           height: 24,
-                          child: IconButton(
-                            onPressed: _toggleMoreMenu,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                              width: 24,
-                              height: 24,
+                          child: isEmptyState
+                              ? const SizedBox.shrink()
+                              : IconButton(
+                                  onPressed: _toggleMoreMenu,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 24,
+                                    height: 24,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  icon: const Icon(
+                                    Icons.more_horiz,
+                                    size: 24,
+                                    color: AppNeutralColors.grey300,
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!isEmptyState) const SizedBox(height: AppSpacing.s16),
+                if (!isEmptyState)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.s16,
+                    ),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: AppNeutralColors.grey50),
+                      ),
+                    ),
+                    child: Text(
+                      item.question,
+                      textAlign: TextAlign.center,
+                      style: AppTypography.headingMediumExtraBold.copyWith(
+                        color: AppNeutralColors.grey900,
+                      ),
+                    ),
+                  ),
+                if (!isEmptyState) const SizedBox(height: AppSpacing.s16),
+                if (isEmptyState)
+                  Expanded(
+                    child: Column(
+                      children: <Widget>[
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              MyRecordsScreen._unansweredMessage,
+                              textAlign: TextAlign.center,
+                              style: AppTypography.bodyLargeRegular.copyWith(
+                                color: AppNeutralColors.grey300,
+                              ),
                             ),
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(
-                              Icons.more_horiz,
-                              size: 24,
-                              color: AppNeutralColors.grey300,
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.bottomCenter,
+                          child: OutlinedButton(
+                            onPressed: _openWriteScreenForEmpty,
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: AppNeutralColors.white,
+                              foregroundColor: brand.c400,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.full,
+                                ),
+                              ),
+                              side: BorderSide(color: brand.c400),
+                              minimumSize: const Size(0, 38),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.s16,
+                                vertical: 0,
+                              ),
+                              textStyle: AppTypography.buttonSmall,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  "질문 열어보기",
+                                  style: AppTypography.buttonSmall.copyWith(
+                                    color: brand.c400,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.s4),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 16,
+                                  color: brand.c400,
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.s16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s16),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: AppNeutralColors.grey50),
-                    ),
-                  ),
-                  child: Text(
-                    item.question,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.headingMediumExtraBold.copyWith(
-                      color: AppNeutralColors.grey900,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.s16),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: Text(
-                      item.body,
-                      textAlign: TextAlign.left,
-                      style: AppTypography.bodyLargeRegular.copyWith(
-                        color: AppNeutralColors.grey800,
+                if (!isEmptyState)
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        item.body,
+                        textAlign: TextAlign.left,
+                        style: AppTypography.bodyLargeRegular.copyWith(
+                          color: AppNeutralColors.grey800,
+                        ),
+                        maxLines: 6,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 6,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-                if (item.tags.isNotEmpty)
+                if (!isEmptyState && item.tags.isNotEmpty)
                   SizedBox(
                     width: double.infinity,
                     height: 38,
@@ -1250,16 +1377,17 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
                       ),
                     ),
                   ),
-                if (item.tags.isNotEmpty)
+                if (!isEmptyState && item.tags.isNotEmpty)
                   const SizedBox(height: AppSpacing.s16),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: SizedBox.shrink(),
-                ),
-              ],
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox.shrink(),
+                  ),
+                ],
+              ),
             ),
           ),
-          if (_showMoreMenu)
+          if (_showMoreMenu && !isEmptyState)
             Positioned.fill(
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
@@ -1267,7 +1395,7 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
                 child: const SizedBox.expand(),
               ),
             ),
-          if (_showMoreMenu)
+          if (_showMoreMenu && !isEmptyState)
             Positioned(
               top: 80,
               right: 0,
