@@ -968,6 +968,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
         const SizedBox(height: AppSpacing.s32),
         Expanded(
           child: ListView.separated(
+            padding: EdgeInsets.zero,
             itemCount: _filteredEntries.length,
             separatorBuilder: (_, int index) =>
                 const SizedBox(height: AppSpacing.s16),

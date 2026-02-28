@@ -326,27 +326,31 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
             TodayQuestionPromptState questionState,
             Widget? _,
           ) {
-            final String questionText = questionState.currentQuestionText;
+            final bool canUseQuestion = questionState.hasLoaded;
+            final String questionText = canUseQuestion
+                ? questionState.currentQuestionText
+                : "";
             return Column(
               children: <Widget>[
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.s40,
-                    vertical: AppSpacing.s24,
                   ),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 72),
+                    constraints: const BoxConstraints(minHeight: 116),
                     child: Align(
                       alignment: Alignment.topCenter,
-                      child: Text(
-                        questionText,
-                        textAlign: TextAlign.center,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.headingLarge.copyWith(
-                          color: AppNeutralColors.grey900,
-                        ),
-                      ),
+                      child: canUseQuestion
+                          ? Text(
+                              questionText,
+                              textAlign: TextAlign.center,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.headingLarge.copyWith(
+                                color: AppNeutralColors.grey900,
+                              ),
+                            )
+                          : const SizedBox.shrink(),
                     ),
                   ),
                 ),
@@ -437,11 +441,13 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
                   width: double.infinity,
                   height: 60,
                   child: FilledButton(
-                    onPressed: () => HomeScreen.openTodayQuestionAnswer(
-                      context,
-                      questionText: questionText,
-                      questionSlot: 0,
-                    ),
+                    onPressed: canUseQuestion
+                        ? () => HomeScreen.openTodayQuestionAnswer(
+                            context,
+                            questionText: questionText,
+                            questionSlot: 0,
+                          )
+                        : null,
                     style: FilledButton.styleFrom(
                       backgroundColor: brand.c500,
                       shape: const StadiumBorder(),
@@ -1010,35 +1016,32 @@ class _QuestionWrittenSpeechBubble extends StatelessWidget {
         ],
       );
     }
-    return Align(
-      alignment: Alignment.center,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: const BorderRadius.all(
-                Radius.circular(AppSpacing.s12 + AppSpacing.s2),
-              ),
-              boxShadow: AppElevation.level1,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: const BorderRadius.all(
+              Radius.circular(AppSpacing.s12 + AppSpacing.s2),
             ),
-            child: Text(
-              text,
-              style: AppTypography.bodySmallMedium.copyWith(
-                color: color == AppNeutralColors.white
-                    ? AppNeutralColors.grey700
-                    : AppNeutralColors.white,
-              ),
+            boxShadow: AppElevation.level1,
+          ),
+          child: Text(
+            text,
+            style: AppTypography.bodySmallMedium.copyWith(
+              color: color == AppNeutralColors.white
+                  ? AppNeutralColors.grey700
+                  : AppNeutralColors.white,
             ),
           ),
-          CustomPaint(
-            size: const Size(6, 10),
-            painter: _SpeechRightTailPainter(color),
-          ),
-        ],
-      ),
+        ),
+        CustomPaint(
+          size: const Size(6, 10),
+          painter: _SpeechRightTailPainter(color),
+        ),
+      ],
     );
   }
 
@@ -1076,8 +1079,16 @@ class _TopCharacterDecorations extends StatefulWidget {
 
 class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
     with TickerProviderStateMixin {
+  static const List<String> _messages = <String>[
+    "오늘의 답변을 작성했어요!",
+    "소중한 하루가 쌓였어요!",
+    "꾸준한 당신을 칭찬해요!",
+  ];
+
   late final AnimationController _fishController;
   late final Animation<double> _fishDy;
+  Timer? _messageTimer;
+  int _messageIndex = 0;
 
   @override
   void initState() {
@@ -1089,10 +1100,19 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
     _fishDy = Tween<double>(begin: 2, end: -6).animate(
       CurvedAnimation(parent: _fishController, curve: Curves.easeInOut),
     );
+    _messageTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _messageIndex = (_messageIndex + 1) % _messages.length;
+      });
+    });
   }
 
   @override
   void dispose() {
+    _messageTimer?.cancel();
     _fishController.dispose();
     super.dispose();
   }
@@ -1131,10 +1151,10 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
             ),
           ),
           Positioned(
-            left: 68,
+            right: 108,
             top: 26,
             child: _QuestionWrittenSpeechBubble(
-              text: "오늘의 질문을 적었어요!",
+              text: _messages[_messageIndex],
               color: widget.bubbleColor,
             ),
           ),
@@ -1220,9 +1240,6 @@ class _RecordStreakBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final int streak = TodayQuestionStore.instance.consecutiveRecordDays;
-    final String subMessage = streak >= 7
-        ? "벌써 일주일 째 기록 중이에요!"
-        : "꾸준한 당신이 멋져요!";
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -1238,14 +1255,6 @@ class _RecordStreakBar extends StatelessWidget {
             textAlign: TextAlign.center,
             style: AppTypography.bodySmallSemiBold.copyWith(
               color: AppNeutralColors.grey900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.s4),
-          Text(
-            subMessage,
-            textAlign: TextAlign.center,
-            style: AppTypography.captionMedium.copyWith(
-              color: AppNeutralColors.grey600,
             ),
           ),
         ],

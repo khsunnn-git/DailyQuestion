@@ -26,7 +26,7 @@ class _StreakCompletionScreenState extends State<StreakCompletionScreen> {
   @override
   void initState() {
     super.initState();
-    _autoCloseTimer = Timer(const Duration(seconds: 3), _close);
+    _autoCloseTimer = Timer(const Duration(seconds: 2), _close);
   }
 
   @override
@@ -39,7 +39,7 @@ class _StreakCompletionScreenState extends State<StreakCompletionScreen> {
     if (!mounted) {
       return;
     }
-    Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+    Navigator.of(context).maybePop();
   }
 
   String _buildSubtitle() {

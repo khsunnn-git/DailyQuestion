@@ -125,7 +125,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       if (!mounted) {
         return;
       }
-      Navigator.of(context).pop(savedRecord);
+      Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
     } catch (_) {
       _showBucketToastMessage("저장 중 오류가 발생했어요. 다시 시도해주세요.");
     }

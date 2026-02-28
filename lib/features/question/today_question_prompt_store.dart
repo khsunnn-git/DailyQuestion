@@ -17,6 +17,7 @@ class TodayQuestionPromptState {
     required this.date,
     required this.dayOfYear,
     required this.isLoading,
+    required this.hasLoaded,
     required this.baseQuestion,
     this.errorMessage,
   });
@@ -26,7 +27,8 @@ class TodayQuestionPromptState {
     return TodayQuestionPromptState(
       date: DateTime(now.year, now.month, now.day),
       dayOfYear: _dayOfYear(now),
-      isLoading: false,
+      isLoading: true,
+      hasLoaded: false,
       baseQuestion: _defaultFallbackQuestion,
     );
   }
@@ -34,6 +36,7 @@ class TodayQuestionPromptState {
   final DateTime date;
   final int dayOfYear;
   final bool isLoading;
+  final bool hasLoaded;
   final String baseQuestion;
   final String? errorMessage;
 
@@ -43,6 +46,7 @@ class TodayQuestionPromptState {
     DateTime? date,
     int? dayOfYear,
     bool? isLoading,
+    bool? hasLoaded,
     String? baseQuestion,
     String? errorMessage,
     bool clearError = false,
@@ -51,6 +55,7 @@ class TodayQuestionPromptState {
       date: date ?? this.date,
       dayOfYear: dayOfYear ?? this.dayOfYear,
       isLoading: isLoading ?? this.isLoading,
+      hasLoaded: hasLoaded ?? this.hasLoaded,
       baseQuestion: baseQuestion ?? this.baseQuestion,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
@@ -116,6 +121,7 @@ class TodayQuestionPromptStore extends ValueNotifier<TodayQuestionPromptState> {
         date: normalized,
         dayOfYear: day,
         isLoading: false,
+        hasLoaded: true,
         baseQuestion: _defaultFallbackQuestion,
         errorMessage: "오늘 질문 데이터가 없어 기본 질문을 보여줘요.",
       );
@@ -134,6 +140,7 @@ class TodayQuestionPromptStore extends ValueNotifier<TodayQuestionPromptState> {
         date: normalized,
         dayOfYear: day,
         isLoading: false,
+        hasLoaded: true,
         baseQuestion: _defaultFallbackQuestion,
         errorMessage: "질문을 불러오지 못해 기본 질문을 보여줘요.",
       );
@@ -150,6 +157,7 @@ class TodayQuestionPromptStore extends ValueNotifier<TodayQuestionPromptState> {
       date: date,
       dayOfYear: day,
       isLoading: false,
+      hasLoaded: true,
       baseQuestion: base,
       errorMessage: errorMessage,
       clearError: errorMessage == null,

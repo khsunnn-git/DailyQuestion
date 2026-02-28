@@ -1844,6 +1844,9 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                                 int index,
                               ) {
                                 final int day = lastDay - index;
+                                final bool isCompleted = recordByDay.containsKey(
+                                  day,
+                                );
                                 return _RecordListItem(
                                   day: day.toString().padLeft(2, "0"),
                                   weekday: _weekdayLabel(
@@ -1853,12 +1856,14 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                                       day,
                                     ),
                                   ),
-                                  text: _questionForDay(
-                                    day: day,
-                                    monthQuestions: monthQuestions,
-                                    record: recordByDay[day],
-                                  ),
-                                  isCompleted: recordByDay.containsKey(day),
+                                  text: isCompleted
+                                      ? _questionForDay(
+                                          day: day,
+                                          monthQuestions: monthQuestions,
+                                          record: recordByDay[day],
+                                        )
+                                      : MyRecordsScreen._unansweredMessage,
+                                  isCompleted: isCompleted,
                                 );
                               }, growable: false);
 
@@ -2188,26 +2193,34 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.s16),
-                              for (int day = 1; day <= lastDay; day++)
+                              for (int index = 0; index < lastDay; index++)
                                 _PastRecordsListRow(
                                   item: _RecordListItem(
-                                    day: day.toString().padLeft(2, "0"),
+                                    day: (lastDay - index).toString().padLeft(
+                                      2,
+                                      "0",
+                                    ),
                                     weekday: _weekdayLabel(
                                       DateTime(
                                         _selectedYear,
                                         _selectedMonth,
-                                        day,
+                                        lastDay - index,
                                       ),
                                     ),
-                                    text: _questionForDay(
-                                      day: day,
-                                      monthQuestions: monthQuestions,
-                                      record: recordByDay[day],
+                                    text: recordByDay.containsKey(lastDay - index)
+                                        ? _questionForDay(
+                                            day: lastDay - index,
+                                            monthQuestions: monthQuestions,
+                                            record: recordByDay[lastDay - index],
+                                          )
+                                        : MyRecordsScreen._unansweredMessage,
+                                    isCompleted: recordByDay.containsKey(
+                                      lastDay - index,
                                     ),
-                                    isCompleted: recordByDay.containsKey(day),
                                   ),
-                                  isLast: day == lastDay,
+                                  isLast: index == lastDay - 1,
                                   onTap: () {
+                                    final int day = lastDay - index;
                                     final DateTime selectedDate = DateTime(
                                       _selectedYear,
                                       _selectedMonth,
@@ -2308,7 +2321,7 @@ class _PastRecordsListRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color contentColor = item.isCompleted
         ? AppNeutralColors.grey900
-        : AppNeutralColors.grey400;
+        : AppNeutralColors.grey300;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -2376,7 +2389,7 @@ class _PastRecordRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color contentColor = item.isCompleted
         ? AppNeutralColors.grey900
-        : AppNeutralColors.grey400;
+        : AppNeutralColors.grey300;
     return Material(
       color: Colors.transparent,
       child: InkWell(
