@@ -3,6 +3,7 @@ import "dart:async";
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 
+import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
 import "annual_record_screen.dart";
@@ -70,7 +71,7 @@ class HomeScreen extends StatelessWidget {
                 child: Column(
                   children: <Widget>[
                     const _TopQuestionPanel(),
-                    const SizedBox(height: AppSpacing.s40),
+                    const SizedBox(height: AppSpacing.s24),
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.s20,
@@ -80,9 +81,9 @@ class HomeScreen extends StatelessWidget {
                         children: <Widget>[
                           _RecordStreakSection(),
                           _TodayRecordSection(),
-                          const SizedBox(height: AppSpacing.s40),
+                          const SizedBox(height: AppSpacing.s24),
                           _AquariumBanner(),
-                          const SizedBox(height: AppSpacing.s40),
+                          const SizedBox(height: AppSpacing.s24),
                           _OneLineReportCard(),
                         ],
                       ),
@@ -145,8 +146,53 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class _TopQuestionPanel extends StatelessWidget {
+class _TopQuestionPanel extends StatefulWidget {
   const _TopQuestionPanel();
+
+  @override
+  State<_TopQuestionPanel> createState() => _TopQuestionPanelState();
+}
+
+class _TopQuestionPanelState extends State<_TopQuestionPanel>
+    with WidgetsBindingObserver {
+  Timer? _minuteTimer;
+  String _lastKstDateKey = kstDateKeyNow();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    TodayQuestionPromptStore.instance.initialize();
+    _minuteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _refreshByKstDateChange();
+    });
+  }
+
+  Future<void> _refreshByKstDateChange() async {
+    final String currentDateKey = kstDateKeyNow();
+    if (currentDateKey != _lastKstDateKey) {
+      _lastKstDateKey = currentDateKey;
+      await TodayQuestionPromptStore.instance.reloadIfNeeded();
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshByKstDateChange();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _minuteTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +216,9 @@ class _TopQuestionPanel extends StatelessWidget {
               List<TodayQuestionRecord> records,
               Widget? child,
             ) {
-              final bool hasRecord = records.isNotEmpty;
+              final bool hasRecord =
+                  records.isNotEmpty &&
+                  TodayQuestionStore.instance.hasRecordForTodayKst;
               return Column(
                 children: <Widget>[
                   const SizedBox(height: 49),
@@ -283,21 +331,32 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
               children: <Widget>[
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.s8,
+                    horizontal: AppSpacing.s40,
                     vertical: AppSpacing.s24,
                   ),
-                  child: Text(
-                    questionText,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.headingLarge.copyWith(
-                      color: AppNeutralColors.grey900,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 72),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Text(
+                        questionText,
+                        textAlign: TextAlign.center,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.headingLarge.copyWith(
+                          color: AppNeutralColors.grey900,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                _QuestionWrittenSpeechBubble(
-                  text: _messages[_messageIndex],
-                  color: AppNeutralColors.white,
-                  tailDirection: _SpeechTailDirection.down,
+                Transform.translate(
+                  offset: const Offset(0, -20),
+                  child: _QuestionWrittenSpeechBubble(
+                    text: _messages[_messageIndex],
+                    color: AppNeutralColors.white,
+                    tailDirection: _SpeechTailDirection.down,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.s24),
                 SizedBox(
@@ -373,30 +432,7 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
                   ),
                 ),
                 const SizedBox(height: AppSpacing.s24),
-                TextButton(
-                  onPressed: () async {
-                    final bool moved = await TodayQuestionPromptStore.instance
-                        .advanceToNextQuestion();
-                    if (moved || !context.mounted) {
-                      return;
-                    }
-                    ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(
-                        const SnackBar(
-                          content: Text("오늘 받을 수 있는 새로운 질문을 모두 확인했어요."),
-                          behavior: SnackBarBehavior.floating,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: brand.c500,
-                    textStyle: AppTypography.buttonSmall,
-                  ),
-                  child: const Text("새로운 질문 받기"),
-                ),
-                const SizedBox(height: AppSpacing.s24),
+                const SizedBox(height: AppSpacing.s12),
                 SizedBox(
                   width: double.infinity,
                   height: 60,
@@ -404,7 +440,7 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
                     onPressed: () => HomeScreen.openTodayQuestionAnswer(
                       context,
                       questionText: questionText,
-                      questionSlot: questionState.refreshIndex,
+                      questionSlot: 0,
                     ),
                     style: FilledButton.styleFrom(
                       backgroundColor: brand.c500,
@@ -559,7 +595,16 @@ class _QuestionWrittenPreviewCardState
     if (!mounted || confirmed != true) {
       return;
     }
-    await TodayQuestionStore.instance.deleteRecord(createdAt: latest.createdAt);
+    final bool removed = await TodayQuestionStore.instance.deleteRecord(
+      createdAt: latest.createdAt,
+    );
+    if (!mounted || !removed) {
+      return;
+    }
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+      (Route<dynamic> route) => false,
+    );
   }
 
   void _showHistoryDisabledToast() {
@@ -630,14 +675,17 @@ class _QuestionWrittenPreviewCardState
     return years.map((int year) => byYear[year]!).toList(growable: false);
   }
 
-  Future<void> _openQuestionHistory(List<AnnualRecordEntry> entries) async {
+  Future<void> _openQuestionHistory({
+    required List<AnnualRecordEntry> entries,
+    required String questionText,
+  }) async {
     if (!mounted || entries.isEmpty) {
       return;
     }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => AnnualRecordScreen(
-          question: "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+          question: questionText,
           entries: entries,
           continuousYears: entries.length,
         ),
@@ -649,8 +697,9 @@ class _QuestionWrittenPreviewCardState
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     final TodayQuestionRecord? latest =
-        TodayQuestionStore.instance.latestRecord;
-    final DateTime now = latest?.createdAt ?? DateTime.now();
+        TodayQuestionStore.instance.latestRecordForTodayKst;
+    final DateTime now = nowInKst();
+    final DateTime displayDate = _displayDateForRecord(latest) ?? now;
     final List<String> weekdays = <String>[
       "월요일",
       "화요일",
@@ -660,9 +709,14 @@ class _QuestionWrittenPreviewCardState
       "토요일",
       "일요일",
     ];
-    final String currentDate = "${now.day}일 ${weekdays[now.weekday - 1]}";
-    final DateTime baseDate =
-        latest?.createdAt ?? DateTime(now.year, now.month, now.day, 12);
+    final String currentDate =
+        "${displayDate.day}일 ${weekdays[displayDate.weekday - 1]}";
+    final DateTime baseDate = DateTime(
+      displayDate.year,
+      displayDate.month,
+      displayDate.day,
+      12,
+    );
     final List<AnnualRecordEntry> annualEntries = _buildAnnualEntries(
       baseDate: baseDate,
       latest: latest,
@@ -674,6 +728,10 @@ class _QuestionWrittenPreviewCardState
         latest?.answer ??
         "올해는 꼭 제주도 한라산에 올라가 백록담을 직접 보고 싶어. "
             "예전부터 사진으로만 보던 그 푸른 호수를 실제로 내 눈으로 담아보고 싶다는 마음이 있었거든요...";
+    final String questionText =
+        (latest?.questionText?.trim().isNotEmpty ?? false)
+        ? latest!.questionText!.trim()
+        : TodayQuestionPromptStore.instance.value.currentQuestionText;
     final List<String> bucketTags = latest == null
         ? const <String>[]
         : latest.bucketTags.isNotEmpty
@@ -723,7 +781,10 @@ class _QuestionWrittenPreviewCardState
                                 _showHistoryDisabledToast();
                                 return;
                               }
-                              _openQuestionHistory(annualEntries);
+                              _openQuestionHistory(
+                                entries: annualEntries,
+                                questionText: questionText,
+                              );
                             },
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints.tightFor(
@@ -783,7 +844,7 @@ class _QuestionWrittenPreviewCardState
                       ),
                     ),
                     child: Text(
-                      "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+                      questionText,
                       textAlign: TextAlign.center,
                       style: AppTypography.headingMediumExtraBold.copyWith(
                         color: AppNeutralColors.grey900,
@@ -889,6 +950,22 @@ class _QuestionWrittenPreviewCardState
       ],
     );
   }
+
+  DateTime? _displayDateForRecord(TodayQuestionRecord? record) {
+    if (record == null) {
+      return null;
+    }
+    final String? key = record.questionDateKey?.trim();
+    if (key != null && key.length == 8) {
+      final int? year = int.tryParse(key.substring(0, 4));
+      final int? month = int.tryParse(key.substring(4, 6));
+      final int? day = int.tryParse(key.substring(6, 8));
+      if (year != null && month != null && day != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    return toKst(record.createdAt);
+  }
 }
 
 class _QuestionWrittenSpeechBubble extends StatelessWidget {
@@ -964,6 +1041,7 @@ class _QuestionWrittenSpeechBubble extends StatelessWidget {
       ),
     );
   }
+
 }
 
 class _SpeechDownTailPainter extends CustomPainter {
@@ -999,9 +1077,7 @@ class _TopCharacterDecorations extends StatefulWidget {
 class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
     with TickerProviderStateMixin {
   late final AnimationController _fishController;
-  late final AnimationController _bubbleController;
   late final Animation<double> _fishDy;
-  late final Animation<double> _bubbleDy;
 
   @override
   void initState() {
@@ -1010,22 +1086,14 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
       vsync: this,
       duration: const Duration(milliseconds: 1700),
     )..repeat(reverse: true);
-    _bubbleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2300),
-    )..repeat(reverse: true);
     _fishDy = Tween<double>(begin: 2, end: -6).animate(
       CurvedAnimation(parent: _fishController, curve: Curves.easeInOut),
-    );
-    _bubbleDy = Tween<double>(begin: 0, end: -8).animate(
-      CurvedAnimation(parent: _bubbleController, curve: Curves.easeInOutSine),
     );
   }
 
   @override
   void dispose() {
     _fishController.dispose();
-    _bubbleController.dispose();
     super.dispose();
   }
 
@@ -1033,12 +1101,12 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
   Widget build(BuildContext context) {
     return SizedBox(
       width: 350,
-      height: 132,
+      height: 140,
       child: Stack(
         clipBehavior: Clip.none,
         children: <Widget>[
           Positioned(
-            left: 4,
+            left: 0,
             bottom: 0,
             child: Image.asset(
               HomeScreen._decoSeaweedAsset,
@@ -1049,101 +1117,49 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
             ),
           ),
           Positioned(
-            left: 47,
-            bottom: 0,
-            child: Image.asset(
-              HomeScreen._decoCrabAsset,
-              width: 70,
-              height: 70,
-              fit: BoxFit.contain,
-              errorBuilder: (_, error, stackTrace) => const SizedBox.shrink(),
+            left: 40,
+            top: 70,
+            child: Transform.rotate(
+              angle: 4.43 * 3.141592653589793 / 180,
+              child: Image.asset(
+                HomeScreen._decoCrabAsset,
+                width: 70,
+                height: 70,
+                fit: BoxFit.contain,
+                errorBuilder: (_, error, stackTrace) => const SizedBox.shrink(),
+              ),
             ),
           ),
           Positioned(
-            right: 0,
-            bottom: 18,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                _QuestionWrittenSpeechBubble(
-                  text: "오늘의 질문을 적었어요!",
-                  color: widget.bubbleColor,
-                ),
-                const SizedBox(width: AppSpacing.s8),
-                SizedBox(
-                  width: 150,
-                  height: 124,
-                  child: AnimatedBuilder(
-                    animation: _fishController,
-                    builder: (BuildContext context, Widget? child) {
-                      return Align(
-                        alignment: Alignment.bottomRight,
-                        child: Transform.translate(
-                          offset: Offset(0, _fishDy.value),
-                          child: Image.asset(
-                            HomeScreen._heroFishAsset,
-                            width: 108.4,
-                            height: 108.4,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, error, stackTrace) {
-                              return const SizedBox(
-                                width: 108.4,
-                                height: 108.4,
-                                child: Center(
-                                  child: Text(
-                                    "🐟",
-                                    style: TextStyle(fontSize: 48),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+            left: 68,
+            top: 26,
+            child: _QuestionWrittenSpeechBubble(
+              text: "오늘의 질문을 적었어요!",
+              color: widget.bubbleColor,
+            ),
+          ),
+          Positioned(
+            left: 218,
+            top: 0,
+            child: AnimatedBuilder(
+              animation: _fishController,
+              builder: (BuildContext context, Widget? child) {
+                return Transform.translate(
+                  offset: Offset(0, _fishDy.value),
+                  child: Image.asset(
+                    HomeScreen._heroFishAsset,
+                    width: 140,
+                    height: 140,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, error, stackTrace) {
+                      return const SizedBox(
+                        width: 140,
+                        height: 140,
+                        child: Center(
+                          child: Text("🐟", style: TextStyle(fontSize: 48)),
                         ),
                       );
                     },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            right: 66,
-            top: -14,
-            child: AnimatedBuilder(
-              animation: _bubbleController,
-              builder: (BuildContext context, Widget? child) {
-                return Transform.translate(
-                  offset: Offset(0, _bubbleDy.value),
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: 0.92,
-                      child: Image.asset(
-                        HomeScreen._decoBubbleAsset,
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.contain,
-                        errorBuilder:
-                            (
-                              BuildContext context,
-                              Object error,
-                              StackTrace? stackTrace,
-                            ) => Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: const Color(0x9937B8FF),
-                                shape: BoxShape.circle,
-                                boxShadow: const <BoxShadow>[
-                                  BoxShadow(
-                                    color: Color(0x33017AF7),
-                                    blurRadius: 8,
-                                    offset: Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                            ),
-                      ),
-                    ),
                   ),
                 );
               },

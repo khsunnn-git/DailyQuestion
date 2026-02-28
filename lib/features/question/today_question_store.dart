@@ -3,6 +3,7 @@ import "dart:math";
 import "package:flutter/foundation.dart";
 import "package:isar/isar.dart";
 
+import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/answer_record_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "public_answer_uploader.dart";
@@ -76,12 +77,37 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
 
   TodayQuestionRecord? get latestRecord => value.isEmpty ? null : value.first;
 
+  TodayQuestionRecord? get latestRecordForTodayKst {
+    final String todayKey = kstDateKeyNow();
+    final DateTime now = nowInKst();
+    for (final TodayQuestionRecord item in value) {
+      if (_resolvedQuestionDateKey(item) == todayKey) {
+        return item;
+      }
+      if (isSameKstDate(item.createdAt, now)) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  bool get hasRecordForTodayKst => latestRecordForTodayKst != null;
+
+  TodayQuestionRecord? latestRecordForQuestionDateKey(String questionDateKey) {
+    for (final TodayQuestionRecord item in value) {
+      if (_resolvedQuestionDateKey(item) == questionDateKey) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   int get consecutiveRecordDays {
     if (value.isEmpty) {
       return 0;
     }
     final Set<DateTime> uniqueDays = value
-        .map((TodayQuestionRecord item) => _dateOnly(item.createdAt))
+        .map((TodayQuestionRecord item) => _questionDateOnly(item))
         .toSet();
     final List<DateTime> sorted = uniqueDays.toList()
       ..sort((a, b) => b.compareTo(a));
@@ -92,7 +118,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     DateTime cursor = sorted.first;
     for (int i = 1; i < sorted.length; i++) {
       final DateTime expectedPrev = cursor.subtract(const Duration(days: 1));
-      if (_dateOnly(sorted[i]) == _dateOnly(expectedPrev)) {
+      if (sorted[i] == expectedPrev) {
         streak += 1;
         cursor = sorted[i];
       } else {
@@ -103,12 +129,12 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
   }
 
   List<bool> weeklyCompletion({DateTime? referenceDate}) {
-    final DateTime reference = referenceDate ?? DateTime.now();
-    final DateTime monday = _dateOnly(
+    final DateTime reference = referenceDate ?? nowInKst();
+    final DateTime monday = kstDateOnly(
       reference.subtract(Duration(days: reference.weekday - 1)),
     );
     final Set<DateTime> recordedDays = value
-        .map((TodayQuestionRecord item) => _dateOnly(item.createdAt))
+        .map((TodayQuestionRecord item) => _questionDateOnly(item))
         .toSet();
     return List<bool>.generate(7, (int index) {
       final DateTime day = monday.add(Duration(days: index));
@@ -138,15 +164,16 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     final String? resolvedBucketTag = normalizedTags.isNotEmpty
         ? normalizedTags.last
         : bucketTag?.trim();
-    final DateTime resolvedCreatedAt = createdAt ?? DateTime.now();
+    final DateTime resolvedCreatedAt = createdAt ?? nowInKst();
     final int resolvedQuestionSlot = _normalizeSlot(questionSlot ?? 0);
-    final String resolvedQuestionDateKey =
-        questionDateKey ?? _dateKey(resolvedCreatedAt);
+    final String resolvedQuestionDateKey = kstDateKeyFromDateTime(
+      resolvedCreatedAt,
+    );
 
     if (createdAt != null) {
       final int existingIndex = value.indexWhere(
         (TodayQuestionRecord item) =>
-            _dateOnly(item.createdAt) == _dateOnly(resolvedCreatedAt),
+            _resolvedQuestionDateKey(item) == resolvedQuestionDateKey,
       );
       if (existingIndex >= 0) {
         final TodayQuestionRecord existing = value[existingIndex];
@@ -162,7 +189,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
           questionSlot: questionSlot == null
               ? existing.questionSlot
               : resolvedQuestionSlot,
-          questionDateKey: questionDateKey ?? existing.questionDateKey,
+          questionDateKey: resolvedQuestionDateKey,
           questionText: questionText ?? existing.questionText,
         );
         final List<TodayQuestionRecord> next = List<TodayQuestionRecord>.from(
@@ -263,13 +290,15 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     if (removed) {
       await _deleteRecordByCreatedAt(createdAt);
       if (target != null) {
-        final String questionDateKey =
-            target.questionDateKey ?? _dateKey(target.createdAt);
-        await PublicAnswerUploader.instance.delete(
-          createdAt: target.createdAt,
-          questionDateKey: questionDateKey,
-          questionSlot: _normalizeSlot(target.questionSlot),
-        );
+        try {
+          await PublicAnswerUploader.instance.delete(
+            createdAt: target.createdAt,
+            questionDateKey: kstDateKeyFromDateTime(target.createdAt),
+            questionSlot: _normalizeSlot(target.questionSlot),
+          );
+        } catch (_) {
+          // Keep local delete successful even when public delete fails.
+        }
       }
     }
     return removed;
@@ -320,7 +349,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       await PublicAnswerUploader.instance.sync(
         PublicAnswerPayload(
           createdAt: record.createdAt,
-          questionDateKey: record.questionDateKey ?? _dateKey(record.createdAt),
+          questionDateKey: kstDateKeyFromDateTime(record.createdAt),
           questionSlot: _normalizeSlot(record.questionSlot),
           answer: record.answer,
           author: record.author,
@@ -353,10 +382,9 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       entity.bucketTags = List<String>.from(record.bucketTags);
       entity.isPublic = record.isPublic;
       entity.questionSlot = _normalizeSlot(record.questionSlot);
-      entity.questionDateKey =
-          record.questionDateKey ?? _dateKey(record.createdAt);
+      entity.questionDateKey = kstDateKeyFromDateTime(record.createdAt);
       entity.questionText = record.questionText;
-      entity.updatedAt = DateTime.now();
+      entity.updatedAt = nowInKst();
       await isar.answerRecordEntitys.put(entity);
     });
   }
@@ -395,17 +423,28 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     return "$trait $animal님";
   }
 
-  DateTime _dateOnly(DateTime dateTime) {
-    return DateTime(dateTime.year, dateTime.month, dateTime.day);
+  String _resolvedQuestionDateKey(TodayQuestionRecord record) {
+    return kstDateKeyFromDateTime(record.createdAt);
+  }
+
+  DateTime _questionDateOnly(TodayQuestionRecord record) {
+    final String key = _resolvedQuestionDateKey(record);
+    if (key.length == 8) {
+      final int? year = int.tryParse(key.substring(0, 4));
+      final int? month = int.tryParse(key.substring(4, 6));
+      final int? day = int.tryParse(key.substring(6, 8));
+      if (year != null && month != null && day != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    return DateTime(
+      record.createdAt.year,
+      record.createdAt.month,
+      record.createdAt.day,
+    );
   }
 
   int _normalizeSlot(int slot) {
     return slot.clamp(0, 2);
-  }
-
-  String _dateKey(DateTime dateTime) {
-    final String mm = dateTime.month.toString().padLeft(2, "0");
-    final String dd = dateTime.day.toString().padLeft(2, "0");
-    return "${dateTime.year}$mm$dd";
   }
 }

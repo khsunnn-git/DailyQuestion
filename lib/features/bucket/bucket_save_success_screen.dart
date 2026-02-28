@@ -10,7 +10,7 @@ class BucketSaveSuccessScreen extends StatefulWidget {
     this.title = "버킷리스트 저장!",
     this.subtitle,
     this.imageAsset = successAsset,
-    this.autoCloseDuration = const Duration(seconds: 2),
+    this.autoCloseDuration = const Duration(seconds: 1),
   });
 
   static const String successAsset =
@@ -96,22 +96,6 @@ class _BucketSaveSuccessScreenState extends State<BucketSaveSuccessScreen> {
                     ),
                   ],
                 ),
-              ),
-            ),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: FilledButton(
-                onPressed: _close,
-                style: FilledButton.styleFrom(
-                  backgroundColor: brand.c500,
-                  foregroundColor: AppNeutralColors.white,
-                  textStyle: AppTypography.buttonLarge,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.s8),
-                  ),
-                ),
-                child: const Text("확인"),
               ),
             ),
           ],

@@ -1,7 +1,11 @@
 import "dart:async";
 
 import "package:flutter/material.dart";
+import "package:isar/isar.dart";
 
+import "../../core/kst_date_time.dart";
+import "../../data/local_db/entities/bucket_item_entity.dart";
+import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
 import "streak_completion_screen.dart";
 import "today_question_prompt_store.dart";
@@ -29,10 +33,13 @@ class TodayQuestionAnswerScreen extends StatefulWidget {
 }
 
 class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
+  static const String _allCategoryName = "ALL";
+  static const Color _allCategoryColor = AppNeutralColors.grey100;
   bool _isPublic = false;
   int _polishUsedCount = 0;
   bool _showPolishLoading = false;
   final List<String> _bucketTags = <String>[];
+  final List<String> _initialBucketTags = <String>[];
   final TextEditingController _answerController = TextEditingController();
   final FocusNode _answerFocusNode = FocusNode();
 
@@ -41,92 +48,94 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   bool get _canPolish =>
       _effectiveCharCount(_answerController.text) >= 5 && _polishUsedCount < 3;
 
+  String _normalizeBucketTag(String value) {
+    return value.replaceAll(RegExp(r"\s+"), " ").trim();
+  }
+
   Future<void> _saveRecord() async {
-    final bool isEditMode = widget.editingRecord != null;
-    final DateTime? targetDate = widget.initialDate == null
-        ? null
-        : DateTime(
-            widget.initialDate!.year,
-            widget.initialDate!.month,
-            widget.initialDate!.day,
-            12,
-          );
-    final int resolvedQuestionSlot = _resolveQuestionSlot();
-    final String resolvedQuestionText =
-        widget.questionText ??
-        TodayQuestionPromptStore.instance.value.currentQuestionText;
-    final DateTime groupDate = targetDate ?? DateTime.now();
-    final TodayQuestionRecord? savedRecord = isEditMode
-        ? await TodayQuestionStore.instance.updateRecord(
-            createdAt: widget.editingRecord!.createdAt,
-            answer: _answerController.text,
-            isPublic: _isPublic,
-            bucketTags: _bucketTags,
-          )
-        : await TodayQuestionStore.instance.saveRecord(
-            answer: _answerController.text,
-            isPublic: _isPublic,
-            bucketTags: _bucketTags,
-            createdAt: targetDate,
-            questionSlot: resolvedQuestionSlot,
-            questionDateKey: _dateKey(groupDate),
-            questionText: resolvedQuestionText,
-          );
+    try {
+      final bool isEditMode = widget.editingRecord != null;
+      final DateTime promptDate = TodayQuestionPromptStore.instance.value.date;
+      final DateTime baseDate = widget.initialDate ?? promptDate;
+      final DateTime normalizedRecordDate = DateTime(
+        baseDate.year,
+        baseDate.month,
+        baseDate.day,
+        12,
+      );
+      final DateTime? targetDate = isEditMode ? null : normalizedRecordDate;
+      final int resolvedQuestionSlot = _resolveQuestionSlot();
+      final String resolvedQuestionText =
+          widget.questionText ??
+          TodayQuestionPromptStore.instance.value.currentQuestionText;
+      final DateTime groupDate = normalizedRecordDate;
+      final TodayQuestionRecord? savedRecord = isEditMode
+          ? await TodayQuestionStore.instance.updateRecord(
+              createdAt: widget.editingRecord!.createdAt,
+              answer: _answerController.text,
+              isPublic: _isPublic,
+              bucketTags: _bucketTags,
+            )
+          : await TodayQuestionStore.instance.saveRecord(
+              answer: _answerController.text,
+              isPublic: _isPublic,
+              bucketTags: _bucketTags,
+              createdAt: targetDate,
+              questionSlot: resolvedQuestionSlot,
+              questionDateKey: kstDateKeyFromDateTime(groupDate),
+              questionText: resolvedQuestionText,
+            );
 
-    if (savedRecord == null) {
-      return;
-    }
+      if (savedRecord == null) {
+        return;
+      }
+      await _syncBucketListItems(
+        previousTags: _initialBucketTags,
+        nextTags: _bucketTags,
+        createdAt: savedRecord.createdAt,
+      );
 
-    if (isEditMode) {
+      if (isEditMode) {
+        if (!mounted) {
+          return;
+        }
+        Navigator.of(context).pop(savedRecord);
+        return;
+      }
+
+      final DateTime now = nowInKst();
+      final DateTime resolvedDate = widget.initialDate ?? now;
+      final bool isTodayTarget = isSameKstDate(resolvedDate, now);
+      final int streak = TodayQuestionStore.instance.consecutiveRecordDays;
+      if (!mounted) {
+        return;
+      }
+      if (isTodayTarget && streak >= 2) {
+        final List<bool> weeklyCompleted = TodayQuestionStore.instance
+            .weeklyCompletion();
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => StreakCompletionScreen(
+              streakDays: streak,
+              weeklyCompleted: weeklyCompleted,
+            ),
+          ),
+        );
+      }
       if (!mounted) {
         return;
       }
       Navigator.of(context).pop(savedRecord);
-      return;
+    } catch (_) {
+      _showBucketToastMessage("저장 중 오류가 발생했어요. 다시 시도해주세요.");
     }
-
-    final DateTime now = DateTime.now();
-    final DateTime resolvedDate = widget.initialDate ?? now;
-    final bool isTodayTarget =
-        resolvedDate.year == now.year &&
-        resolvedDate.month == now.month &&
-        resolvedDate.day == now.day;
-    final int streak = TodayQuestionStore.instance.consecutiveRecordDays;
-    if (!mounted) {
-      return;
-    }
-    if (isTodayTarget && streak >= 2) {
-      final List<bool> weeklyCompleted = TodayQuestionStore.instance
-          .weeklyCompletion();
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => StreakCompletionScreen(
-            streakDays: streak,
-            weeklyCompleted: weeklyCompleted,
-          ),
-        ),
-      );
-    }
-    if (!mounted) {
-      return;
-    }
-    Navigator.of(context).pop(savedRecord);
   }
 
   int _resolveQuestionSlot() {
     if (widget.questionSlot != null) {
       return widget.questionSlot!.clamp(0, 2);
     }
-    if (widget.initialDate != null && widget.questionText != null) {
-      return 0;
-    }
-    return TodayQuestionPromptStore.instance.value.refreshIndex.clamp(0, 2);
-  }
-
-  String _dateKey(DateTime dateTime) {
-    final String mm = dateTime.month.toString().padLeft(2, "0");
-    final String dd = dateTime.day.toString().padLeft(2, "0");
-    return "${dateTime.year}$mm$dd";
+    return 0;
   }
 
   @override
@@ -145,8 +154,82 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
           editingRecord.bucketTag!.trim().isNotEmpty) {
         _bucketTags.add(editingRecord.bucketTag!.trim());
       }
+      _initialBucketTags.addAll(_bucketTags);
     }
     _answerController.addListener(_handleAnswerChanged);
+  }
+
+  Future<void> _syncBucketListItems({
+    required List<String> previousTags,
+    required List<String> nextTags,
+    required DateTime createdAt,
+  }) async {
+    final List<String> before = previousTags
+        .map((String e) => e.trim())
+        .where((String e) => e.isNotEmpty)
+        .toList(growable: false);
+    final List<String> after = nextTags
+        .map((String e) => e.trim())
+        .where((String e) => e.isNotEmpty)
+        .toList(growable: false);
+    final Map<String, int> beforeCount = _toCountMap(before);
+    final Map<String, int> afterCount = _toCountMap(after);
+
+    final List<String> toAdd = <String>[];
+    for (final MapEntry<String, int> entry in afterCount.entries) {
+      final int delta = entry.value - (beforeCount[entry.key] ?? 0);
+      for (int i = 0; i < delta; i++) {
+        toAdd.add(entry.key);
+      }
+    }
+
+    final List<String> toDelete = <String>[];
+    for (final MapEntry<String, int> entry in beforeCount.entries) {
+      final int delta = entry.value - (afterCount[entry.key] ?? 0);
+      for (int i = 0; i < delta; i++) {
+        toDelete.add(entry.key);
+      }
+    }
+
+    if (toAdd.isEmpty && toDelete.isEmpty) {
+      return;
+    }
+
+    final isar = await LocalDatabase.instance.isar;
+    await isar.writeTxn(() async {
+      for (final String tag in toAdd) {
+        final BucketItemEntity entity = BucketItemEntity();
+        entity.title = tag;
+        entity.category = _allCategoryName;
+        entity.categoryColorValue = _allCategoryColor.toARGB32();
+        entity.createdAt = createdAt;
+        entity.dueDate = null;
+        entity.isCompleted = false;
+        entity.updatedAt = nowInKst();
+        await isar.bucketItemEntitys.put(entity);
+      }
+
+      for (final String tag in toDelete) {
+        final BucketItemEntity? target = await isar.bucketItemEntitys
+            .filter()
+            .titleEqualTo(tag)
+            .categoryEqualTo(_allCategoryName)
+            .isCompletedEqualTo(false)
+            .findFirst();
+        if (target == null) {
+          continue;
+        }
+        await isar.bucketItemEntitys.delete(target.id);
+      }
+    });
+  }
+
+  Map<String, int> _toCountMap(List<String> values) {
+    final Map<String, int> result = <String, int>{};
+    for (final String value in values) {
+      result.update(value, (int existing) => existing + 1, ifAbsent: () => 1);
+    }
+    return result;
   }
 
   void _handleAnswerChanged() {
@@ -306,6 +389,11 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
     if (!_canPolish) {
       return;
     }
+    // Keep keyboard closed while using polish / retry flow.
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (_answerFocusNode.hasFocus) {
+      _answerFocusNode.unfocus();
+    }
     final String originalText = _answerController.text;
     final int requestCount = _polishUsedCount + 1;
 
@@ -455,6 +543,10 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       if (!context.mounted) {
         return;
       }
+      FocusManager.instance.primaryFocus?.unfocus();
+      if (_answerFocusNode.hasFocus) {
+        _answerFocusNode.unfocus();
+      }
       _openPolishBottomSheet(context);
       return;
     }
@@ -468,7 +560,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   }
 
   Future<void> _openBucketBottomSheet(BuildContext context) async {
-    final TextEditingController bucketController = TextEditingController();
+    String draftBucketText = "";
 
     final String? bucketText = await _showDesignBottomSheet<String>(
       context: context,
@@ -476,7 +568,9 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
         final BrandScale brand = context.appBrandScale;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
-            final bool canSave = bucketController.text.trim().isNotEmpty;
+            final bool canSave = _normalizeBucketTag(
+              draftBucketText,
+            ).isNotEmpty;
             return Padding(
               padding: EdgeInsets.fromLTRB(24, 24, 24, 48 + keyboardInset),
               child: Column(
@@ -519,7 +613,6 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                     ),
                     padding: const EdgeInsets.all(10),
                     child: TextField(
-                      controller: bucketController,
                       autofocus: true,
                       cursorColor: AppNeutralColors.grey900,
                       minLines: 3,
@@ -527,7 +620,10 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                       style: AppTypography.bodyMediumMedium.copyWith(
                         color: AppNeutralColors.grey900,
                       ),
-                      onChanged: (_) => setModalState(() {}),
+                      onChanged: (String value) {
+                        draftBucketText = value;
+                        setModalState(() {});
+                      },
                       decoration: InputDecoration(
                         isDense: true,
                         filled: true,
@@ -578,7 +674,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                             onPressed: canSave
                                 ? () => Navigator.of(
                                     context,
-                                  ).pop(bucketController.text.trim())
+                                  ).pop(_normalizeBucketTag(draftBucketText))
                                 : null,
                             style: FilledButton.styleFrom(
                               minimumSize: const Size.fromHeight(56),
@@ -610,12 +706,15 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       },
     );
 
-    bucketController.dispose();
     if (!mounted || bucketText == null) {
       return;
     }
+    final String normalized = _normalizeBucketTag(bucketText);
+    if (normalized.isEmpty) {
+      return;
+    }
     setState(() {
-      _bucketTags.add(bucketText);
+      _bucketTags.add(normalized);
     });
     _showBucketToast();
   }
@@ -631,7 +730,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final DateTime now = DateTime.now();
+    final DateTime now = nowInKst();
     final double safeBottomInset = MediaQuery.of(context).viewPadding.bottom;
     final DateTime displayDate =
         widget.editingRecord?.createdAt ?? widget.initialDate ?? now;
@@ -643,6 +742,8 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
         "${displayDate.year.toString().padLeft(4, "0")}."
         "${displayDate.month.toString().padLeft(2, "0")}."
         "${displayDate.day.toString().padLeft(2, "0")}";
+    final double bucketTagMaxWidth =
+        MediaQuery.of(context).size.width - (AppSpacing.s20 * 2) - 56;
     return Scaffold(
       backgroundColor: brand.bg,
       body: Padding(
@@ -860,9 +961,9 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                                         _showBucketRemovedToast();
                                       },
                                       borderRadius: BorderRadius.circular(999),
-                                      child: AppBucketTag(
+                                      child: _QuestionBucketTagChip(
                                         text: entry.value,
-                                        state: AppBucketTagState.defaultState,
+                                        maxWidth: bucketTagMaxWidth,
                                       ),
                                     ),
                                   );
@@ -1009,6 +1110,50 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _QuestionBucketTagChip extends StatelessWidget {
+  const _QuestionBucketTagChip({required this.text, required this.maxWidth});
+
+  final String text;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      height: 38,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s12,
+        vertical: AppSpacing.s8,
+      ),
+      decoration: BoxDecoration(
+        color: context.appBrandScale.c500,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            "# ",
+            style: AppTypography.bodySmallMedium.copyWith(
+              color: AppNeutralColors.white,
+            ),
+          ),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.bodySmallMedium.copyWith(
+                color: AppNeutralColors.white,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

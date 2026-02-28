@@ -1,7 +1,9 @@
 import "package:flutter/material.dart";
 
+import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "home_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
 import "my_records_screen.dart";
@@ -245,18 +247,25 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
       return;
     }
     if (removed) {
-      Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+        (Route<dynamic> route) => false,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final DateTime createdAt = widget.record.createdAt;
+    final DateTime createdAt = _displayDateForRecord(widget.record);
     final String createdDate =
         "${createdAt.year.toString().padLeft(4, "0")}."
         "${createdAt.month.toString().padLeft(2, "0")}."
         "${createdAt.day.toString().padLeft(2, "0")}";
+    final String questionTitle =
+        (widget.record.questionText?.trim().isNotEmpty ?? false)
+        ? widget.record.questionText!.trim()
+        : "오늘의 질문";
 
     return Scaffold(
       backgroundColor: brand.bg,
@@ -342,7 +351,7 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                           ),
                         ),
                         child: Text(
-                          "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+                          questionTitle,
                           textAlign: TextAlign.center,
                           style: AppTypography.headingLarge.copyWith(
                             color: AppNeutralColors.grey900,
@@ -560,5 +569,18 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
         ),
       ),
     );
+  }
+
+  DateTime _displayDateForRecord(TodayQuestionRecord record) {
+    final String? key = record.questionDateKey?.trim();
+    if (key != null && key.length == 8) {
+      final int? year = int.tryParse(key.substring(0, 4));
+      final int? month = int.tryParse(key.substring(4, 6));
+      final int? day = int.tryParse(key.substring(6, 8));
+      if (year != null && month != null && day != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    return toKst(record.createdAt);
   }
 }

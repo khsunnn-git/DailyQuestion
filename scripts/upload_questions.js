@@ -29,17 +29,6 @@ function validateQuestion(item, index) {
   if (typeof item.base !== "string" || item.base.trim().length === 0) {
     fail(`${label}.base must be a non-empty string.`);
   }
-  if (!Array.isArray(item.reserve)) {
-    fail(`${label}.reserve must be an array.`);
-  }
-  if (item.reserve.length !== 2) {
-    fail(`${label}.reserve must have exactly 2 items.`);
-  }
-  item.reserve.forEach((value, reserveIndex) => {
-    if (typeof value !== "string" || value.trim().length === 0) {
-      fail(`${label}.reserve[${reserveIndex}] must be a non-empty string.`);
-    }
-  });
   if (item.active !== undefined && typeof item.active !== "boolean") {
     fail(`${label}.active must be a boolean.`);
   }
@@ -79,7 +68,6 @@ async function uploadQuestions({ serviceAccountPath, questionsPath, collectionId
         {
           dayOfYear: item.dayOfYear,
           base: item.base.trim(),
-          reserve: item.reserve.map((v) => v.trim()),
           active: item.active ?? true,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },

@@ -1,5 +1,6 @@
 import "dart:math" as math;
 
+import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -27,7 +28,6 @@ class MyRecordsScreen extends StatefulWidget {
   static const String _profileChangesAsset =
       "assets/images/record/profile_changes.png";
 
-  static const int _temporaryLastDay = 24;
   static const String _defaultQuestion = "오늘 가장 기억에 남는 순간은 무엇인가요?";
   static const String _unansweredMessage = "아직 열어보지 않은 질문입니다.";
   static const int _debugMockRecordYear = 2025;
@@ -517,6 +517,113 @@ class _TopMainPanel extends StatelessWidget {
   }
 }
 
+class _PastQuestionDb {
+  static final Map<String, String> _questionCache = <String, String>{};
+  static final Map<String, Future<Map<int, String>>> _monthLoadCache =
+      <String, Future<Map<int, String>>>{};
+
+  static Future<Map<int, String>> loadMonthQuestions({
+    required int year,
+    required int month,
+    required int lastDay,
+  }) {
+    final String monthKey =
+        "$year-${month.toString().padLeft(2, "0")}-$lastDay";
+    return _monthLoadCache.putIfAbsent(monthKey, () async {
+      final Map<int, String> questionsByDay = <int, String>{};
+      for (int day = 1; day <= lastDay; day++) {
+        final DateTime targetDate = DateTime(year, month, day);
+        final String? question = await _fetchQuestionForDate(targetDate);
+        if (question == null || question.trim().isEmpty) {
+          continue;
+        }
+        questionsByDay[day] = question.trim();
+      }
+      return questionsByDay;
+    });
+  }
+
+  static String resolveQuestion({
+    required int day,
+    required Map<int, String> questionsByDay,
+    TodayQuestionRecord? record,
+  }) {
+    final String? recordQuestion = record?.questionText?.trim();
+    if (recordQuestion != null && recordQuestion.isNotEmpty) {
+      return recordQuestion;
+    }
+    final String? dbQuestion = questionsByDay[day]?.trim();
+    if (dbQuestion != null && dbQuestion.isNotEmpty) {
+      return dbQuestion;
+    }
+    return MyRecordsScreen.questionTextForDay(day);
+  }
+
+  static Future<String?> _fetchQuestionForDate(DateTime date) async {
+    final int dayOfYear = _dayOfYear(date);
+    final String cacheKey = _cacheKey(year: date.year, dayOfYear: dayOfYear);
+    final String? cached = _questionCache[cacheKey];
+    if (cached != null) {
+      return cached;
+    }
+
+    try {
+      final CollectionReference<Map<String, dynamic>> ref = FirebaseFirestore
+          .instance
+          .collection("daily_questions");
+
+      final List<String> docIds = <String>[
+        "$dayOfYear",
+        dayOfYear.toString().padLeft(3, "0"),
+      ];
+      for (final String id in docIds) {
+        final DocumentSnapshot<Map<String, dynamic>> snapshot = await ref
+            .doc(id)
+            .get();
+        final String? base = _extractBaseQuestion(snapshot.data());
+        if (base != null) {
+          _questionCache[cacheKey] = base;
+          return base;
+        }
+      }
+
+      final QuerySnapshot<Map<String, dynamic>> query = await ref
+          .where("dayOfYear", isEqualTo: dayOfYear)
+          .limit(1)
+          .get();
+      if (query.docs.isNotEmpty) {
+        final String? base = _extractBaseQuestion(query.docs.first.data());
+        if (base != null) {
+          _questionCache[cacheKey] = base;
+          return base;
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  static String? _extractBaseQuestion(Map<String, dynamic>? data) {
+    if (data == null) {
+      return null;
+    }
+    final String? base = (data["base"] as String?)?.trim();
+    if (base == null || base.isEmpty) {
+      return null;
+    }
+    return base;
+  }
+
+  static String _cacheKey({required int year, required int dayOfYear}) {
+    return "$year-$dayOfYear";
+  }
+
+  static int _dayOfYear(DateTime date) {
+    return date.difference(DateTime(date.year, 1, 1)).inDays + 1;
+  }
+}
+
 class _MonthlyPreviewStrip extends StatefulWidget {
   const _MonthlyPreviewStrip({
     required this.selectedYear,
@@ -583,142 +690,171 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                     item.day: item,
                 };
 
-            int latestDay = 0;
-            if (recordByDay.isNotEmpty) {
-              latestDay = recordByDay.keys.reduce(
-                (int a, int b) => a > b ? a : b,
-              );
-            } else if (seedByDay.isNotEmpty) {
-              latestDay = seedByDay.keys.reduce(
-                (int a, int b) => a > b ? a : b,
-              );
-            }
-            latestDay = MyRecordsScreen._temporaryLastDay;
+            final DateTime now = DateTime.now();
+            final bool isCurrentMonth =
+                widget.selectedYear == now.year &&
+                widget.selectedMonth == now.month;
+            final int latestDay = isCurrentMonth ? now.day : monthEnd.day;
 
             if (latestDay <= 0) {
               return const SizedBox(height: 458);
             }
+            return FutureBuilder<Map<int, String>>(
+              future: _PastQuestionDb.loadMonthQuestions(
+                year: widget.selectedYear,
+                month: widget.selectedMonth,
+                lastDay: latestDay,
+              ),
+              initialData: const <int, String>{},
+              builder:
+                  (
+                    BuildContext context,
+                    AsyncSnapshot<Map<int, String>> questionSnapshot,
+                  ) {
+                    final Map<int, String> monthQuestions =
+                        questionSnapshot.data ?? const <int, String>{};
+                    final List<_MonthlyRecordPreview> previews =
+                        List<_MonthlyRecordPreview>.generate(latestDay, (
+                          int index,
+                        ) {
+                          final int day = index + 1;
+                          final String weekday = _weekdayKorean(
+                            DateTime(
+                              widget.selectedYear,
+                              widget.selectedMonth,
+                              day,
+                            ).weekday,
+                          );
+                          final TodayQuestionRecord? record = recordByDay[day];
+                          final _MonthlyRecordPreview? seed = seedByDay[day];
 
-            final List<_MonthlyRecordPreview> previews =
-                List<_MonthlyRecordPreview>.generate(latestDay, (int index) {
-                  final int day = index + 1;
-                  final String weekday = _weekdayKorean(
-                    DateTime(
-                      widget.selectedYear,
-                      widget.selectedMonth,
-                      day,
-                    ).weekday,
-                  );
-                  final TodayQuestionRecord? record = recordByDay[day];
-                  final _MonthlyRecordPreview? seed = seedByDay[day];
-
-                  if (record != null) {
-                    final List<String> tags = record.bucketTags.isNotEmpty
-                        ? record.bucketTags
-                        : (record.bucketTag == null ||
-                              record.bucketTag!.trim().isEmpty)
-                        ? const <String>[]
-                        : <String>[record.bucketTag!.trim()];
-                    return _MonthlyRecordPreview(
-                      day: day,
-                      date: seed?.date ?? "$day일 $weekday",
-                      question:
-                          seed?.question ??
-                          MyRecordsScreen.questionTextForDay(day),
-                      body: record.answer,
-                      tags: tags,
-                      record: record,
-                      year: widget.selectedYear,
-                      month: widget.selectedMonth,
-                    );
-                  }
-                  if (seed != null) {
-                    return _MonthlyRecordPreview(
-                      day: seed.day,
-                      date: seed.date,
-                      question: seed.question,
-                      body: seed.body,
-                      tags: seed.tags,
-                      record: seed.record,
-                      year: widget.selectedYear,
-                      month: widget.selectedMonth,
-                    );
-                  }
-                  return _MonthlyRecordPreview(
-                    day: day,
-                    date: "$day일 $weekday",
-                    question: MyRecordsScreen.questionTextForDay(day),
-                    body: MyRecordsScreen._unansweredMessage,
-                    tags: const <String>[],
-                    year: widget.selectedYear,
-                    month: widget.selectedMonth,
-                  );
-                }, growable: false);
-
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              final PageController? controller = _pageController;
-              if (_didSetInitialPage ||
-                  controller == null ||
-                  !controller.hasClients) {
-                return;
-              }
-              controller.jumpToPage(previews.length - 1);
-              _currentPage = previews.length - 1;
-              _didSetInitialPage = true;
-            });
-
-            return LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                final double viewportWidth = constraints.maxWidth;
-                final double viewportFraction =
-                    viewportWidth > (_cardWidth + _cardGap)
-                    ? (_cardWidth + _cardGap) / viewportWidth
-                    : 1.0;
-                _pageController ??= PageController(
-                  viewportFraction: viewportFraction,
-                );
-
-                return SizedBox(
-                  height: 458,
-                  child: ScrollConfiguration(
-                    behavior: const MaterialScrollBehavior().copyWith(
-                      dragDevices: <PointerDeviceKind>{
-                        PointerDeviceKind.touch,
-                        PointerDeviceKind.mouse,
-                        PointerDeviceKind.trackpad,
-                        PointerDeviceKind.stylus,
-                        PointerDeviceKind.invertedStylus,
-                      },
-                    ),
-                    child: PageView.builder(
-                      controller: _pageController,
-                      physics: const PageScrollPhysics(),
-                      padEnds: true,
-                      onPageChanged: (int index) {
-                        if (_currentPage == index) return;
-                        setState(() {
-                          _currentPage = index;
-                        });
-                      },
-                      itemCount: previews.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        final bool isLatestCard = index == previews.length - 1;
-                        return Align(
-                          alignment: isLatestCard
-                              ? Alignment.centerRight
-                              : Alignment.center,
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              right: isLatestCard ? _lastCardRightAdjust : 0,
+                          if (record != null) {
+                            final List<String> tags =
+                                record.bucketTags.isNotEmpty
+                                ? record.bucketTags
+                                : (record.bucketTag == null ||
+                                      record.bucketTag!.trim().isEmpty)
+                                ? const <String>[]
+                                : <String>[record.bucketTag!.trim()];
+                            return _MonthlyRecordPreview(
+                              day: day,
+                              date: seed?.date ?? "$day일 $weekday",
+                              question: _PastQuestionDb.resolveQuestion(
+                                day: day,
+                                questionsByDay: monthQuestions,
+                                record: record,
+                              ),
+                              body: record.answer,
+                              tags: tags,
+                              record: record,
+                              year: widget.selectedYear,
+                              month: widget.selectedMonth,
+                            );
+                          }
+                          if (seed != null) {
+                            return _MonthlyRecordPreview(
+                              day: seed.day,
+                              date: seed.date,
+                              question: _PastQuestionDb.resolveQuestion(
+                                day: day,
+                                questionsByDay: monthQuestions,
+                                record: seed.record,
+                              ),
+                              body: seed.body,
+                              tags: seed.tags,
+                              record: seed.record,
+                              year: widget.selectedYear,
+                              month: widget.selectedMonth,
+                            );
+                          }
+                          return _MonthlyRecordPreview(
+                            day: day,
+                            date: "$day일 $weekday",
+                            question: _PastQuestionDb.resolveQuestion(
+                              day: day,
+                              questionsByDay: monthQuestions,
                             ),
-                            child: _MonthlyPreviewCard(item: previews[index]),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                );
-              },
+                            body: MyRecordsScreen._unansweredMessage,
+                            tags: const <String>[],
+                            year: widget.selectedYear,
+                            month: widget.selectedMonth,
+                          );
+                        }, growable: false);
+
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final PageController? controller = _pageController;
+                      if (_didSetInitialPage ||
+                          controller == null ||
+                          !controller.hasClients) {
+                        return;
+                      }
+                      controller.jumpToPage(previews.length - 1);
+                      _currentPage = previews.length - 1;
+                      _didSetInitialPage = true;
+                    });
+
+                    return LayoutBuilder(
+                      builder:
+                          (BuildContext context, BoxConstraints constraints) {
+                            final double viewportWidth = constraints.maxWidth;
+                            final double viewportFraction =
+                                viewportWidth > (_cardWidth + _cardGap)
+                                ? (_cardWidth + _cardGap) / viewportWidth
+                                : 1.0;
+                            _pageController ??= PageController(
+                              viewportFraction: viewportFraction,
+                            );
+
+                            return SizedBox(
+                              height: 458,
+                              child: ScrollConfiguration(
+                                behavior: const MaterialScrollBehavior()
+                                    .copyWith(
+                                      dragDevices: <PointerDeviceKind>{
+                                        PointerDeviceKind.touch,
+                                        PointerDeviceKind.mouse,
+                                        PointerDeviceKind.trackpad,
+                                        PointerDeviceKind.stylus,
+                                        PointerDeviceKind.invertedStylus,
+                                      },
+                                    ),
+                                child: PageView.builder(
+                                  controller: _pageController,
+                                  physics: const PageScrollPhysics(),
+                                  padEnds: true,
+                                  onPageChanged: (int index) {
+                                    if (_currentPage == index) return;
+                                    setState(() {
+                                      _currentPage = index;
+                                    });
+                                  },
+                                  itemCount: previews.length,
+                                  itemBuilder:
+                                      (BuildContext context, int index) {
+                                        final bool isLatestCard =
+                                            index == previews.length - 1;
+                                        return Align(
+                                          alignment: isLatestCard
+                                              ? Alignment.centerRight
+                                              : Alignment.center,
+                                          child: Padding(
+                                            padding: EdgeInsets.only(
+                                              right: isLatestCard
+                                                  ? _lastCardRightAdjust
+                                                  : 0,
+                                            ),
+                                            child: _MonthlyPreviewCard(
+                                              item: previews[index],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                ),
+                              ),
+                            );
+                          },
+                    );
+                  },
             );
           },
     );
@@ -1467,8 +1603,16 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
     return labels[date.weekday - 1];
   }
 
-  String _questionForDay(int day) {
-    return MyRecordsScreen.questionTextForDay(day);
+  String _questionForDay({
+    required int day,
+    required Map<int, String> monthQuestions,
+    TodayQuestionRecord? record,
+  }) {
+    return _PastQuestionDb.resolveQuestion(
+      day: day,
+      questionsByDay: monthQuestions,
+      record: record,
+    );
   }
 
   @override
@@ -1553,104 +1697,137 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                     );
                   }
 
-                  final List<_RecordListItem> monthlyItems =
-                      List<_RecordListItem>.generate(lastDay, (int index) {
-                        final int day = lastDay - index;
-                        return _RecordListItem(
-                          day: day.toString().padLeft(2, "0"),
-                          weekday: _weekdayLabel(
-                            DateTime(
-                              widget.selectedYear,
-                              widget.selectedMonth,
-                              day,
-                            ),
-                          ),
-                          text: _questionForDay(day),
-                          isCompleted: recordByDay.containsKey(day),
-                        );
-                      }, growable: false);
-
-                  final int total = monthlyItems.length;
-                  final int visibleCount = _visibleCount > total
-                      ? total
-                      : _visibleCount;
-                  final bool hasMore = visibleCount < total;
-
-                  return Column(
-                    children: <Widget>[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s8,
-                          vertical: AppSpacing.s16,
-                        ),
-                        child: Column(
-                          children: <Widget>[
-                            for (int i = 0; i < visibleCount; i++)
-                              _PastRecordRow(
-                                item: monthlyItems[i],
-                                isLast: i == visibleCount - 1,
-                                onTap: () {
-                                  final int day = int.parse(
-                                    monthlyItems[i].day,
-                                  );
-                                  final DateTime selectedDate = DateTime(
-                                    widget.selectedYear,
-                                    widget.selectedMonth,
-                                    day,
-                                  );
-                                  if (recordByDay.containsKey(day)) {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => MyRecordDetailScreen(
-                                          record: recordByDay[day]!,
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) => TodayQuestionAnswerScreen(
-                                        initialDate: selectedDate,
-                                        headerTitle: "지난 질문",
-                                        questionText: monthlyItems[i].text,
-                                      ),
+                  return FutureBuilder<Map<int, String>>(
+                    future: _PastQuestionDb.loadMonthQuestions(
+                      year: widget.selectedYear,
+                      month: widget.selectedMonth,
+                      lastDay: lastDay,
+                    ),
+                    initialData: const <int, String>{},
+                    builder:
+                        (
+                          BuildContext context,
+                          AsyncSnapshot<Map<int, String>> questionSnapshot,
+                        ) {
+                          final Map<int, String> monthQuestions =
+                              questionSnapshot.data ?? const <int, String>{};
+                          final List<_RecordListItem> monthlyItems =
+                              List<_RecordListItem>.generate(lastDay, (
+                                int index,
+                              ) {
+                                final int day = lastDay - index;
+                                return _RecordListItem(
+                                  day: day.toString().padLeft(2, "0"),
+                                  weekday: _weekdayLabel(
+                                    DateTime(
+                                      widget.selectedYear,
+                                      widget.selectedMonth,
+                                      day,
                                     ),
-                                  );
-                                },
+                                  ),
+                                  text: _questionForDay(
+                                    day: day,
+                                    monthQuestions: monthQuestions,
+                                    record: recordByDay[day],
+                                  ),
+                                  isCompleted: recordByDay.containsKey(day),
+                                );
+                              }, growable: false);
+
+                          final int total = monthlyItems.length;
+                          final int visibleCount = _visibleCount > total
+                              ? total
+                              : _visibleCount;
+                          final bool hasMore = visibleCount < total;
+
+                          return Column(
+                            children: <Widget>[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.s8,
+                                  vertical: AppSpacing.s16,
+                                ),
+                                child: Column(
+                                  children: <Widget>[
+                                    for (int i = 0; i < visibleCount; i++)
+                                      _PastRecordRow(
+                                        item: monthlyItems[i],
+                                        isLast: i == visibleCount - 1,
+                                        onTap: () {
+                                          final int day = int.parse(
+                                            monthlyItems[i].day,
+                                          );
+                                          final DateTime selectedDate =
+                                              DateTime(
+                                                widget.selectedYear,
+                                                widget.selectedMonth,
+                                                day,
+                                              );
+                                          if (recordByDay.containsKey(day)) {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute<void>(
+                                                builder: (_) =>
+                                                    MyRecordDetailScreen(
+                                                      record: recordByDay[day]!,
+                                                    ),
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute<void>(
+                                              builder: (_) =>
+                                                  TodayQuestionAnswerScreen(
+                                                    initialDate: selectedDate,
+                                                    headerTitle: "지난 질문",
+                                                    questionText:
+                                                        monthlyItems[i].text,
+                                                  ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                  ],
+                                ),
                               ),
-                          ],
-                        ),
-                      ),
-                      if (hasMore) ...<Widget>[
-                        const SizedBox(height: AppSpacing.s8),
-                        Align(
-                          alignment: Alignment.center,
-                          child: TextButton(
-                            onPressed: () => _showMore(total),
-                            style: TextButton.styleFrom(
-                              minimumSize: Size(0, smallButtonMetrics.height),
-                              padding: EdgeInsets.symmetric(
-                                horizontal:
-                                    smallButtonMetrics.horizontalPadding,
-                              ),
-                              foregroundColor: AppNeutralColors.grey600,
-                              textStyle: smallButtonMetrics.textStyle,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Text("더보기"),
-                                SizedBox(width: AppSpacing.s4),
-                                Icon(Icons.keyboard_arrow_down, size: 16),
+                              if (hasMore) ...<Widget>[
+                                const SizedBox(height: AppSpacing.s8),
+                                Align(
+                                  alignment: Alignment.center,
+                                  child: TextButton(
+                                    onPressed: () => _showMore(total),
+                                    style: TextButton.styleFrom(
+                                      minimumSize: Size(
+                                        0,
+                                        smallButtonMetrics.height,
+                                      ),
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: smallButtonMetrics
+                                            .horizontalPadding,
+                                      ),
+                                      foregroundColor: AppNeutralColors.grey600,
+                                      textStyle: smallButtonMetrics.textStyle,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: <Widget>[
+                                        Text("더보기"),
+                                        SizedBox(width: AppSpacing.s4),
+                                        Icon(
+                                          Icons.keyboard_arrow_down,
+                                          size: 16,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.s12),
                               ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.s12),
-                      ],
-                    ],
+                            ],
+                          );
+                        },
                   );
                 },
           ),
@@ -1745,8 +1922,16 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
     return labels[date.weekday - 1];
   }
 
-  String _questionForDay(int day) {
-    return MyRecordsScreen.questionTextForDay(day);
+  String _questionForDay({
+    required int day,
+    required Map<int, String> monthQuestions,
+    TodayQuestionRecord? record,
+  }) {
+    return _PastQuestionDb.resolveQuestion(
+      day: day,
+      questionsByDay: monthQuestions,
+      record: record,
+    );
   }
 
   @override
@@ -1782,123 +1967,156 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                   );
                 }
 
-                return SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpacing.s20,
-                    49 + AppSpacing.s20,
-                    AppSpacing.s20,
-                    AppNavigationBar.totalHeight(context) + AppSpacing.s20,
+                return FutureBuilder<Map<int, String>>(
+                  future: _PastQuestionDb.loadMonthQuestions(
+                    year: _selectedYear,
+                    month: _selectedMonth,
+                    lastDay: lastDay,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: IconButton(
-                              onPressed: () => Navigator.of(context).maybePop(),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 24,
-                                height: 24,
-                              ),
-                              icon: const Icon(
-                                Icons.arrow_back,
-                                color: AppNeutralColors.grey900,
-                                size: 24,
-                              ),
-                            ),
+                  initialData: const <int, String>{},
+                  builder:
+                      (
+                        BuildContext context,
+                        AsyncSnapshot<Map<int, String>> questionSnapshot,
+                      ) {
+                        final Map<int, String> monthQuestions =
+                            questionSnapshot.data ?? const <int, String>{};
+                        return SingleChildScrollView(
+                          padding: EdgeInsets.fromLTRB(
+                            AppSpacing.s20,
+                            49 + AppSpacing.s20,
+                            AppSpacing.s20,
+                            AppNavigationBar.totalHeight(context) +
+                                AppSpacing.s20,
                           ),
-                          Expanded(
-                            child: Text(
-                              "나의 지난기록",
-                              textAlign: TextAlign.center,
-                              style: AppTypography.headingXSmall.copyWith(
-                                color: AppNeutralColors.grey900,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: IconButton(
+                                      onPressed: () =>
+                                          Navigator.of(context).maybePop(),
+                                      padding: EdgeInsets.zero,
+                                      constraints:
+                                          const BoxConstraints.tightFor(
+                                            width: 24,
+                                            height: 24,
+                                          ),
+                                      icon: const Icon(
+                                        Icons.arrow_back,
+                                        color: AppNeutralColors.grey900,
+                                        size: 24,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Text(
+                                      "나의 지난기록",
+                                      textAlign: TextAlign.center,
+                                      style: AppTypography.headingXSmall
+                                          .copyWith(
+                                            color: AppNeutralColors.grey900,
+                                          ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 24, height: 24),
+                                ],
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 24, height: 24),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.s24),
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: _handleTapYearMonth,
-                          borderRadius: AppRadius.br8,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.s12,
-                              vertical: AppSpacing.s8,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Text(
-                                  "${_selectedYear.toString().padLeft(4, "0")}."
-                                  "${_selectedMonth.toString().padLeft(2, "0")}",
-                                  style: AppTypography.headingSmall.copyWith(
-                                    color: AppNeutralColors.grey900,
+                              const SizedBox(height: AppSpacing.s24),
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: _handleTapYearMonth,
+                                  borderRadius: AppRadius.br8,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.s12,
+                                      vertical: AppSpacing.s8,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: <Widget>[
+                                        Text(
+                                          "${_selectedYear.toString().padLeft(4, "0")}."
+                                          "${_selectedMonth.toString().padLeft(2, "0")}",
+                                          style: AppTypography.headingSmall
+                                              .copyWith(
+                                                color: AppNeutralColors.grey900,
+                                              ),
+                                        ),
+                                        const SizedBox(width: AppSpacing.s4),
+                                        const Icon(
+                                          Icons.keyboard_arrow_down,
+                                          size: 20,
+                                          color: AppNeutralColors.grey900,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(width: AppSpacing.s4),
-                                const Icon(
-                                  Icons.keyboard_arrow_down,
-                                  size: 20,
-                                  color: AppNeutralColors.grey900,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.s16),
-                      for (int day = 1; day <= lastDay; day++)
-                        _PastRecordsListRow(
-                          item: _RecordListItem(
-                            day: day.toString().padLeft(2, "0"),
-                            weekday: _weekdayLabel(
-                              DateTime(_selectedYear, _selectedMonth, day),
-                            ),
-                            text: _questionForDay(day),
-                            isCompleted: recordByDay.containsKey(day),
-                          ),
-                          isLast: day == lastDay,
-                          onTap: () {
-                            final DateTime selectedDate = DateTime(
-                              _selectedYear,
-                              _selectedMonth,
-                              day,
-                            );
-                            final String selectedQuestion = _questionForDay(
-                              day,
-                            );
-                            if (recordByDay.containsKey(day)) {
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => MyRecordDetailScreen(
-                                    record: recordByDay[day]!,
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => TodayQuestionAnswerScreen(
-                                  initialDate: selectedDate,
-                                  headerTitle: "지난 질문",
-                                  questionText: selectedQuestion,
-                                ),
                               ),
-                            );
-                          },
-                        ),
-                    ],
-                  ),
+                              const SizedBox(height: AppSpacing.s16),
+                              for (int day = 1; day <= lastDay; day++)
+                                _PastRecordsListRow(
+                                  item: _RecordListItem(
+                                    day: day.toString().padLeft(2, "0"),
+                                    weekday: _weekdayLabel(
+                                      DateTime(
+                                        _selectedYear,
+                                        _selectedMonth,
+                                        day,
+                                      ),
+                                    ),
+                                    text: _questionForDay(
+                                      day: day,
+                                      monthQuestions: monthQuestions,
+                                      record: recordByDay[day],
+                                    ),
+                                    isCompleted: recordByDay.containsKey(day),
+                                  ),
+                                  isLast: day == lastDay,
+                                  onTap: () {
+                                    final DateTime selectedDate = DateTime(
+                                      _selectedYear,
+                                      _selectedMonth,
+                                      day,
+                                    );
+                                    final String selectedQuestion =
+                                        _questionForDay(
+                                          day: day,
+                                          monthQuestions: monthQuestions,
+                                          record: recordByDay[day],
+                                        );
+                                    if (recordByDay.containsKey(day)) {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => MyRecordDetailScreen(
+                                            record: recordByDay[day]!,
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            TodayQuestionAnswerScreen(
+                                              initialDate: selectedDate,
+                                              headerTitle: "지난 질문",
+                                              questionText: selectedQuestion,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        );
+                      },
                 );
               },
             ),

@@ -19,7 +19,7 @@ node scripts/generate_question_template.js
 
 ## 3) 템플릿 수정
 
-`data/questions.template.json`에서 각 `base`, `reserve[0]`, `reserve[1]` 문구를 실제 질문으로 바꿔주세요.
+`data/questions.template.json`에서 각 `base` 문구를 실제 질문으로 바꿔주세요.
 
 ## 4) Firestore 업로드
 

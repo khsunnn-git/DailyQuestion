@@ -11,7 +11,6 @@ const data = Array.from({ length: 365 }, (_, index) => {
   return {
     dayOfYear: day,
     base: `기본 질문 ${day}`,
-    reserve: [`예비 질문 ${day}-1`, `예비 질문 ${day}-2`],
     active: true,
   };
 });
