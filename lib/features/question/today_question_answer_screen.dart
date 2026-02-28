@@ -67,6 +67,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       final int resolvedQuestionSlot = _resolveQuestionSlot();
       final String resolvedQuestionText =
           widget.questionText ??
+          widget.editingRecord?.questionText ??
           TodayQuestionPromptStore.instance.value.currentQuestionText;
       final DateTime groupDate = normalizedRecordDate;
       final TodayQuestionRecord? savedRecord = isEditMode
@@ -75,6 +76,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
               answer: _answerController.text,
               isPublic: _isPublic,
               bucketTags: _bucketTags,
+              questionText: resolvedQuestionText,
             )
           : await TodayQuestionStore.instance.saveRecord(
               answer: _answerController.text,
@@ -737,6 +739,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
     final String headerTitle = widget.headerTitle ?? "오늘의 질문";
     final String questionText =
         widget.questionText ??
+        widget.editingRecord?.questionText ??
         TodayQuestionPromptStore.instance.value.currentQuestionText;
     final String currentDate =
         "${displayDate.year.toString().padLeft(4, "0")}."

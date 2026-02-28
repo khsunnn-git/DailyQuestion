@@ -2520,13 +2520,6 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
     "우리",
   };
 
-  static const List<_KeywordSlice> _sampleSlices = <_KeywordSlice>[
-    _KeywordSlice(label: "여행", count: 5, color: Color(0xFFB6E2FF)),
-    _KeywordSlice(label: "가족", count: 4, color: Color(0xFFD4EEFF)),
-    _KeywordSlice(label: "건강", count: 3, color: Color(0xFFD6E7F3)),
-    _KeywordSlice(label: "성장", count: 2, color: Color(0xFFE8EEF4)),
-  ];
-
   List<_KeywordSlice> _buildKeywordSlices(List<TodayQuestionRecord> records) {
     final DateTime monthEnd = DateTime(selectedYear, selectedMonth + 1, 0);
     final DateTime start = monthEnd.subtract(const Duration(days: 6));
@@ -2558,7 +2551,6 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
           if (normalized.isEmpty) continue;
           counter[normalized] = (counter[normalized] ?? 0) + 1;
         }
-        continue;
       }
 
       final Iterable<String> tokens = RegExp(
@@ -2590,27 +2582,6 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
       },
     );
 
-    int sampleIndex = 0;
-    while (result.length < 4) {
-      final _KeywordSlice sample =
-          _sampleSlices[sampleIndex % _sampleSlices.length];
-      final bool exists = result.any((item) => item.label == sample.label);
-      if (!exists) {
-        result.add(
-          _KeywordSlice(
-            label: sample.label,
-            count: sample.count,
-            color: _sliceColors[result.length % _sliceColors.length],
-          ),
-        );
-      }
-      sampleIndex += 1;
-      if (sampleIndex > 10) break;
-    }
-
-    if (result.isEmpty) {
-      return _sampleSlices;
-    }
     return result;
   }
 
@@ -2620,9 +2591,9 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
       valueListenable: TodayQuestionStore.instance,
       builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
         final List<_KeywordSlice> slices = _buildKeywordSlices(records);
-        final int total = slices.fold(
-          0,
-          (int acc, _KeywordSlice item) => acc + item.count,
+        final int total = math.max(
+          1,
+          slices.fold(0, (int acc, _KeywordSlice item) => acc + item.count),
         );
 
         return Container(
@@ -2643,58 +2614,75 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.s40),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.s40),
-                child: Center(
+              if (slices.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s40),
                   child: SizedBox(
-                    width: 168,
                     height: 168,
-                    child: CustomPaint(
-                      size: const Size(168, 168),
-                      painter: _KeywordPieChartPainter(slices: slices),
+                    child: Center(
+                      child: Text(
+                        "아직 분석할 답변이 부족해요",
+                        style: AppTypography.bodyMediumRegular.copyWith(
+                          color: AppNeutralColors.grey500,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else ...<Widget>[
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s40),
+                  child: Center(
+                    child: SizedBox(
+                      width: 168,
+                      height: 168,
+                      child: CustomPaint(
+                        size: const Size(168, 168),
+                        painter: _KeywordPieChartPainter(slices: slices),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.s40),
-              Column(
-                children: slices
-                    .map((_KeywordSlice slice) {
-                      final String ratio = ((slice.count / total) * 100)
-                          .toStringAsFixed(0);
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpacing.s8),
-                        child: Row(
-                          children: <Widget>[
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: slice.color,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.s8),
-                            Expanded(
-                              child: Text(
-                                slice.label,
-                                style: AppTypography.bodyMediumRegular.copyWith(
-                                  color: AppNeutralColors.grey900,
+                const SizedBox(height: AppSpacing.s40),
+                Column(
+                  children: slices
+                      .map((_KeywordSlice slice) {
+                        final String ratio = ((slice.count / total) * 100)
+                            .toStringAsFixed(0);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.s8),
+                          child: Row(
+                            children: <Widget>[
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: slice.color,
+                                  shape: BoxShape.circle,
                                 ),
                               ),
-                            ),
-                            Text(
-                              "$ratio% (${slice.count})",
-                              style: AppTypography.bodySmallRegular.copyWith(
-                                color: AppNeutralColors.grey600,
+                              const SizedBox(width: AppSpacing.s8),
+                              Expanded(
+                                child: Text(
+                                  slice.label,
+                                  style: AppTypography.bodyMediumRegular.copyWith(
+                                    color: AppNeutralColors.grey900,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    })
-                    .toList(growable: false),
-              ),
+                              Text(
+                                "$ratio% (${slice.count})",
+                                style: AppTypography.bodySmallRegular.copyWith(
+                                  color: AppNeutralColors.grey600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      })
+                      .toList(growable: false),
+                ),
+              ],
             ],
           ),
         );

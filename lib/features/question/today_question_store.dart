@@ -230,6 +230,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     required String answer,
     required bool isPublic,
     List<String> bucketTags = const <String>[],
+    String? questionText,
   }) async {
     await initialize();
     final String normalizedAnswer = answer.trim();
@@ -258,7 +259,9 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
             isPublic: isPublic,
             questionSlot: item.questionSlot,
             questionDateKey: item.questionDateKey,
-            questionText: item.questionText,
+            questionText: (questionText != null && questionText.trim().isNotEmpty)
+                ? questionText.trim()
+                : item.questionText,
           );
           updatedRecord = updated;
           return updated;

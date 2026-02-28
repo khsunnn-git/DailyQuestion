@@ -9,10 +9,10 @@ import "../bucket/bucket_list_screen.dart";
 import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
 import "my_records_screen.dart";
+import "public_today_records_repository.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_prompt_store.dart";
 import "../question/today_question_store.dart";
-import "today_records_data_source.dart";
 import "today_records_screen.dart";
 
 class HomeScreen extends StatelessWidget {
@@ -1269,11 +1269,16 @@ class _TodayRecordSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final String todayKey = kstDateKeyNow();
     return ValueListenableBuilder<List<TodayQuestionRecord>>(
       valueListenable: TodayQuestionStore.instance,
       builder: (BuildContext context, List<TodayQuestionRecord> saved, _) {
         final List<_TodayRecordData> myPublicRecords = saved
-            .where((TodayQuestionRecord item) => item.isPublic)
+            .where(
+              (TodayQuestionRecord item) =>
+                  item.isPublic &&
+                  kstDateKeyFromDateTime(item.createdAt) == todayKey,
+            )
             .map(
               (TodayQuestionRecord item) => _TodayRecordData(
                 body: _toPreviewText(item.answer),
@@ -1281,32 +1286,58 @@ class _TodayRecordSection extends StatelessWidget {
               ),
             )
             .toList(growable: false);
-        final List<_TodayRecordData> otherRecords =
-            TodayRecordsDataSource.visiblePublicRecords()
-                .take(3)
-                .map(
-                  (OtherTodayRecord item) => _TodayRecordData(
-                    body: _toPreviewText(item.body),
-                    name: item.author,
-                  ),
-                )
-                .toList(growable: false);
-        final List<_TodayRecordData> records = <_TodayRecordData>[
-          ...myPublicRecords,
-          ...otherRecords,
-        ];
-        final bool hasRecords = records.isNotEmpty;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            if (hasRecords)
-              InkWell(
-                onTap: () => HomeScreen.openTodayRecords(context),
-                borderRadius: BorderRadius.circular(8),
-                child: Row(
+        return FutureBuilder<List<PublicTodayRecord>>(
+          future: PublicTodayRecordsRepository.instance.fetchByDateKey(todayKey),
+          builder:
+              (
+                BuildContext context,
+                AsyncSnapshot<List<PublicTodayRecord>> snapshot,
+              ) {
+                final List<_TodayRecordData> remoteRecords =
+                    (snapshot.data ?? const <PublicTodayRecord>[])
+                        .take(3)
+                        .map(
+                          (PublicTodayRecord item) => _TodayRecordData(
+                            body: _toPreviewText(item.body),
+                            name: item.author,
+                          ),
+                        )
+                        .toList(growable: false);
+                final List<_TodayRecordData> records = remoteRecords.isNotEmpty
+                    ? remoteRecords
+                    : myPublicRecords;
+                final bool hasRecords = records.isNotEmpty;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Expanded(
-                      child: Text(
+                    if (hasRecords)
+                      InkWell(
+                        onTap: () => HomeScreen.openTodayRecords(context),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                "오늘의 기록",
+                                style:
+                                    textTheme.titleLarge?.copyWith(
+                                      color: AppNeutralColors.grey900,
+                                    ) ??
+                                    AppTypography.headingSmall.copyWith(
+                                      color: AppNeutralColors.grey900,
+                                    ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons.chevron_right,
+                              size: 24,
+                              color: AppNeutralColors.grey900,
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Text(
                         "오늘의 기록",
                         style:
                             textTheme.titleLarge?.copyWith(
@@ -1316,74 +1347,56 @@ class _TodayRecordSection extends StatelessWidget {
                               color: AppNeutralColors.grey900,
                             ),
                       ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right,
-                      size: 24,
-                      color: AppNeutralColors.grey900,
-                    ),
-                  ],
-                ),
-              )
-            else
-              Text(
-                "오늘의 기록",
-                style:
-                    textTheme.titleLarge?.copyWith(
-                      color: AppNeutralColors.grey900,
-                    ) ??
-                    AppTypography.headingSmall.copyWith(
-                      color: AppNeutralColors.grey900,
-                    ),
-              ),
-            const SizedBox(height: 17),
-            if (hasRecords)
-              LayoutBuilder(
-                builder: (BuildContext context, BoxConstraints constraints) {
-                  final double listWidth =
-                      constraints.maxWidth + AppSpacing.s20;
-                  return SizedBox(
-                    height: 168,
-                    child: OverflowBox(
-                      alignment: Alignment.topLeft,
-                      minWidth: listWidth,
-                      maxWidth: listWidth,
-                      child: SizedBox(
-                        width: listWidth,
-                        child: ScrollConfiguration(
-                          behavior: const MaterialScrollBehavior().copyWith(
-                            dragDevices: <PointerDeviceKind>{
-                              PointerDeviceKind.touch,
-                              PointerDeviceKind.mouse,
-                              PointerDeviceKind.trackpad,
-                              PointerDeviceKind.stylus,
-                              PointerDeviceKind.invertedStylus,
-                            },
-                          ),
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            physics: const ClampingScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            clipBehavior: Clip.none,
-                            itemBuilder: (context, index) => _TodayRecordCard(
-                              record: records[index],
-                              width: 320,
+                    const SizedBox(height: 17),
+                    if (hasRecords)
+                      LayoutBuilder(
+                        builder: (BuildContext context, BoxConstraints constraints) {
+                          final double listWidth =
+                              constraints.maxWidth + AppSpacing.s20;
+                          return SizedBox(
+                            height: 168,
+                            child: OverflowBox(
+                              alignment: Alignment.topLeft,
+                              minWidth: listWidth,
+                              maxWidth: listWidth,
+                              child: SizedBox(
+                                width: listWidth,
+                                child: ScrollConfiguration(
+                                  behavior: const MaterialScrollBehavior().copyWith(
+                                    dragDevices: <PointerDeviceKind>{
+                                      PointerDeviceKind.touch,
+                                      PointerDeviceKind.mouse,
+                                      PointerDeviceKind.trackpad,
+                                      PointerDeviceKind.stylus,
+                                      PointerDeviceKind.invertedStylus,
+                                    },
+                                  ),
+                                  child: ListView.separated(
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const ClampingScrollPhysics(),
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    clipBehavior: Clip.none,
+                                    itemBuilder: (context, index) => _TodayRecordCard(
+                                      record: records[index],
+                                      width: 320,
+                                    ),
+                                    separatorBuilder: (context, index) =>
+                                        const SizedBox(width: AppSpacing.s8),
+                                    itemCount: records.length,
+                                  ),
+                                ),
+                              ),
                             ),
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(width: AppSpacing.s8),
-                            itemCount: records.length,
-                          ),
-                        ),
+                          );
+                        },
+                      )
+                    else
+                      _TodayRecordEmptyCard(
+                        onTap: () => HomeScreen.openTodayQuestionAnswer(context),
                       ),
-                    ),
-                  );
-                },
-              )
-            else
-              _TodayRecordEmptyCard(
-                onTap: () => HomeScreen.openTodayQuestionAnswer(context),
-              ),
-          ],
+                  ],
+                );
+              },
         );
       },
     );

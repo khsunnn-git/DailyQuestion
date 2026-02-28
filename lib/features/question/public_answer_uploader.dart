@@ -1,6 +1,7 @@
 import "dart:math";
 
 import "package:cloud_firestore/cloud_firestore.dart";
+import "package:firebase_auth/firebase_auth.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 class PublicAnswerPayload {
@@ -35,6 +36,8 @@ class PublicAnswerUploader {
   String? _cachedAnonId;
 
   Future<void> sync(PublicAnswerPayload payload) async {
+    await _ensureAnonymousSignIn();
+    final User? currentUser = FirebaseAuth.instance.currentUser;
     final String anonId = await _getOrCreateAnonId();
     final String docId = _docId(anonId, payload.createdAt);
     final DocumentReference<Map<String, dynamic>> doc = _daySlotCollection(
@@ -48,6 +51,7 @@ class PublicAnswerUploader {
     }
 
     await doc.set(<String, dynamic>{
+      "authorUid": currentUser?.uid,
       "deviceAnonId": anonId,
       "anonymousName": payload.author,
       "answerText": payload.answer,
@@ -65,9 +69,18 @@ class PublicAnswerUploader {
     required String questionDateKey,
     required int questionSlot,
   }) async {
+    await _ensureAnonymousSignIn();
     final String anonId = await _getOrCreateAnonId();
     final String docId = _docId(anonId, createdAt);
     await _daySlotCollection(questionDateKey, questionSlot).doc(docId).delete();
+  }
+
+  Future<void> _ensureAnonymousSignIn() async {
+    final FirebaseAuth auth = FirebaseAuth.instance;
+    if (auth.currentUser != null) {
+      return;
+    }
+    await auth.signInAnonymously();
   }
 
   Future<String> _getOrCreateAnonId() async {

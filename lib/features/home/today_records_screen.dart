@@ -2,11 +2,13 @@ import "dart:async";
 
 import "package:flutter/material.dart";
 
+import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "../question/today_question_prompt_store.dart";
 import "../question/today_question_store.dart";
 import "my_records_screen.dart";
-import "today_records_data_source.dart";
+import "public_today_records_repository.dart";
 
 class TodayRecordsScreen extends StatefulWidget {
   const TodayRecordsScreen({super.key});
@@ -19,6 +21,7 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
     with WidgetsBindingObserver {
   bool _isLoading = true;
   List<_TodayRecordItem> _records = const <_TodayRecordItem>[];
+  String _questionText = "오늘의 질문";
   Timer? _hourlyRefreshTimer;
   DateTime _lastRefreshedAt = DateTime.now();
 
@@ -31,30 +34,37 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
   }
 
   Future<void> _loadRecords() async {
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    await TodayQuestionPromptStore.instance.initialize();
     if (!mounted) {
       return;
     }
-    final DateTime now = DateTime.now();
-    final List<_TodayRecordItem> sampledRecords =
-        TodayRecordsDataSource.sampledVisibleRecords(now)
-            .map(
-              (item) => _TodayRecordItem(body: item.body, author: item.author),
-            )
-            .toList(growable: false);
-    final List<_TodayRecordItem> myRecords = TodayQuestionStore.instance.value
-        .where((TodayQuestionRecord item) => item.isPublic)
+    final DateTime now = nowInKst();
+    final String todayKey = kstDateKeyFromDateTime(now);
+    final List<PublicTodayRecord> remoteRecords = await PublicTodayRecordsRepository
+        .instance
+        .fetchByDateKey(todayKey);
+    List<_TodayRecordItem> mergedRecords = remoteRecords
         .map(
-          (TodayQuestionRecord item) =>
-              _TodayRecordItem(body: item.answer, author: item.author),
+          (PublicTodayRecord item) =>
+              _TodayRecordItem(body: item.body, author: item.author),
         )
         .toList(growable: false);
-    final List<_TodayRecordItem> mergedRecords = <_TodayRecordItem>[
-      ...myRecords,
-      ...sampledRecords,
-    ];
+    if (mergedRecords.isEmpty) {
+      mergedRecords = TodayQuestionStore.instance.value
+          .where(
+            (TodayQuestionRecord item) =>
+                item.isPublic &&
+                kstDateKeyFromDateTime(item.createdAt) == todayKey,
+          )
+          .map(
+            (TodayQuestionRecord item) =>
+                _TodayRecordItem(body: item.answer, author: item.author),
+          )
+          .toList(growable: false);
+    }
     setState(() {
       _records = mergedRecords;
+      _questionText = TodayQuestionPromptStore.instance.value.currentQuestionText;
       _isLoading = false;
       _lastRefreshedAt = now;
     });
@@ -109,7 +119,7 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
         padding: EdgeInsets.zero,
         child: _isLoading
             ? const _RecordsLoadingView()
-            : _RecordsListView(records: _records),
+            : _RecordsListView(records: _records, questionText: _questionText),
       ),
     );
   }
@@ -139,9 +149,10 @@ class _RecordsLoadingView extends StatelessWidget {
 }
 
 class _RecordsListView extends StatelessWidget {
-  const _RecordsListView({required this.records});
+  const _RecordsListView({required this.records, required this.questionText});
 
   final List<_TodayRecordItem> records;
+  final String questionText;
 
   @override
   Widget build(BuildContext context) {
@@ -200,7 +211,7 @@ class _RecordsListView extends StatelessWidget {
                       child: Column(
                         children: <Widget>[
                           Text(
-                            "올해 안에 꼭 해보고 싶은 일\n하나는 무엇인가요?",
+                            questionText,
                             textAlign: TextAlign.center,
                             style: AppTypography.headingLarge.copyWith(
                               color: AppNeutralColors.grey900,
