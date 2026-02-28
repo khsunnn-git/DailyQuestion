@@ -547,7 +547,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       if (_answerFocusNode.hasFocus) {
         _answerFocusNode.unfocus();
       }
-      _openPolishBottomSheet(context);
+      await _openPolishBottomSheet(context);
       return;
     }
 
