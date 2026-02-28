@@ -34,9 +34,58 @@ class _BucketListScreenState extends State<BucketListScreen> {
     _loadPersistedData();
   }
 
+  bool _isAllCategoryName(String name) {
+    return name.trim().toUpperCase() == _allCategoryName;
+  }
+
+  String _normalizeCategoryKey(String name) {
+    return name.trim().toLowerCase();
+  }
+
+  List<BucketCategorySelection> _sanitizeCustomCategories(
+    Iterable<BucketCategorySelection> categories,
+  ) {
+    final Set<String> seen = <String>{};
+    final List<BucketCategorySelection> sanitized = <BucketCategorySelection>[];
+    for (final BucketCategorySelection category in categories) {
+      final String trimmedName = category.name.trim();
+      if (trimmedName.isEmpty || _isAllCategoryName(trimmedName)) {
+        continue;
+      }
+      final String key = _normalizeCategoryKey(trimmedName);
+      if (!seen.add(key)) {
+        continue;
+      }
+      sanitized.add(
+        BucketCategorySelection(name: trimmedName, color: category.color),
+      );
+    }
+    return sanitized;
+  }
+
+  bool _sameCategorySet(
+    List<BucketCategorySelection> before,
+    List<BucketCategorySelection> after,
+  ) {
+    if (before.length != after.length) {
+      return false;
+    }
+    for (int i = 0; i < before.length; i++) {
+      final BucketCategorySelection prev = before[i];
+      final BucketCategorySelection next = after[i];
+      if (_normalizeCategoryKey(prev.name) != _normalizeCategoryKey(next.name)) {
+        return false;
+      }
+      if (prev.color.toARGB32() != next.color.toARGB32()) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   List<String> get _tabs {
     return <String>[
-      "ALL",
+      _allCategoryName,
       ..._customCategories.map((BucketCategorySelection e) => e.name),
       "완료🎉",
     ];
@@ -78,13 +127,22 @@ class _BucketListScreenState extends State<BucketListScreen> {
 
   Future<void> _loadPersistedData() async {
     final isar = await LocalDatabase.instance.isar;
-    final List<BucketCategoryEntity> categories = await isar
+    final List<BucketCategoryEntity> persistedCategories = await isar
         .bucketCategoryEntitys
         .where()
         .findAll();
     final List<BucketItemEntity> items = await isar.bucketItemEntitys
         .where()
         .findAll();
+    final List<BucketCategorySelection> rawCategories =
+        persistedCategories.map((BucketCategoryEntity item) {
+          return BucketCategorySelection(
+            name: item.name,
+            color: Color(item.colorValue),
+          );
+        }).toList(growable: false);
+    final List<BucketCategorySelection> categories =
+        _sanitizeCustomCategories(rawCategories);
     if (!mounted) {
       return;
     }
@@ -94,24 +152,22 @@ class _BucketListScreenState extends State<BucketListScreen> {
     setState(() {
       _customCategories
         ..clear()
-        ..addAll(
-          categories.map((BucketCategoryEntity item) {
-            return BucketCategorySelection(
-              name: item.name,
-              color: Color(item.colorValue),
-            );
-          }),
-        );
+        ..addAll(categories);
       _entries
         ..clear()
         ..addAll(entries);
       _isLoading = false;
     });
+    if (!_sameCategorySet(rawCategories, categories)) {
+      await _saveCategories(categories: categories);
+    }
   }
 
-  Future<void> _saveCategories() async {
+  Future<void> _saveCategories({List<BucketCategorySelection>? categories}) async {
     final isar = await LocalDatabase.instance.isar;
-    final List<BucketCategoryEntity> categories = _customCategories
+    final List<BucketCategorySelection> source =
+        _sanitizeCustomCategories(categories ?? _customCategories);
+    final List<BucketCategoryEntity> entities = source
         .map((BucketCategorySelection item) {
           final BucketCategoryEntity entity = BucketCategoryEntity();
           entity.name = item.name;
@@ -121,10 +177,10 @@ class _BucketListScreenState extends State<BucketListScreen> {
         .toList(growable: false);
     await isar.writeTxn(() async {
       await isar.bucketCategoryEntitys.clear();
-      if (categories.isEmpty) {
+      if (entities.isEmpty) {
         return;
       }
-      await isar.bucketCategoryEntitys.putAll(categories);
+      await isar.bucketCategoryEntitys.putAll(entities);
     });
   }
 
@@ -197,7 +253,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
     setState(() {
       _customCategories
         ..clear()
-        ..addAll(result.categories);
+        ..addAll(_sanitizeCustomCategories(result.categories));
       _entries.insert(0, saved);
       _selectedTabIndex = 0;
     });
@@ -233,7 +289,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
     setState(() {
       _customCategories
         ..clear()
-        ..addAll(result.categories);
+        ..addAll(_sanitizeCustomCategories(result.categories));
       _entries
         ..clear()
         ..addAll(updatedEntries);
@@ -530,7 +586,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
     setState(() {
       _customCategories
         ..clear()
-        ..addAll(result.categories);
+        ..addAll(_sanitizeCustomCategories(result.categories));
       final int index = _entries.indexOf(entry);
       if (index >= 0) {
         _entries[index] = saved;
@@ -781,7 +837,14 @@ class _BucketListScreenState extends State<BucketListScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 24, height: 24),
+            GestureDetector(
+              onTap: _openAddScreen,
+              child: const Icon(
+                Icons.edit_outlined,
+                size: AppSpacing.s24,
+                color: AppNeutralColors.grey900,
+              ),
+            ),
           ],
         ),
         const Spacer(),
