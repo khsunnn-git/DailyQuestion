@@ -277,60 +277,63 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
               child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(
                   AppSpacing.s20,
-                  49,
+                  AppHeaderTokens.topInset,
                   AppSpacing.s20,
                   AppNavigationBar.totalHeight(context) + AppSpacing.s20,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: IconButton(
-                            onPressed: () => Navigator.of(context).maybePop(),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                              width: 24,
-                              height: 24,
-                            ),
-                            icon: const Icon(
-                              Icons.arrow_back,
-                              color: AppNeutralColors.grey900,
-                              size: 24,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            createdDate,
-                            textAlign: TextAlign.center,
-                            style: AppTypography.headingXSmall.copyWith(
-                              color: AppNeutralColors.grey900,
+                    SizedBox(
+                      height: AppHeaderTokens.height,
+                      child: Row(
+                        children: <Widget>[
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: IconButton(
+                              onPressed: () => Navigator.of(context).maybePop(),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 24,
+                                height: 24,
+                              ),
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: AppNeutralColors.grey900,
+                                size: 24,
+                              ),
                             ),
                           ),
-                        ),
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: IconButton(
-                            onPressed: _toggleMoreMenu,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                              width: 24,
-                              height: 24,
-                            ),
-                            visualDensity: VisualDensity.compact,
-                            icon: const Icon(
-                              Icons.more_horiz,
-                              color: AppNeutralColors.grey400,
-                              size: 24,
+                          Expanded(
+                            child: Text(
+                              createdDate,
+                              textAlign: TextAlign.center,
+                              style: AppTypography.headingXSmall.copyWith(
+                                color: AppNeutralColors.grey900,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: IconButton(
+                              onPressed: _toggleMoreMenu,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 24,
+                                height: 24,
+                              ),
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.more_horiz,
+                                color: AppNeutralColors.grey400,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.s24),
                     Padding(

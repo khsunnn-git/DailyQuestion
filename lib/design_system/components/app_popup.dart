@@ -24,10 +24,7 @@ class AppPopup extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool hasBody = body.trim().isNotEmpty;
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: AppPopupTokens.maxWidth,
-        minHeight: AppPopupTokens.minHeight,
-      ),
+      constraints: const BoxConstraints(maxWidth: AppPopupTokens.maxWidth),
       child: Container(
         width: width,
         padding: contentPadding,
@@ -38,23 +35,34 @@ class AppPopup extends StatelessWidget {
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: AppPopupTokens.titleStyle.copyWith(
-                color: AppPopupTokens.titleColor,
-                decoration: TextDecoration.none,
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppPopupTokens.textHorizontalInset,
+              ),
+              child: Text(
+                title,
+                textAlign: TextAlign.left,
+                style: AppPopupTokens.titleStyle.copyWith(
+                  color: AppPopupTokens.titleColor,
+                  decoration: TextDecoration.none,
+                ),
               ),
             ),
             if (hasBody) ...<Widget>[
-              const SizedBox(height: AppPopupTokens.contentGap),
-              Text(
-                body,
-                textAlign: TextAlign.center,
-                style: AppPopupTokens.bodyStyle.copyWith(
-                  color: AppPopupTokens.bodyColor,
-                  decoration: TextDecoration.none,
+              const SizedBox(height: AppPopupTokens.textGap),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppPopupTokens.textHorizontalInset,
+                ),
+                child: Text(
+                  body,
+                  textAlign: TextAlign.left,
+                  style: AppPopupTokens.bodyStyle.copyWith(
+                    color: AppPopupTokens.bodyColor,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
               ),
             ],

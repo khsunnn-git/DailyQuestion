@@ -7,24 +7,25 @@ import "app_spacing.dart";
 import "app_typography.dart";
 
 abstract final class AppPopupTokens {
-  static const double mobileWidth = 300;
-  static const double minHeight = 224;
+  static const double mobileWidth = 320;
   static const double maxWidth = 320;
   static const EdgeInsets contentPadding = EdgeInsets.fromLTRB(
     AppSpacing.s20,
-    AppSpacing.s24,
+    AppSpacing.s32,
     AppSpacing.s20,
     AppSpacing.s20,
   );
-  static const double contentGap = AppSpacing.s12;
+  static const double textGap = AppSpacing.s12;
+  static const double contentGap = AppSpacing.s28;
   static const double actionGap = AppSpacing.s8;
+  static const double textHorizontalInset = AppSpacing.s16;
   static const Color background = AppNeutralColors.white;
   static const Color dimmed = Color(0xB8000000);
-  static const BorderRadius radius = AppRadius.br16;
+  static const BorderRadius radius = AppRadius.br24;
   static const List<BoxShadow> shadow = AppElevation.level3;
   static const List<BoxShadow> bottomSheetShadow = AppElevation.level1;
-  static const TextStyle titleStyle = AppTypography.headingSmall;
-  static const TextStyle bodyStyle = AppTypography.bodyMediumMedium;
+  static const TextStyle titleStyle = AppTypography.headingXSmall;
+  static const TextStyle bodyStyle = AppTypography.bodySmallRegular;
   static const Color titleColor = AppNeutralColors.grey900;
   static const Color bodyColor = AppNeutralColors.grey600;
 }

@@ -388,8 +388,8 @@ class _BucketListScreenState extends State<BucketListScreen> {
               AppSpacing.s20,
             ),
             actionTopGap: AppSpacing.s20,
-            title: "해당 버킷리스트를\n완료 카테고리로\n이동하시겠습니까?",
-            body: "완료 날짜는 자동으로 오늘로 설정됩니다.\n바꾸고 싶으시다면 수정하기 버튼을 눌러주세요.",
+            title: "해당 버킷리스트를 완료 카테고리\n로 이동하시겠습니까?",
+            body: "완료 날짜는 자동으로 오늘로 설정됩니다.\n바꾸고 싶을 땐 수정하기 버튼을 눌러주세요.",
             actions: <Widget>[
               SizedBox(
                 width: 100,
@@ -739,7 +739,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.s20,
-                49,
+                AppHeaderTokens.topInset,
                 AppSpacing.s20,
                 isEmpty
                     ? AppNavigationBar.totalHeight(context) + 80
@@ -825,27 +825,30 @@ class _BucketListScreenState extends State<BucketListScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            const SizedBox(width: 24, height: 24),
-            Expanded(
-              child: Text(
-                "버킷리스트",
-                textAlign: TextAlign.center,
-                style: AppTypography.headingXSmall.copyWith(
+        SizedBox(
+          height: AppHeaderTokens.height,
+          child: Row(
+            children: <Widget>[
+              const SizedBox(width: 24, height: 24),
+              Expanded(
+                child: Text(
+                  "버킷리스트",
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headingXSmall.copyWith(
+                    color: AppNeutralColors.grey900,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: _openAddScreen,
+                child: const Icon(
+                  Icons.edit_outlined,
+                  size: AppSpacing.s24,
                   color: AppNeutralColors.grey900,
                 ),
               ),
-            ),
-            GestureDetector(
-              onTap: _openAddScreen,
-              child: const Icon(
-                Icons.edit_outlined,
-                size: AppSpacing.s24,
-                color: AppNeutralColors.grey900,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
         const Spacer(),
         Column(
@@ -887,29 +890,32 @@ class _BucketListScreenState extends State<BucketListScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            const SizedBox(width: 24, height: 24),
-            Expanded(
-              child: Text(
-                "버킷리스트",
-                textAlign: TextAlign.center,
-                style: AppTypography.headingXSmall.copyWith(
+        SizedBox(
+          height: AppHeaderTokens.height,
+          child: Row(
+            children: <Widget>[
+              const SizedBox(width: 24, height: 24),
+              Expanded(
+                child: Text(
+                  "버킷리스트",
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headingXSmall.copyWith(
+                    color: AppNeutralColors.grey900,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: _openAddScreen,
+                child: const Icon(
+                  Icons.edit_outlined,
+                  size: AppSpacing.s24,
                   color: AppNeutralColors.grey900,
                 ),
               ),
-            ),
-            GestureDetector(
-              onTap: _openAddScreen,
-              child: const Icon(
-                Icons.edit_outlined,
-                size: AppSpacing.s24,
-                color: AppNeutralColors.grey900,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: AppSpacing.s20),
+        const SizedBox(height: AppSpacing.s16),
         Row(
           children: <Widget>[
             Expanded(
