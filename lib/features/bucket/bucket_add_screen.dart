@@ -1,5 +1,8 @@
 import "package:flutter/material.dart";
+import "package:isar/isar.dart";
 
+import "../../data/local_db/entities/bucket_item_entity.dart";
+import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
 import "bucket_category_empty_screen.dart";
 import "bucket_save_success_screen.dart";
@@ -46,6 +49,8 @@ class BucketAddScreen extends StatefulWidget {
 }
 
 class _BucketAddScreenState extends State<BucketAddScreen> {
+  static const String _allCategoryName = "ALL";
+  static const Color _allCategoryColor = AppNeutralColors.grey100;
   late final TextEditingController _titleController;
   bool _isDdayAlertEnabled = false;
   bool _isCompleted = false;
@@ -56,6 +61,54 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
 
   bool get _canSave =>
       _titleController.text.trim().isNotEmpty && _selectedCategory != null;
+
+  bool _isAllCategory(String name) {
+    return name.trim().toUpperCase() == _allCategoryName;
+  }
+
+  String _normalizeCategoryKey(String name) {
+    return name.trim().toLowerCase();
+  }
+
+  Future<void> _reassignDeletedCategoriesToAll({
+    required List<BucketCategorySelection> previousCategories,
+    required List<BucketCategorySelection> nextCategories,
+  }) async {
+    final Set<String> nextKeys = nextCategories
+        .map((BucketCategorySelection e) => _normalizeCategoryKey(e.name))
+        .toSet();
+    final Set<String> removedKeys = previousCategories
+        .map((BucketCategorySelection e) => _normalizeCategoryKey(e.name))
+        .where((String key) => !nextKeys.contains(key))
+        .toSet();
+    if (removedKeys.isEmpty) {
+      return;
+    }
+
+    final isar = await LocalDatabase.instance.isar;
+    final List<BucketItemEntity> allItems = await isar.bucketItemEntitys
+        .where()
+        .findAll();
+    final List<BucketItemEntity> targets = allItems.where((BucketItemEntity e) {
+      if (_isAllCategory(e.category)) {
+        return false;
+      }
+      return removedKeys.contains(_normalizeCategoryKey(e.category));
+    }).toList(growable: false);
+    if (targets.isEmpty) {
+      return;
+    }
+
+    final DateTime now = DateTime.now();
+    await isar.writeTxn(() async {
+      for (final BucketItemEntity item in targets) {
+        item.category = _allCategoryName;
+        item.categoryColorValue = _allCategoryColor.toARGB32();
+        item.updatedAt = now;
+        await isar.bucketItemEntitys.put(item);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -213,6 +266,8 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                   const SizedBox(height: AppSpacing.s20),
                   _InputCard(
                     onTap: () async {
+                      final List<BucketCategorySelection> previousCategories =
+                          List<BucketCategorySelection>.from(_categories);
                       final BucketCategoryResult? result =
                           await Navigator.of(
                             context,
@@ -225,6 +280,13 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                             ),
                           );
                       if (result == null || !mounted) {
+                        return;
+                      }
+                      await _reassignDeletedCategoriesToAll(
+                        previousCategories: previousCategories,
+                        nextCategories: result.categories,
+                      );
+                      if (!mounted) {
                         return;
                       }
                       setState(() {
