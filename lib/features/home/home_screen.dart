@@ -13,6 +13,7 @@ import "public_today_records_repository.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_prompt_store.dart";
 import "../question/today_question_store.dart";
+import "daily_checkin_store.dart";
 import "today_records_screen.dart";
 
 class HomeScreen extends StatelessWidget {
@@ -44,10 +45,21 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  static void openTodayRecords(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute<void>(builder: (_) => const TodayRecordsScreen()));
+  static void openTodayRecords(
+    BuildContext context, {
+    String? questionDateKey,
+    String? questionText,
+    List<PublicTodayRecord> initialRecords = const <PublicTodayRecord>[],
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TodayRecordsScreen(
+          questionDateKey: questionDateKey,
+          questionText: questionText,
+          initialRecords: initialRecords,
+        ),
+      ),
+    );
   }
 
   static void goHome(BuildContext context) {
@@ -1308,16 +1320,17 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
                     BuildContext context,
                     AsyncSnapshot<List<PublicTodayRecord>> snapshot,
                   ) {
-                    final List<_TodayRecordData> remoteRecords =
-                        (snapshot.data ?? const <PublicTodayRecord>[])
-                            .take(5)
-                            .map(
-                              (PublicTodayRecord item) => _TodayRecordData(
-                                body: _toPreviewText(item.body),
-                                name: item.author,
-                              ),
-                            )
-                            .toList(growable: false);
+                    final List<PublicTodayRecord> fetchedRecords =
+                        snapshot.data ?? const <PublicTodayRecord>[];
+                    final List<_TodayRecordData> remoteRecords = fetchedRecords
+                        .take(5)
+                        .map(
+                          (PublicTodayRecord item) => _TodayRecordData(
+                            body: _toPreviewText(item.body),
+                            name: item.author,
+                          ),
+                        )
+                        .toList(growable: false);
                     final List<_TodayRecordData> records = remoteRecords;
                     final bool hasRecords = records.isNotEmpty;
                     return Column(
@@ -1325,7 +1338,15 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
                       children: <Widget>[
                         InkWell(
                           onTap: hasRecords
-                              ? () => HomeScreen.openTodayRecords(context)
+                              ? () => HomeScreen.openTodayRecords(
+                                  context,
+                                  questionDateKey: _todayKey,
+                                  questionText: TodayQuestionPromptStore
+                                      .instance
+                                      .value
+                                      .currentQuestionText,
+                                  initialRecords: fetchedRecords,
+                                )
                               : null,
                           borderRadius: BorderRadius.circular(8),
                           child: Row(
@@ -1393,7 +1414,9 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
                                             itemBuilder: (context, index) =>
                                                 _TodayRecordCard(
                                                   record: records[index],
-                                                  width: 320,
+                                                  width: records.length == 1
+                                                      ? 350
+                                                      : 320,
                                                 ),
                                             separatorBuilder:
                                                 (context, index) =>
@@ -1567,8 +1590,31 @@ class _TodayMeSectionState extends State<_TodayMeSection> {
 
   PageController? _pageController;
   double? _lastViewportFraction;
-  final Map<_TodayMetricCardKind, int> _selectedByKind =
-      <_TodayMetricCardKind, int>{};
+
+  @override
+  void initState() {
+    super.initState();
+    DailyCheckinStore.instance.initialize();
+  }
+
+  void _showSavedToast() {
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Center(child: AppToastMessage(text: "저장됐어요")),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          margin: EdgeInsets.fromLTRB(50, 0, 50, 98),
+        ),
+      );
+  }
 
   @override
   void dispose() {
@@ -1613,100 +1659,124 @@ class _TodayMeSectionState extends State<_TodayMeSection> {
           ),
         ),
         const SizedBox(height: AppSpacing.s16),
-        LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final double listWidth = constraints.maxWidth;
-            final double viewportFraction =
-                ((_cardWidth + _cardGap) / listWidth).clamp(0.0, 1.0);
-            final PageController controller = _resolveController(
-              viewportFraction,
-            );
-            final List<Widget> cards = <Widget>[
-              _TodayMetricCard(
-                kind: _TodayMetricCardKind.mood,
-                highlightedWord: "기분",
-                subtitle: "지속적인 하루 기분을 골라주세요",
-                backgroundAsset:
-                    "assets/images/home/home_card_mood_bg_blue.png",
-                fallbackColor: Color(0xFFD3EEFF),
-                cardWidth: _cardWidth,
-                options: _TodayMeSection._moodOptions,
-                highlightColor: Color(0xFF017AF7),
-                selectedBorderColor: Color(0xFF86CAFF),
-                selectedIndex: _selectedByKind[_TodayMetricCardKind.mood],
-                onOptionTap: (int index) {
-                  setState(() {
-                    _selectedByKind[_TodayMetricCardKind.mood] = index;
-                  });
-                },
-              ),
-              _TodayMetricCard(
-                kind: _TodayMetricCardKind.energy,
-                highlightedWord: "에너지",
-                subtitle: "지속적인 컨디션 상태를 골라주세요",
-                backgroundAsset:
-                    "assets/images/home/home_card_energy_bg_lilac.png",
-                fallbackColor: Color(0xFFD9C8FF),
-                cardWidth: _cardWidth,
-                options: _TodayMeSection._energyOptions,
-                highlightColor: Color(0xFFED87E5),
-                selectedBorderColor: Color(0xFFD9C8FF),
-                selectedIndex: _selectedByKind[_TodayMetricCardKind.energy],
-                onOptionTap: (int index) {
-                  setState(() {
-                    _selectedByKind[_TodayMetricCardKind.energy] = index;
-                  });
-                },
-              ),
-              _TodayMetricCard(
-                kind: _TodayMetricCardKind.stress,
-                highlightedWord: "스트레스",
-                subtitle: "오늘 머릿속은 어떤가요?",
-                backgroundAsset:
-                    "assets/images/home/home_card_stress_bg_orange.png",
-                fallbackColor: Color(0xFFFFD7B5),
-                cardWidth: _cardWidth,
-                options: _TodayMeSection._stressOptions,
-                highlightColor: Color(0xFFFF9F45),
-                selectedBorderColor: Color(0xFFFFD7B5),
-                selectedIndex: _selectedByKind[_TodayMetricCardKind.stress],
-                onOptionTap: (int index) {
-                  setState(() {
-                    _selectedByKind[_TodayMetricCardKind.stress] = index;
-                  });
-                },
-              ),
-            ];
-            return SizedBox(
-              height: 394 + (_cardShadowInset * 2),
-              child: OverflowBox(
-                alignment: Alignment.topLeft,
-                minWidth: listWidth,
-                maxWidth: listWidth,
-                child: SizedBox(
-                  width: listWidth,
-                  child: PageView.builder(
-                    controller: controller,
-                    scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
-                    clipBehavior: Clip.none,
-                    padEnds: true,
-                    itemCount: cards.length,
-                    itemBuilder: (BuildContext context, int index) {
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          top: _cardShadowInset,
-                          bottom: _cardShadowInset,
-                          right: index == cards.length - 1 ? 0 : _cardGap,
+        ValueListenableBuilder<DailyCheckinRecord?>(
+          valueListenable: DailyCheckinStore.instance,
+          builder:
+              (
+                BuildContext context,
+                DailyCheckinRecord? checkin,
+                Widget? child,
+              ) {
+                return LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    final double listWidth = constraints.maxWidth;
+                    final double viewportFraction =
+                        ((_cardWidth + _cardGap) / listWidth).clamp(0.0, 1.0);
+                    final PageController controller = _resolveController(
+                      viewportFraction,
+                    );
+                    final List<Widget> cards = <Widget>[
+                      _TodayMetricCard(
+                        kind: _TodayMetricCardKind.mood,
+                        highlightedWord: "기분",
+                        subtitle: "지속적인 하루 기분을 골라주세요",
+                        backgroundAsset:
+                            "assets/images/home/home_card_mood_bg_blue.png",
+                        fallbackColor: Color(0xFFD3EEFF),
+                        cardWidth: _cardWidth,
+                        options: _TodayMeSection._moodOptions,
+                        highlightColor: Color(0xFF017AF7),
+                        selectedBorderColor: Color(0xFF86CAFF),
+                        selectedIndex: checkin?.moodIndex,
+                        onOptionTap: (int index) {
+                          unawaited(
+                            DailyCheckinStore.instance.saveSelection(
+                              metric: DailyCheckinMetric.mood,
+                              selectedIndex: index,
+                            ),
+                          );
+                          _showSavedToast();
+                        },
+                      ),
+                      _TodayMetricCard(
+                        kind: _TodayMetricCardKind.energy,
+                        highlightedWord: "에너지",
+                        subtitle: "지속적인 컨디션 상태를 골라주세요",
+                        backgroundAsset:
+                            "assets/images/home/home_card_energy_bg_lilac.png",
+                        fallbackColor: Color(0xFFD9C8FF),
+                        cardWidth: _cardWidth,
+                        options: _TodayMeSection._energyOptions,
+                        highlightColor: Color(0xFFED87E5),
+                        selectedBorderColor: Color(0xFFD9C8FF),
+                        selectedIndex: checkin?.energyIndex,
+                        onOptionTap: (int index) {
+                          unawaited(
+                            DailyCheckinStore.instance.saveSelection(
+                              metric: DailyCheckinMetric.energy,
+                              selectedIndex: index,
+                            ),
+                          );
+                          _showSavedToast();
+                        },
+                      ),
+                      _TodayMetricCard(
+                        kind: _TodayMetricCardKind.stress,
+                        highlightedWord: "스트레스",
+                        subtitle: "오늘 머릿속은 어떤가요?",
+                        backgroundAsset:
+                            "assets/images/home/home_card_stress_bg_orange.png",
+                        fallbackColor: Color(0xFFFFD7B5),
+                        cardWidth: _cardWidth,
+                        options: _TodayMeSection._stressOptions,
+                        highlightColor: Color(0xFFFF9F45),
+                        selectedBorderColor: Color(0xFFFFD7B5),
+                        selectedIndex: checkin?.stressIndex,
+                        onOptionTap: (int index) {
+                          unawaited(
+                            DailyCheckinStore.instance.saveSelection(
+                              metric: DailyCheckinMetric.stress,
+                              selectedIndex: index,
+                            ),
+                          );
+                          _showSavedToast();
+                        },
+                      ),
+                    ];
+                    return SizedBox(
+                      height: 394 + (_cardShadowInset * 2),
+                      child: OverflowBox(
+                        alignment: Alignment.topLeft,
+                        minWidth: listWidth,
+                        maxWidth: listWidth,
+                        child: SizedBox(
+                          width: listWidth,
+                          child: PageView.builder(
+                            controller: controller,
+                            scrollDirection: Axis.horizontal,
+                            physics: const ClampingScrollPhysics(),
+                            clipBehavior: Clip.none,
+                            padEnds: true,
+                            itemCount: cards.length,
+                            itemBuilder: (BuildContext context, int index) {
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  top: _cardShadowInset,
+                                  bottom: _cardShadowInset,
+                                  right: index == cards.length - 1
+                                      ? 0
+                                      : _cardGap,
+                                ),
+                                child: cards[index],
+                              );
+                            },
+                          ),
                         ),
-                        child: cards[index],
-                      );
-                    },
-                  ),
-                ),
-              ),
-            );
-          },
+                      ),
+                    );
+                  },
+                );
+              },
         ),
       ],
     );
@@ -1744,24 +1814,12 @@ class _TodayMetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ({double width, double height, double opacity}) bgRect =
-        switch (kind) {
-          _TodayMetricCardKind.mood => (
-            width: 221,
-            height: 250,
-            opacity: 0.3,
-          ),
-          _TodayMetricCardKind.energy => (
-            width: 182,
-            height: 276,
-            opacity: 0.3,
-          ),
-          _TodayMetricCardKind.stress => (
-            width: 186,
-            height: 282,
-            opacity: 0.3,
-          ),
-        };
+    final ({double width, double height, double opacity})
+    bgRect = switch (kind) {
+      _TodayMetricCardKind.mood => (width: 221, height: 250, opacity: 0.3),
+      _TodayMetricCardKind.energy => (width: 182, height: 276, opacity: 0.3),
+      _TodayMetricCardKind.stress => (width: 186, height: 282, opacity: 0.3),
+    };
 
     return Container(
       width: cardWidth,
@@ -1886,10 +1944,7 @@ class _ChoicePill extends StatelessWidget {
           borderRadius: AppRadius.pill,
           child: Container(
             height: 39,
-            padding: EdgeInsets.only(
-              left: 24,
-              right: selected ? 16 : 24,
-            ),
+            padding: EdgeInsets.only(left: 24, right: selected ? 16 : 24),
             decoration: BoxDecoration(
               borderRadius: AppRadius.pill,
               border: Border.all(
@@ -1907,7 +1962,11 @@ class _ChoicePill extends StatelessWidget {
                 ),
                 if (selected) ...<Widget>[
                   const SizedBox(width: 4),
-                  Icon(Icons.check_rounded, size: 16, color: selectedBorderColor),
+                  Icon(
+                    Icons.check_rounded,
+                    size: 16,
+                    color: selectedBorderColor,
+                  ),
                 ],
               ],
             ),

@@ -4,6 +4,7 @@ import "package:firebase_core/firebase_core.dart";
 
 import "data/local_db/local_database.dart";
 import "design_system/design_system.dart";
+import "features/home/daily_checkin_store.dart";
 import "features/question/today_question_store.dart";
 import "features/splash/splash_screen.dart";
 
@@ -12,6 +13,7 @@ Future<void> main() async {
   await Firebase.initializeApp();
   await LocalDatabase.instance.initialize();
   await TodayQuestionStore.instance.initialize();
+  await DailyCheckinStore.instance.initialize();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
