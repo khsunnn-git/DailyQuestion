@@ -7,6 +7,7 @@ import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
+import "polish_draft_store.dart";
 import "streak_completion_screen.dart";
 import "today_question_prompt_store.dart";
 import "today_question_store.dart";
@@ -35,6 +36,7 @@ class TodayQuestionAnswerScreen extends StatefulWidget {
 class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   static const String _allCategoryName = "ALL";
   static const Color _allCategoryColor = AppNeutralColors.grey100;
+  static const bool _showPolishUi = false;
   bool _isPublic = false;
   int _polishUsedCount = 0;
   bool _showPolishLoading = false;
@@ -65,6 +67,9 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       );
       final DateTime? targetDate = isEditMode ? null : normalizedRecordDate;
       final int resolvedQuestionSlot = _resolveQuestionSlot();
+      final int resolvedQuestionDayOfYear = _resolveQuestionDayOfYear(
+        normalizedRecordDate,
+      );
       final String resolvedQuestionText =
           widget.questionText ??
           widget.editingRecord?.questionText ??
@@ -84,6 +89,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
               bucketTags: _bucketTags,
               createdAt: targetDate,
               questionSlot: resolvedQuestionSlot,
+              questionDayOfYear: resolvedQuestionDayOfYear,
               questionDateKey: kstDateKeyFromDateTime(groupDate),
               questionText: resolvedQuestionText,
             );
@@ -138,6 +144,18 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       return widget.questionSlot!.clamp(0, 2);
     }
     return 0;
+  }
+
+  int _resolveQuestionDayOfYear(DateTime fallbackDate) {
+    if (widget.editingRecord?.questionDayOfYear != null) {
+      return widget.editingRecord!.questionDayOfYear!;
+    }
+    final int promptDay = TodayQuestionPromptStore.instance.value.dayOfYear;
+    if (promptDay > 0) {
+      return promptDay;
+    }
+    return fallbackDate.difference(DateTime(fallbackDate.year, 1, 1)).inDays +
+        1;
   }
 
   @override
@@ -425,6 +443,23 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       _showPolishToast("이미 자연스러운 문장이에요");
       return;
     }
+
+    final DateTime baseDate =
+        widget.editingRecord?.createdAt ??
+        widget.initialDate ??
+        TodayQuestionPromptStore.instance.value.date;
+    final String polishKey =
+        "${baseDate.year.toString().padLeft(4, "0")}"
+        "${baseDate.month.toString().padLeft(2, "0")}"
+        "${baseDate.day.toString().padLeft(2, "0")}_"
+        "${_resolveQuestionSlot()}";
+    unawaited(
+      PolishDraftStore.instance.saveDraft(
+        key: polishKey,
+        originalText: originalText,
+        polishedText: polishedText,
+      ),
+    );
 
     final String? action = await _showDesignBottomSheet<String>(
       context: context,
@@ -828,58 +863,60 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                       backgroundColor: brand.bg,
                       borderColor: brand.c400,
                     ),
-                    const SizedBox(height: AppSpacing.s24),
-                    SizedBox(
-                      height: 48,
-                      child: OutlinedButton(
-                        onPressed: _canPolish
-                            ? () => _openPolishBottomSheet(context)
-                            : null,
-                        style: ButtonStyle(
-                          backgroundColor:
-                              WidgetStateProperty.resolveWith<Color>((
-                                Set<WidgetState> states,
-                              ) {
-                                if (states.contains(WidgetState.disabled)) {
-                                  return Color.alphaBlend(
-                                    AppTransparentColors.light64,
-                                    brand.c200,
-                                  );
-                                }
-                                return brand.c100;
-                              }),
-                          side: WidgetStateProperty.resolveWith<BorderSide>((
-                            Set<WidgetState> states,
-                          ) {
-                            if (states.contains(WidgetState.disabled)) {
-                              return BorderSide.none;
-                            }
-                            return BorderSide(color: brand.c200);
-                          }),
-                          foregroundColor:
-                              WidgetStateProperty.resolveWith<Color>((
-                                Set<WidgetState> states,
-                              ) {
-                                if (states.contains(WidgetState.disabled)) {
-                                  return brand.c300;
-                                }
-                                return brand.c500;
-                              }),
-                          shape: const WidgetStatePropertyAll<OutlinedBorder>(
-                            StadiumBorder(),
+                    if (_showPolishUi) ...<Widget>[
+                      const SizedBox(height: AppSpacing.s24),
+                      SizedBox(
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: _canPolish
+                              ? () => _openPolishBottomSheet(context)
+                              : null,
+                          style: ButtonStyle(
+                            backgroundColor:
+                                WidgetStateProperty.resolveWith<Color>((
+                                  Set<WidgetState> states,
+                                ) {
+                                  if (states.contains(WidgetState.disabled)) {
+                                    return Color.alphaBlend(
+                                      AppTransparentColors.light64,
+                                      brand.c200,
+                                    );
+                                  }
+                                  return brand.c100;
+                                }),
+                            side: WidgetStateProperty.resolveWith<BorderSide>((
+                              Set<WidgetState> states,
+                            ) {
+                              if (states.contains(WidgetState.disabled)) {
+                                return BorderSide.none;
+                              }
+                              return BorderSide(color: brand.c200);
+                            }),
+                            foregroundColor:
+                                WidgetStateProperty.resolveWith<Color>((
+                                  Set<WidgetState> states,
+                                ) {
+                                  if (states.contains(WidgetState.disabled)) {
+                                    return brand.c300;
+                                  }
+                                  return brand.c500;
+                                }),
+                            shape: const WidgetStatePropertyAll<OutlinedBorder>(
+                              StadiumBorder(),
+                            ),
+                            textStyle: const WidgetStatePropertyAll<TextStyle>(
+                              AppTypography.buttonMedium,
+                            ),
+                            elevation: const WidgetStatePropertyAll<double>(0),
                           ),
-                          textStyle: const WidgetStatePropertyAll<TextStyle>(
-                            AppTypography.buttonMedium,
+                          child: Text(
+                            _polishUsedCount >= 3
+                                ? "✨ 문장다듬기를 모두 사용하셨어요."
+                                : "✨ 문장을 매끄럽게 다듬어줄까요?",
                           ),
-                          elevation: const WidgetStatePropertyAll<double>(0),
-                        ),
-                        child: Text(
-                          _polishUsedCount >= 3
-                              ? "✨ 문장다듬기를 모두 사용하셨어요."
-                              : "✨ 문장을 매끄럽게 다듬어줄까요?",
                         ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: AppSpacing.s24),
                     Container(
                       padding: const EdgeInsets.symmetric(

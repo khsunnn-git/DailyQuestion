@@ -24,10 +24,6 @@ class MyRecordsScreen extends StatefulWidget {
       "assets/images/record/profile_interest.png";
   static const String _profileBucketlistAsset =
       "assets/images/record/profile_bucketlist.png";
-  static const String _profilePatternAsset =
-      "assets/images/record/profile_record_pattern.png";
-  static const String _profileChangesAsset =
-      "assets/images/record/profile_changes.png";
 
   static const String _defaultQuestion = "오늘 가장 기억에 남는 순간은 무엇인가요?";
   static const String _unansweredMessage = "아직 열어보지 않은 질문입니다.";
@@ -206,36 +202,6 @@ class MyRecordsScreen extends StatefulWidget {
     ];
   }
 
-  static const List<_ProfileCardItem> _profileItems = <_ProfileCardItem>[
-    _ProfileCardItem(
-      iconAsset: _profileInsightAsset,
-      title: "인사이트",
-      body:
-          "지난 30일 동안 당신은 여행과 자기계발에 가장 많은 관심을 보였습니다. 당신은 도전을 좋아하고, 새로운 경험(여행/학습)을 통해 성취감을 얻는 사람으로 보입니다.",
-    ),
-    _ProfileCardItem(
-      iconAsset: _profileInterestAsset,
-      title: "관심사",
-      body: "당신의 목표가 1월에는 ‘수영배우기’를 닮았다면 최근에는 ‘마라톤 도전하기’로 변경되며 관심이 확장되었습니다.",
-    ),
-    _ProfileCardItem(
-      iconAsset: _profileBucketlistAsset,
-      title: "버킷리스트",
-      body: "30일동안 버킷리스트 12개가 추가되었고, 이 중 4개를 완료했습니다.",
-    ),
-    _ProfileCardItem(
-      iconAsset: _profilePatternAsset,
-      title: "기록패턴",
-      body:
-          "30일 동안 83% 참여율을 보였고, 주말에 답변 누락이 잦았습니다. 주로 늦은 저녁 8~11시 사이에 답변을 작성했습니다.",
-    ),
-    _ProfileCardItem(
-      iconAsset: _profileChangesAsset,
-      title: "1년간 변화",
-      body: "올해는 꼭 등반해보고 싶은 산?에 ‘한라산’을, 작년에는 ‘설악산’을 답했어요.",
-    ),
-  ];
-
   @override
   State<MyRecordsScreen> createState() => _MyRecordsScreenState();
 }
@@ -301,7 +267,12 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                             maxMonth: _maxMonth,
                           ),
                           const SizedBox(height: AppSpacing.s32),
-                          _MonthReportSection(
+                          _MonthlyKeywordPieCard(
+                            selectedYear: _selectedYear,
+                            selectedMonth: _selectedMonth,
+                          ),
+                          const SizedBox(height: AppSpacing.s32),
+                          _AiReportEntryCard(
                             selectedYear: _selectedYear,
                             selectedMonth: _selectedMonth,
                           ),
@@ -715,7 +686,8 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
             final int latestDay = MyRecordsScreen.lastVisibleDayOfMonth(
               year: widget.selectedYear,
               month: widget.selectedMonth,
-              hasRecordForToday: isCurrentMonth && recordByDay.containsKey(now.day),
+              hasRecordForToday:
+                  isCurrentMonth && recordByDay.containsKey(now.day),
             );
 
             if (latestDay <= 0) {
@@ -816,7 +788,8 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                                 "-${latestMonthRecord.createdAt.millisecondsSinceEpoch}"
                                 "-${latestMonthRecord.answer.hashCode}";
                       final bool shouldSyncToRight =
-                          !_didSetInitialPage || _lastMonthRecordSyncKey != syncKey;
+                          !_didSetInitialPage ||
+                          _lastMonthRecordSyncKey != syncKey;
                       if (!shouldSyncToRight || previews.isEmpty) {
                         return;
                       }
@@ -1207,197 +1180,197 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
               ),
               child: Column(
                 children: <Widget>[
-                SizedBox(
-                  width: 286,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.s4,
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        IconButton(
-                          onPressed: hasPastYearRecord
-                              ? () => _openQuestionHistory(annualEntries)
-                              : null,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints.tightFor(
+                  SizedBox(
+                    width: 286,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s4,
+                      ),
+                      child: Row(
+                        children: <Widget>[
+                          IconButton(
+                            onPressed: hasPastYearRecord
+                                ? () => _openQuestionHistory(annualEntries)
+                                : null,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 24,
+                              height: 24,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            icon: Icon(
+                              Icons.history,
+                              size: 24,
+                              color: hasPastYearRecord
+                                  ? brand.c500
+                                  : AppNeutralColors.grey300,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              item.date,
+                              textAlign: TextAlign.center,
+                              style: AppTypography.bodyMediumSemiBold.copyWith(
+                                color: brand.c500,
+                              ),
+                            ),
+                          ),
+                          SizedBox(
                             width: 24,
                             height: 24,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          icon: Icon(
-                            Icons.history,
-                            size: 24,
-                            color: hasPastYearRecord
-                                ? brand.c500
-                                : AppNeutralColors.grey300,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            item.date,
-                            textAlign: TextAlign.center,
-                            style: AppTypography.bodyMediumSemiBold.copyWith(
-                              color: brand.c500,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: isEmptyState
-                              ? const SizedBox.shrink()
-                              : IconButton(
-                                  onPressed: _toggleMoreMenu,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 24,
-                                    height: 24,
+                            child: isEmptyState
+                                ? const SizedBox.shrink()
+                                : IconButton(
+                                    onPressed: _toggleMoreMenu,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 24,
+                                      height: 24,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    icon: const Icon(
+                                      Icons.more_horiz,
+                                      size: 24,
+                                      color: AppNeutralColors.grey300,
+                                    ),
                                   ),
-                                  visualDensity: VisualDensity.compact,
-                                  icon: const Icon(
-                                    Icons.more_horiz,
-                                    size: 24,
-                                    color: AppNeutralColors.grey300,
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (!isEmptyState) const SizedBox(height: AppSpacing.s16),
-                if (!isEmptyState)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.s16,
-                    ),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: AppNeutralColors.grey50),
-                      ),
-                    ),
-                    child: Text(
-                      item.question,
-                      textAlign: TextAlign.center,
-                      style: AppTypography.headingMediumExtraBold.copyWith(
-                        color: AppNeutralColors.grey900,
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                if (!isEmptyState) const SizedBox(height: AppSpacing.s16),
-                if (isEmptyState)
-                  Expanded(
-                    child: Column(
-                      children: <Widget>[
-                        Expanded(
-                          child: Center(
-                            child: Text(
-                              MyRecordsScreen._unansweredMessage,
-                              textAlign: TextAlign.center,
-                              style: AppTypography.bodyLargeRegular.copyWith(
-                                color: AppNeutralColors.grey300,
+                  if (!isEmptyState) const SizedBox(height: AppSpacing.s16),
+                  if (!isEmptyState)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s16,
+                      ),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: AppNeutralColors.grey50),
+                        ),
+                      ),
+                      child: Text(
+                        item.question,
+                        textAlign: TextAlign.center,
+                        style: AppTypography.headingMediumExtraBold.copyWith(
+                          color: AppNeutralColors.grey900,
+                        ),
+                      ),
+                    ),
+                  if (!isEmptyState) const SizedBox(height: AppSpacing.s16),
+                  if (isEmptyState)
+                    Expanded(
+                      child: Column(
+                        children: <Widget>[
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                MyRecordsScreen._unansweredMessage,
+                                textAlign: TextAlign.center,
+                                style: AppTypography.bodyLargeRegular.copyWith(
+                                  color: AppNeutralColors.grey300,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        Align(
-                          alignment: Alignment.bottomCenter,
-                          child: OutlinedButton(
-                            onPressed: _openWriteScreenForEmpty,
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: AppNeutralColors.white,
-                              foregroundColor: brand.c400,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.full,
+                          Align(
+                            alignment: Alignment.bottomCenter,
+                            child: OutlinedButton(
+                              onPressed: _openWriteScreenForEmpty,
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: AppNeutralColors.white,
+                                foregroundColor: brand.c400,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.full,
+                                  ),
                                 ),
+                                side: BorderSide(color: brand.c400),
+                                minimumSize: const Size(0, 38),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.s16,
+                                  vertical: 0,
+                                ),
+                                textStyle: AppTypography.buttonSmall,
                               ),
-                              side: BorderSide(color: brand.c400),
-                              minimumSize: const Size(0, 38),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpacing.s16,
-                                vertical: 0,
-                              ),
-                              textStyle: AppTypography.buttonSmall,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: <Widget>[
-                                Text(
-                                  "질문 열어보기",
-                                  style: AppTypography.buttonSmall.copyWith(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: <Widget>[
+                                  Text(
+                                    "질문 열어보기",
+                                    style: AppTypography.buttonSmall.copyWith(
+                                      color: brand.c400,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.s4),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    size: 16,
                                     color: brand.c400,
                                   ),
-                                ),
-                                const SizedBox(width: AppSpacing.s4),
-                                Icon(
-                                  Icons.chevron_right,
-                                  size: 16,
-                                  color: brand.c400,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (!isEmptyState)
-                  Expanded(
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: Text(
-                        item.body,
-                        textAlign: TextAlign.left,
-                        style: AppTypography.bodyLargeRegular.copyWith(
-                          color: AppNeutralColors.grey800,
-                        ),
-                        maxLines: 6,
-                        overflow: TextOverflow.ellipsis,
+                        ],
                       ),
                     ),
-                  ),
-                if (!isEmptyState && item.tags.isNotEmpty)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 38,
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: item.tags
-                            .map(
-                              (String tag) => Padding(
-                                padding: const EdgeInsets.only(
-                                  right: AppSpacing.s6,
-                                ),
-                                child: Container(
-                                  height: 38,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.s16,
+                  if (!isEmptyState)
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          item.body,
+                          textAlign: TextAlign.left,
+                          style: AppTypography.bodyLargeRegular.copyWith(
+                            color: AppNeutralColors.grey800,
+                          ),
+                          maxLines: 6,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  if (!isEmptyState && item.tags.isNotEmpty)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 38,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: item.tags
+                              .map(
+                                (String tag) => Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: AppSpacing.s6,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: brand.c100,
-                                    borderRadius: AppRadius.pill,
-                                    border: Border.all(color: brand.c200),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    "#$tag",
-                                    style: AppTypography.buttonSmall.copyWith(
-                                      color: brand.c500,
+                                  child: Container(
+                                    height: 38,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.s16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: brand.c100,
+                                      borderRadius: AppRadius.pill,
+                                      border: Border.all(color: brand.c200),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      "#$tag",
+                                      style: AppTypography.buttonSmall.copyWith(
+                                        color: brand.c500,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            )
-                            .toList(growable: false),
+                              )
+                              .toList(growable: false),
+                        ),
                       ),
                     ),
-                  ),
-                if (!isEmptyState && item.tags.isNotEmpty)
-                  const SizedBox(height: AppSpacing.s16),
+                  if (!isEmptyState && item.tags.isNotEmpty)
+                    const SizedBox(height: AppSpacing.s16),
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: SizedBox.shrink(),
@@ -1641,6 +1614,331 @@ class _StreakCard extends StatelessWidget {
   }
 }
 
+enum _AiReportPeriod { monthly, quarterly, yearly }
+
+class _AiReportEntryCard extends StatefulWidget {
+  const _AiReportEntryCard({
+    required this.selectedYear,
+    required this.selectedMonth,
+  });
+
+  final int selectedYear;
+  final int selectedMonth;
+
+  @override
+  State<_AiReportEntryCard> createState() => _AiReportEntryCardState();
+}
+
+class _AiReportEntryCardState extends State<_AiReportEntryCard> {
+  _AiReportPeriod _selected = _AiReportPeriod.monthly;
+
+  _AiReportUiData _dataFor(_AiReportPeriod period) {
+    final String monthLabel = "${widget.selectedMonth}월";
+    final int quarter = ((widget.selectedMonth - 1) ~/ 3) + 1;
+    final int year = widget.selectedYear;
+
+    switch (period) {
+      case _AiReportPeriod.monthly:
+        return _AiReportUiData(
+          summaryTitle: "$monthLabel 요약",
+          summaryBody:
+              "$monthLabel 초반에는 기록이 뜸했지만, 중반 이후부터 기록 빈도가 올라가며 만족도·에너지 흐름이 안정됐어요. "
+              "버킷리스트 12개 중 4개를 완료하며 작은 성취가 꾸준히 쌓이고 있어요.",
+          insightBody:
+              "기분이 좋은 날엔 산책·음악·짧은 휴식이 반복적으로 등장했어요. 반대로 스트레스가 높았던 날엔 미루기와 수면 불규칙 키워드가 함께 나타났어요.",
+          actions: const <String>[
+            "점심시간에 10분 산책을 해보세요.",
+            "일정을 작은 단위로 나눠 먼저 1개만 시작해보세요.",
+            "주 1회 동료와 커피 한 잔 대화 시간을 만들어보세요.",
+          ],
+        );
+      case _AiReportPeriod.quarterly:
+        return _AiReportUiData(
+          summaryTitle: "$quarter분기 요약",
+          summaryBody:
+              "최근 3개월 동안 기록 리듬이 점차 안정되며 감정 기복 폭이 줄었어요. "
+              "버킷리스트는 30개가 추가됐고 11개를 완료했어요.",
+          insightBody:
+              "관심사 중심축이 바뀌고 있어요. 1월에는 '수영 배우기'를 자주 언급했지만 최근에는 '마라톤 도전하기'가 반복되며 목표 영역이 확장됐어요.",
+          actions: const <String>[
+            "분기 목표를 1개 핵심 목표와 2개 보조 목표로 구분해보세요.",
+            "완료한 버킷리스트를 주 1회 회고하며 다음 행동으로 연결해보세요.",
+            "스트레스가 높은 주에는 휴식 일정을 먼저 달력에 고정해보세요.",
+          ],
+        );
+      case _AiReportPeriod.yearly:
+        return _AiReportUiData(
+          summaryTitle: "$year년 요약",
+          summaryBody:
+              "올해는 기록량과 자기이해가 함께 성장한 해였어요. 감정 기록, 질문 답변, 버킷리스트 데이터가 쌓이며 나만의 패턴이 선명해졌어요.",
+          insightBody:
+              "질문 답변 비교에서 목표의 결이 진화했어요. 작년에는 '설악산'을, 올해는 '한라산'을 답하며 도전의 난이도와 실행 의지가 함께 높아졌어요.",
+          actions: const <String>[
+            "올해 가장 만족도가 높았던 습관 1개를 내년 고정 루틴으로 지정해보세요.",
+            "연간 목표는 상반기/하반기로 나눠 실행 체크포인트를 만드세요.",
+            "연말 회고에서 '잘한 점 3개, 줄일 점 1개'만 간단히 정리해보세요.",
+          ],
+        );
+    }
+  }
+
+  bool _isMonthClosed({
+    required int year,
+    required int month,
+    required DateTime now,
+  }) {
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final DateTime lastDayOfMonth = DateTime(year, month + 1, 0);
+    return !today.isBefore(lastDayOfMonth);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final _AiReportUiData data = _dataFor(_selected);
+    final DateTime now = DateTime.now();
+    final bool monthlyEnabled = _isMonthClosed(
+      year: widget.selectedYear,
+      month: widget.selectedMonth,
+      now: now,
+    );
+    final bool quarterlyEnabled =
+        monthlyEnabled && widget.selectedMonth % 3 == 0;
+    final bool yearlyEnabled =
+        monthlyEnabled && widget.selectedMonth == DateTime.december;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          "AI 리포트",
+          style: AppTypography.headingSmall.copyWith(
+            color: AppNeutralColors.grey900,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.s2),
+        Text(
+          "월간/분기/연간 기준으로 AI 리포트를 생성해요.",
+          style: AppTypography.bodySmallMedium.copyWith(
+            color: AppNeutralColors.grey400,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.s24),
+        Row(
+          children: <Widget>[
+            _AiPeriodChip(
+              label: "월간",
+              enabled: monthlyEnabled,
+              selected: monthlyEnabled && _selected == _AiReportPeriod.monthly,
+              onTap: () => setState(() => _selected = _AiReportPeriod.monthly),
+            ),
+            const SizedBox(width: AppSpacing.s8),
+            _AiPeriodChip(
+              label: "분기",
+              enabled: quarterlyEnabled,
+              selected:
+                  quarterlyEnabled && _selected == _AiReportPeriod.quarterly,
+              onTap: () =>
+                  setState(() => _selected = _AiReportPeriod.quarterly),
+            ),
+            const SizedBox(width: AppSpacing.s8),
+            _AiPeriodChip(
+              label: "연간",
+              enabled: yearlyEnabled,
+              selected: yearlyEnabled && _selected == _AiReportPeriod.yearly,
+              onTap: () => setState(() => _selected = _AiReportPeriod.yearly),
+            ),
+          ],
+        ),
+        if (!monthlyEnabled) ...<Widget>[
+          const SizedBox(height: AppSpacing.s24),
+          const _AiDataAlert(message: "아직 데이터가 부족합니다.\n월말까지 기다려주세요!"),
+        ] else if (_selected == _AiReportPeriod.quarterly &&
+            !quarterlyEnabled) ...<Widget>[
+          const SizedBox(height: AppSpacing.s24),
+          const _AiDataAlert(message: "분기 리포트는 3·6·9·12월 말에 생성돼요."),
+        ] else if (_selected == _AiReportPeriod.yearly &&
+            !yearlyEnabled) ...<Widget>[
+          const SizedBox(height: AppSpacing.s24),
+          const _AiDataAlert(message: "연간 리포트는 12월 말에 생성돼요."),
+        ] else ...<Widget>[
+          const SizedBox(height: AppSpacing.s16),
+          _AiReportPreviewCard(
+            iconAsset: MyRecordsScreen._profileInsightAsset,
+            title: data.summaryTitle,
+            body: data.summaryBody,
+          ),
+          const SizedBox(height: AppSpacing.s12),
+          _AiReportPreviewCard(
+            iconAsset: MyRecordsScreen._profileInterestAsset,
+            title: "인사이트",
+            body: data.insightBody,
+          ),
+          const SizedBox(height: AppSpacing.s12),
+          _AiReportPreviewCard(
+            iconAsset: MyRecordsScreen._profileBucketlistAsset,
+            title: "이렇게 해볼까요?",
+            body: data.actions.map((String action) => "• $action").join("\n"),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _AiDataAlert extends StatelessWidget {
+  const _AiDataAlert({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 200,
+      child: Center(
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: AppTypography.bodyMediumRegular.copyWith(
+            color: AppNeutralColors.grey500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiPeriodChip extends StatelessWidget {
+  const _AiPeriodChip({
+    required this.label,
+    required this.enabled,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool enabled;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: AppRadius.pill,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.s20,
+          vertical: AppSpacing.s6,
+        ),
+        decoration: BoxDecoration(
+          color: selected && enabled ? brand.c100 : AppNeutralColors.grey50,
+          borderRadius: AppRadius.pill,
+          border: selected && enabled
+              ? Border.all(color: brand.c500, width: 1)
+              : Border.all(color: Colors.transparent, width: 1),
+          boxShadow: AppElevation.level1,
+        ),
+        child: Text(
+          label,
+          style: AppTypography.bodySmallSemiBold.copyWith(
+            color: selected && enabled ? brand.c500 : AppNeutralColors.grey200,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AiReportPreviewCard extends StatelessWidget {
+  const _AiReportPreviewCard({
+    required this.iconAsset,
+    required this.title,
+    required this.body,
+  });
+
+  final String iconAsset;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.s24),
+      decoration: BoxDecoration(
+        color: AppNeutralColors.white,
+        borderRadius: AppRadius.br16,
+        boxShadow: AppElevation.level1,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: brand.c100,
+                  shape: BoxShape.circle,
+                ),
+                child: Image.asset(iconAsset, width: 50, height: 50),
+              ),
+              const SizedBox(width: AppSpacing.s20),
+              Expanded(
+                child: Text(
+                  title,
+                  style: AppTypography.headingXSmall.copyWith(
+                    color: AppNeutralColors.grey900,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.s8,
+                  vertical: AppSpacing.s2,
+                ),
+                decoration: BoxDecoration(
+                  color: AppSemanticColors.info100,
+                  borderRadius: AppRadius.pill,
+                ),
+                child: Text(
+                  "AI",
+                  style: AppTypography.captionSmall.copyWith(color: brand.c500),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s20),
+          Text(
+            body,
+            style: AppTypography.bodyMediumRegular.copyWith(
+              color: AppNeutralColors.grey900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiReportUiData {
+  const _AiReportUiData({
+    required this.summaryTitle,
+    required this.summaryBody,
+    required this.insightBody,
+    required this.actions,
+  });
+
+  final String summaryTitle;
+  final String summaryBody;
+  final String insightBody;
+  final List<String> actions;
+}
+
 class _StreakCardCopy {
   const _StreakCardCopy({required this.title, required this.body});
 
@@ -1843,7 +2141,9 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                     );
                   }
                   final int lastDay = _lastVisibleDayOfMonth(
-                    hasRecordForToday: recordByDay.containsKey(DateTime.now().day),
+                    hasRecordForToday: recordByDay.containsKey(
+                      DateTime.now().day,
+                    ),
                   );
 
                   return FutureBuilder<Map<int, String>>(
@@ -1865,9 +2165,8 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                                 int index,
                               ) {
                                 final int day = lastDay - index;
-                                final bool isCompleted = recordByDay.containsKey(
-                                  day,
-                                );
+                                final bool isCompleted = recordByDay
+                                    .containsKey(day);
                                 return _RecordListItem(
                                   day: day.toString().padLeft(2, "0"),
                                   weekday: _weekdayLabel(
@@ -2120,7 +2419,9 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                   );
                 }
                 final int lastDay = _lastVisibleDayOfMonth(
-                  hasRecordForToday: recordByDay.containsKey(DateTime.now().day),
+                  hasRecordForToday: recordByDay.containsKey(
+                    DateTime.now().day,
+                  ),
                 );
 
                 return FutureBuilder<Map<int, String>>(
@@ -2230,11 +2531,13 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                                         lastDay - index,
                                       ),
                                     ),
-                                    text: recordByDay.containsKey(lastDay - index)
+                                    text:
+                                        recordByDay.containsKey(lastDay - index)
                                         ? _questionForDay(
                                             day: lastDay - index,
                                             monthQuestions: monthQuestions,
-                                            record: recordByDay[lastDay - index],
+                                            record:
+                                                recordByDay[lastDay - index],
                                           )
                                         : MyRecordsScreen._unansweredMessage,
                                     isCompleted: recordByDay.containsKey(
@@ -2294,9 +2597,7 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
               onTap: (int index) {
                 if (index == 0) {
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const HomeScreen(),
-                    ),
+                    MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
                     (Route<dynamic> route) => false,
                   );
                   return;
@@ -2472,51 +2773,14 @@ class _PastRecordRow extends StatelessWidget {
   }
 }
 
-class _MonthReportSection extends StatelessWidget {
-  const _MonthReportSection({
+class _MonthlyKeywordPieCard extends StatelessWidget {
+  const _MonthlyKeywordPieCard({
     required this.selectedYear,
     required this.selectedMonth,
   });
 
   final int selectedYear;
   final int selectedMonth;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          "$selectedMonth월 리포트",
-          style: AppTypography.headingSmall.copyWith(
-            color: AppNeutralColors.grey900,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.s24),
-        _WeeklyKeywordPieCard(
-          selectedYear: selectedYear,
-          selectedMonth: selectedMonth,
-          title: "최근 7일 키워드",
-        ),
-        const SizedBox(height: AppSpacing.s32),
-        ...MyRecordsScreen._profileItems.map(
-          (item) => _ProfileCard(item: item),
-        ),
-      ],
-    );
-  }
-}
-
-class _WeeklyKeywordPieCard extends StatelessWidget {
-  const _WeeklyKeywordPieCard({
-    required this.selectedYear,
-    required this.selectedMonth,
-    required this.title,
-  });
-
-  final int selectedYear;
-  final int selectedMonth;
-  final String title;
 
   static const List<Color> _sliceColors = <Color>[
     Color(0xFFB6E2FF),
@@ -2530,6 +2794,24 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
     "이번",
     "그리고",
     "그냥",
+    "계속",
+    "많이",
+    "말고",
+    "진짜",
+    "조금",
+    "약간",
+    "아직",
+    "이미",
+    "먼저",
+    "다시",
+    "또",
+    "더",
+    "덜",
+    "자꾸",
+    "바로",
+    "돼요",
+    "되요",
+    "되고",
     "정말",
     "너무",
     "같은",
@@ -2544,50 +2826,113 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
     "나는",
     "내가",
     "우리",
+    "요즘",
+    "지금",
   };
 
-  List<_KeywordSlice> _buildKeywordSlices(List<TodayQuestionRecord> records) {
-    final DateTime monthEnd = DateTime(selectedYear, selectedMonth + 1, 0);
-    final DateTime start = monthEnd.subtract(const Duration(days: 6));
-    final DateTime end = DateTime(
-      monthEnd.year,
-      monthEnd.month,
-      monthEnd.day,
-      23,
-      59,
-      59,
-    );
+  static const Set<String> _nonNounSuffixes = <String>{
+    "하다",
+    "했다",
+    "해요",
+    "합니다",
+    "되는",
+    "되다",
+    "됐다",
+    "이다",
+    "예요",
+    "어요",
+    "아요",
+    "네요",
+    "하게",
+    "하며",
+    "같다",
+    "같은",
+    "좋다",
+    "좋은",
+    "싶다",
+    "싶은",
+    "하기",
+    "가기",
+    "보기",
+    "먹기",
+    "듣기",
+    "고",
+    "어",
+    "나",
+  };
 
-    final Iterable<TodayQuestionRecord> weeklyRecords = records.where(
+  static const List<String> _josaSuffixes = <String>[
+    "으로부터",
+    "에게서",
+    "이라서",
+    "라서",
+    "에서",
+    "에게",
+    "으로",
+    "처럼",
+    "보다",
+    "까지",
+    "부터",
+    "하고",
+    "이며",
+    "이고",
+    "이나",
+    "거나",
+    "라도",
+    "만의",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "에",
+    "도",
+    "만",
+    "와",
+    "과",
+    "랑",
+    "야",
+  ];
+
+  List<_KeywordSlice> _buildKeywordSlices(List<TodayQuestionRecord> records) {
+    final Iterable<TodayQuestionRecord> monthlyRecords = records.where(
       (TodayQuestionRecord item) =>
-          !item.createdAt.isBefore(start) && !item.createdAt.isAfter(end),
+          item.createdAt.year == selectedYear &&
+          item.createdAt.month == selectedMonth,
     );
 
     final Map<String, int> counter = <String, int>{};
-    for (final TodayQuestionRecord record in weeklyRecords) {
+    for (final TodayQuestionRecord record in monthlyRecords) {
       final List<String> bucketKeywords = record.bucketTags.isNotEmpty
           ? record.bucketTags
           : (record.bucketTag == null || record.bucketTag!.trim().isEmpty)
           ? const <String>[]
           : <String>[record.bucketTag!.trim()];
 
-      if (bucketKeywords.isNotEmpty) {
-        for (final String keyword in bucketKeywords) {
-          final String normalized = keyword.trim();
-          if (normalized.isEmpty) continue;
-          counter[normalized] = (counter[normalized] ?? 0) + 1;
+      for (final String keyword in bucketKeywords) {
+        final Iterable<String> tokens = RegExp(
+          r"[가-힣A-Za-z0-9]{2,}",
+        ).allMatches(keyword).map((Match m) => m.group(0) ?? "");
+        for (final String token in tokens) {
+          final String? noun = _normalizeNounToken(token);
+          if (noun == null || _stopWords.contains(noun)) {
+            continue;
+          }
+          counter[noun] = (counter[noun] ?? 0) + 2;
         }
       }
 
       final Iterable<String> tokens = RegExp(
         r"[가-힣A-Za-z0-9]{2,}",
       ).allMatches(record.answer).map((Match m) => m.group(0) ?? "");
+
       for (final String token in tokens) {
-        final String normalized = token.trim();
-        if (normalized.isEmpty || _stopWords.contains(normalized)) {
+        final String? noun = _normalizeNounToken(token);
+        if (noun == null || _stopWords.contains(noun)) {
           continue;
         }
-        counter[normalized] = (counter[normalized] ?? 0) + 1;
+        counter[noun] = (counter[noun] ?? 0) + 1;
       }
     }
 
@@ -2596,6 +2941,7 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
         if (b.value != a.value) return b.value.compareTo(a.value);
         return a.key.compareTo(b.key);
       });
+
     final List<_KeywordSlice> result = List<_KeywordSlice>.generate(
       top.length > 4 ? 4 : top.length,
       (int index) {
@@ -2607,8 +2953,44 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
         );
       },
     );
-
+    if (result.isEmpty) {
+      return const <_KeywordSlice>[
+        _KeywordSlice(label: "기록", count: 1, color: Color(0xFFB6E2FF)),
+      ];
+    }
     return result;
+  }
+
+  String? _normalizeNounToken(String token) {
+    String value = token.trim();
+    if (value.length < 2) {
+      return null;
+    }
+    value = value.toLowerCase();
+    for (final String suffix in _josaSuffixes) {
+      if (value.length > suffix.length + 1 && value.endsWith(suffix)) {
+        value = value.substring(0, value.length - suffix.length);
+        break;
+      }
+    }
+    if (!_isLikelyNoun(value)) {
+      return null;
+    }
+    for (final String noise in <String>["계속", "많이", "말고", "돼요", "되요", "되고"]) {
+      if (value.contains(noise)) {
+        return null;
+      }
+    }
+    return value;
+  }
+
+  bool _isLikelyNoun(String token) {
+    if (token.length < 2) return false;
+    for (final String suffix in _nonNounSuffixes) {
+      if (token.endsWith(suffix)) return false;
+    }
+    if (token.endsWith("히") || token.endsWith("게")) return false;
+    return true;
   }
 
   @override
@@ -2624,7 +3006,7 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
 
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.s24),
           decoration: BoxDecoration(
             color: AppNeutralColors.white,
             borderRadius: AppRadius.br16,
@@ -2634,15 +3016,15 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text(
-                title,
+                "$selectedMonth월 키워드",
                 style: AppTypography.headingXSmall.copyWith(
                   color: AppNeutralColors.grey900,
                 ),
               ),
-              const SizedBox(height: AppSpacing.s40),
+              const SizedBox(height: AppSpacing.s20),
               if (slices.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s40),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s24),
                   child: SizedBox(
                     height: 168,
                     child: Center(
@@ -2656,20 +3038,17 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
                   ),
                 )
               else ...<Widget>[
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s40),
-                  child: Center(
-                    child: SizedBox(
-                      width: 168,
-                      height: 168,
-                      child: CustomPaint(
-                        size: const Size(168, 168),
-                        painter: _KeywordPieChartPainter(slices: slices),
-                      ),
+                Center(
+                  child: SizedBox(
+                    width: 168,
+                    height: 168,
+                    child: CustomPaint(
+                      size: const Size(168, 168),
+                      painter: _KeywordPieChartPainter(slices: slices),
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.s40),
+                const SizedBox(height: AppSpacing.s20),
                 Column(
                   children: slices
                       .map((_KeywordSlice slice) {
@@ -2691,9 +3070,10 @@ class _WeeklyKeywordPieCard extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   slice.label,
-                                  style: AppTypography.bodyMediumRegular.copyWith(
-                                    color: AppNeutralColors.grey900,
-                                  ),
+                                  style: AppTypography.bodyMediumRegular
+                                      .copyWith(
+                                        color: AppNeutralColors.grey900,
+                                      ),
                                 ),
                               ),
                               Text(
@@ -2749,37 +3129,11 @@ class _KeywordPieChartPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.butt;
 
-    final Offset center = Offset(size.width / 2, size.height / 2);
-    final double labelRadius = (size.width / 2);
     double startAngle = -math.pi / 2;
     for (final _KeywordSlice slice in slices) {
       final double sweep = (slice.count / total) * math.pi * 2;
       paint.color = slice.color;
       canvas.drawArc(rect, startAngle, sweep, false, paint);
-
-      final double labelAngle = startAngle + (sweep / 2);
-      final Offset labelOffset = Offset(
-        center.dx + math.cos(labelAngle) * labelRadius,
-        center.dy + math.sin(labelAngle) * labelRadius,
-      );
-      final TextPainter labelPainter = TextPainter(
-        text: TextSpan(
-          text: slice.label,
-          style: AppTypography.captionSmall.copyWith(
-            color: AppNeutralColors.grey400,
-          ),
-        ),
-        textAlign: TextAlign.center,
-        textDirection: TextDirection.ltr,
-      )..layout();
-      labelPainter.paint(
-        canvas,
-        Offset(
-          labelOffset.dx - (labelPainter.width / 2),
-          labelOffset.dy - (labelPainter.height / 2),
-        ),
-      );
-
       startAngle += sweep;
     }
 
@@ -2804,66 +3158,6 @@ class _KeywordPieChartPainter extends CustomPainter {
       }
     }
     return false;
-  }
-}
-
-class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.item});
-
-  final _ProfileCardItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: AppSpacing.s32),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppNeutralColors.white,
-        borderRadius: AppRadius.br16,
-        boxShadow: AppElevation.level1,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: context.appBrandScale.c100,
-              shape: BoxShape.circle,
-            ),
-            child: Image.asset(
-              item.iconAsset,
-              width: 50,
-              height: 50,
-              fit: BoxFit.contain,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.s20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  item.title,
-                  style: AppTypography.headingXSmall.copyWith(
-                    color: AppNeutralColors.grey900,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.s4),
-                Text(
-                  item.body,
-                  style: AppTypography.bodyMediumRegular.copyWith(
-                    color: AppNeutralColors.grey900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -2901,18 +3195,6 @@ class _RecordListItem {
   final String weekday;
   final String text;
   final bool isCompleted;
-}
-
-class _ProfileCardItem {
-  const _ProfileCardItem({
-    required this.iconAsset,
-    required this.title,
-    required this.body,
-  });
-
-  final String iconAsset;
-  final String title;
-  final String body;
 }
 
 class _YearMonthSelection {
