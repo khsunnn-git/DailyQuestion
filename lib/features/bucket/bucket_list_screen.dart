@@ -5,6 +5,7 @@ import "../../data/local_db/entities/bucket_category_entity.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
+import "../home/home_screen.dart";
 import "bucket_add_screen.dart";
 import "bucket_category_empty_screen.dart";
 import "bucket_save_success_screen.dart";
@@ -786,9 +787,12 @@ class _BucketListScreenState extends State<BucketListScreen> {
               currentIndex: 1,
               onTap: (int index) {
                 if (index == 0) {
-                  Navigator.of(
-                    context,
-                  ).popUntil((Route<dynamic> route) => route.isFirst);
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const HomeScreen(),
+                    ),
+                    (Route<dynamic> route) => false,
+                  );
                   return;
                 }
                 if (index == 2) {

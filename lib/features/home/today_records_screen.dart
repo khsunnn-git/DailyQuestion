@@ -5,8 +5,8 @@ import "package:flutter/material.dart";
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "home_screen.dart";
 import "../question/today_question_prompt_store.dart";
-import "../question/today_question_store.dart";
 import "my_records_screen.dart";
 import "public_today_records_repository.dart";
 
@@ -22,19 +22,20 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
   bool _isLoading = true;
   List<_TodayRecordItem> _records = const <_TodayRecordItem>[];
   String _questionText = "오늘의 질문";
-  Timer? _hourlyRefreshTimer;
-  DateTime _lastRefreshedAt = DateTime.now();
+  Timer? _dateRefreshTimer;
+  String _lastKstDateKey = kstDateKeyNow();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadRecords();
-    _startHourlyRefreshTimer();
+    _startDateRefreshTimer();
   }
 
   Future<void> _loadRecords() async {
     await TodayQuestionPromptStore.instance.initialize();
+    await TodayQuestionPromptStore.instance.reloadIfNeeded();
     if (!mounted) {
       return;
     }
@@ -43,51 +44,33 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
     final List<PublicTodayRecord> remoteRecords = await PublicTodayRecordsRepository
         .instance
         .fetchByDateKey(todayKey);
-    List<_TodayRecordItem> mergedRecords = remoteRecords
+    final List<_TodayRecordItem> mergedRecords = remoteRecords
         .map(
           (PublicTodayRecord item) =>
               _TodayRecordItem(body: item.body, author: item.author),
         )
         .toList(growable: false);
-    if (mergedRecords.isEmpty) {
-      mergedRecords = TodayQuestionStore.instance.value
-          .where(
-            (TodayQuestionRecord item) =>
-                item.isPublic &&
-                kstDateKeyFromDateTime(item.createdAt) == todayKey,
-          )
-          .map(
-            (TodayQuestionRecord item) =>
-                _TodayRecordItem(body: item.answer, author: item.author),
-          )
-          .toList(growable: false);
-    }
     setState(() {
       _records = mergedRecords;
       _questionText = TodayQuestionPromptStore.instance.value.currentQuestionText;
       _isLoading = false;
-      _lastRefreshedAt = now;
+      _lastKstDateKey = todayKey;
     });
   }
 
-  void _startHourlyRefreshTimer() {
-    _hourlyRefreshTimer?.cancel();
-    _hourlyRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+  void _startDateRefreshTimer() {
+    _dateRefreshTimer?.cancel();
+    _dateRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (!mounted) {
         return;
       }
-      _refreshIfHourChanged();
+      _refreshIfKstDateChanged();
     });
   }
 
-  Future<void> _refreshIfHourChanged() async {
-    final DateTime now = DateTime.now();
-    final bool changed =
-        now.year != _lastRefreshedAt.year ||
-        now.month != _lastRefreshedAt.month ||
-        now.day != _lastRefreshedAt.day ||
-        now.hour != _lastRefreshedAt.hour;
-    if (!changed) {
+  Future<void> _refreshIfKstDateChanged() async {
+    final String currentKey = kstDateKeyNow();
+    if (currentKey == _lastKstDateKey) {
       return;
     }
     setState(() {
@@ -99,14 +82,14 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshIfHourChanged();
+      _refreshIfKstDateChanged();
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _hourlyRefreshTimer?.cancel();
+    _dateRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -241,9 +224,12 @@ class _RecordsListView extends StatelessWidget {
                 currentIndex: 0,
                 onTap: (int index) {
                   if (index == 0) {
-                    Navigator.of(
-                      context,
-                    ).popUntil((Route<dynamic> route) => route.isFirst);
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const HomeScreen(),
+                      ),
+                      (Route<dynamic> route) => false,
+                    );
                     return;
                   }
                   if (index == 1) {

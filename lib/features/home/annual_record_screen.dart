@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "home_screen.dart";
 
 class AnnualRecordScreen extends StatelessWidget {
   const AnnualRecordScreen({
@@ -116,8 +117,11 @@ class AnnualRecordScreen extends StatelessWidget {
               currentIndex: 2,
               onTap: (int index) {
                 if (index == 0) {
-                  Navigator.of(context).popUntil(
-                    (Route<dynamic> route) => route.isFirst,
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const HomeScreen(),
+                    ),
+                    (Route<dynamic> route) => false,
                   );
                   return;
                 }

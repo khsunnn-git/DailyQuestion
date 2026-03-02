@@ -7,6 +7,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "home_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
 import "annual_record_screen.dart";
@@ -319,9 +320,12 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                 currentIndex: 2,
                 onTap: (int index) {
                   if (index == 0) {
-                    Navigator.of(
-                      context,
-                    ).popUntil((Route<dynamic> route) => route.isFirst);
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const HomeScreen(),
+                      ),
+                      (Route<dynamic> route) => false,
+                    );
                     return;
                   }
                   if (index == 1) {
@@ -2289,9 +2293,12 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
               currentIndex: 2,
               onTap: (int index) {
                 if (index == 0) {
-                  Navigator.of(
-                    context,
-                  ).popUntil((Route<dynamic> route) => route.isFirst);
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const HomeScreen(),
+                    ),
+                    (Route<dynamic> route) => false,
+                  );
                   return;
                 }
                 if (index == 1) {
