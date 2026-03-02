@@ -130,6 +130,22 @@ class MyRecordsScreen extends StatefulWidget {
     return _recordItems[(day - 1) % _recordItems.length].text;
   }
 
+  static int lastVisibleDayOfMonth({
+    required int year,
+    required int month,
+    required bool hasRecordForToday,
+  }) {
+    final DateTime now = DateTime.now();
+    final bool isCurrentMonth = year == now.year && month == now.month;
+    if (!isCurrentMonth) {
+      return DateTime(year, month + 1, 0).day;
+    }
+    if (hasRecordForToday) {
+      return now.day;
+    }
+    return math.max(0, now.day - 1);
+  }
+
   static TodayQuestionRecord? debugMockRecordForMonth({
     required int year,
     required int month,
@@ -660,11 +676,6 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
       valueListenable: TodayQuestionStore.instance,
       builder:
           (BuildContext context, List<TodayQuestionRecord> records, Widget? _) {
-            final DateTime monthEnd = DateTime(
-              widget.selectedYear,
-              widget.selectedMonth + 1,
-              0,
-            );
             final List<TodayQuestionRecord> monthRecords = records
                 .where(
                   (TodayQuestionRecord item) =>
@@ -697,7 +708,11 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
             final bool isCurrentMonth =
                 widget.selectedYear == now.year &&
                 widget.selectedMonth == now.month;
-            final int latestDay = isCurrentMonth ? now.day : monthEnd.day;
+            final int latestDay = MyRecordsScreen.lastVisibleDayOfMonth(
+              year: widget.selectedYear,
+              month: widget.selectedMonth,
+              hasRecordForToday: isCurrentMonth && recordByDay.containsKey(now.day),
+            );
 
             if (latestDay <= 0) {
               return const SizedBox(height: 458);
@@ -1718,12 +1733,12 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
     );
   }
 
-  int _lastVisibleDayOfMonth() {
-    final DateTime now = DateTime.now();
-    if (widget.selectedYear == now.year && widget.selectedMonth == now.month) {
-      return now.day;
-    }
-    return DateTime(widget.selectedYear, widget.selectedMonth + 1, 0).day;
+  int _lastVisibleDayOfMonth({required bool hasRecordForToday}) {
+    return MyRecordsScreen.lastVisibleDayOfMonth(
+      year: widget.selectedYear,
+      month: widget.selectedMonth,
+      hasRecordForToday: hasRecordForToday,
+    );
   }
 
   String _weekdayLabel(DateTime date) {
@@ -1803,7 +1818,6 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
             valueListenable: TodayQuestionStore.instance,
             builder:
                 (BuildContext context, List<TodayQuestionRecord> records, _) {
-                  final int lastDay = _lastVisibleDayOfMonth();
                   final Map<int, TodayQuestionRecord> recordByDay =
                       <int, TodayQuestionRecord>{};
                   for (final TodayQuestionRecord record in records) {
@@ -1824,6 +1838,9 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                       () => debugMock,
                     );
                   }
+                  final int lastDay = _lastVisibleDayOfMonth(
+                    hasRecordForToday: recordByDay.containsKey(DateTime.now().day),
+                  );
 
                   return FutureBuilder<Map<int, String>>(
                     future: _PastQuestionDb.loadMonthQuestions(
@@ -2042,12 +2059,12 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
     });
   }
 
-  int _lastVisibleDayOfMonth() {
-    final DateTime now = DateTime.now();
-    if (_selectedYear == now.year && _selectedMonth == now.month) {
-      return now.day;
-    }
-    return DateTime(_selectedYear, _selectedMonth + 1, 0).day;
+  int _lastVisibleDayOfMonth({required bool hasRecordForToday}) {
+    return MyRecordsScreen.lastVisibleDayOfMonth(
+      year: _selectedYear,
+      month: _selectedMonth,
+      hasRecordForToday: hasRecordForToday,
+    );
   }
 
   String _weekdayLabel(DateTime date) {
@@ -2078,7 +2095,6 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
             child: ValueListenableBuilder<List<TodayQuestionRecord>>(
               valueListenable: TodayQuestionStore.instance,
               builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
-                final int lastDay = _lastVisibleDayOfMonth();
                 final Map<int, TodayQuestionRecord> recordByDay =
                     <int, TodayQuestionRecord>{};
                 for (final TodayQuestionRecord record in records) {
@@ -2099,6 +2115,9 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                     () => debugMock,
                   );
                 }
+                final int lastDay = _lastVisibleDayOfMonth(
+                  hasRecordForToday: recordByDay.containsKey(DateTime.now().day),
+                );
 
                 return FutureBuilder<Map<int, String>>(
                   future: _PastQuestionDb.loadMonthQuestions(
