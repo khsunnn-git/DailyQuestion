@@ -71,6 +71,9 @@ class NicknameFirestoreService {
 
       bool duplicate = false;
       await db.runTransaction((Transaction tx) async {
+        final DocumentSnapshot<Map<String, dynamic>> userSnap = await tx.get(
+          userRef,
+        );
         final DocumentSnapshot<Map<String, dynamic>> indexSnap = await tx.get(
           indexRef,
         );
@@ -83,6 +86,22 @@ class NicknameFirestoreService {
           }
         }
         final Timestamp now = Timestamp.now();
+        final String? previousNormalized =
+            (userSnap.data()?["nicknameNormalized"] as String?)?.trim();
+        if (previousNormalized != null &&
+            previousNormalized.isNotEmpty &&
+            previousNormalized != normalized) {
+          final DocumentReference<Map<String, dynamic>> previousIndexRef = db
+              .collection(_nicknameIndexCollection)
+              .doc(previousNormalized);
+          final DocumentSnapshot<Map<String, dynamic>> previousIndexSnap =
+              await tx.get(previousIndexRef);
+          final String? previousReservedByUid =
+              previousIndexSnap.data()?["reservedByUid"] as String?;
+          if (previousIndexSnap.exists && previousReservedByUid == uid) {
+            tx.delete(previousIndexRef);
+          }
+        }
         tx.set(indexRef, <String, dynamic>{
           "nickname": trimmed,
           "nicknameNormalized": normalized,
@@ -96,7 +115,9 @@ class NicknameFirestoreService {
           "nickname": trimmed,
           "nicknameNormalized": normalized,
           "updatedAt": now,
-          "createdAt": now,
+          "createdAt": userSnap.exists
+              ? (userSnap.data()?["createdAt"] ?? now)
+              : now,
         }, SetOptions(merge: true));
       });
 

@@ -4,6 +4,8 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
+import "../../core/kst_date_time.dart";
+
 class PublicAnswerPayload {
   const PublicAnswerPayload({
     required this.createdAt,
@@ -62,6 +64,8 @@ class PublicAnswerUploader {
       "createdAt": Timestamp.fromDate(payload.createdAt),
       "updatedAt": FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+
+    await _deletePastAnswersForAnon(anonId);
   }
 
   Future<void> delete({
@@ -121,5 +125,41 @@ class PublicAnswerUploader {
         .collection("slots")
         .doc("slot_$questionSlot")
         .collection("answers");
+  }
+
+  Future<void> _deletePastAnswersForAnon(String anonId) async {
+    final FirebaseFirestore db = FirebaseFirestore.instance;
+    final String todayKey = kstDateKeyNow();
+
+    final QuerySnapshot<Map<String, dynamic>> allMine = await db
+        .collectionGroup("answers")
+        .where("deviceAnonId", isEqualTo: anonId)
+        .get();
+
+    final List<DocumentReference<Map<String, dynamic>>> staleRefs =
+        <DocumentReference<Map<String, dynamic>>>[];
+    for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+        in allMine.docs) {
+      final String? questionDateKey = doc.data()["questionDateKey"] as String?;
+      if (questionDateKey != null && questionDateKey.compareTo(todayKey) < 0) {
+        staleRefs.add(doc.reference);
+      }
+    }
+    if (staleRefs.isEmpty) {
+      return;
+    }
+
+    const int batchLimit = 450;
+    for (int i = 0; i < staleRefs.length; i += batchLimit) {
+      final int end = (i + batchLimit < staleRefs.length)
+          ? i + batchLimit
+          : staleRefs.length;
+      final WriteBatch batch = db.batch();
+      for (final DocumentReference<Map<String, dynamic>> ref
+          in staleRefs.sublist(i, end)) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
   }
 }

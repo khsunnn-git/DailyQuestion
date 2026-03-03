@@ -620,6 +620,7 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     final bool canCreateMore = _categories.length < _maxCategoryCount;
+    final bool canCompleteSelection = _selectedCategory != null;
 
     return Scaffold(
       backgroundColor: brand.bg,
@@ -670,26 +671,35 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
               child: Column(
                 children: <Widget>[
                   if (_categories.isNotEmpty)
-                    ..._categories.map((BucketCategorySelection category) {
+                    ..._categories.asMap().entries.map((
+                      MapEntry<int, BucketCategorySelection> entry,
+                    ) {
+                      final int index = entry.key;
+                      final BucketCategorySelection category = entry.value;
                       final bool selected = category.name == _selectedName;
                       return GestureDetector(
                         onTap: () {
                           setState(() {
                             _selectedName = category.name;
                           });
-                          _popWithResult();
                         },
                         behavior: HitTestBehavior.opaque,
                         child: Container(
+                          margin: const EdgeInsets.only(bottom: AppSpacing.s4),
                           padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s8,
                             vertical: AppSpacing.s16,
                           ),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: AppNeutralColors.grey100,
-                              ),
-                            ),
+                          decoration: BoxDecoration(
+                            color: selected ? brand.c100 : Colors.transparent,
+                            borderRadius: BorderRadius.circular(AppSpacing.s8),
+                            border: index == _categories.length - 1
+                                ? null
+                                : const Border(
+                                    bottom: BorderSide(
+                                      color: AppNeutralColors.grey100,
+                                    ),
+                                  ),
                           ),
                           child: Row(
                             children: <Widget>[
@@ -794,6 +804,32 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const Spacer(),
+            SafeArea(
+              top: false,
+              minimum: const EdgeInsets.only(bottom: AppSpacing.s12),
+              child: SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  onPressed: canCompleteSelection ? _popWithResult : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: brand.c500,
+                    disabledBackgroundColor: Color.alphaBlend(
+                      AppTransparentColors.light64,
+                      brand.c500,
+                    ),
+                    foregroundColor: AppNeutralColors.white,
+                    disabledForegroundColor: brand.c100,
+                    textStyle: AppTypography.buttonLarge,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                  ),
+                  child: const Text("완료"),
+                ),
               ),
             ),
           ],

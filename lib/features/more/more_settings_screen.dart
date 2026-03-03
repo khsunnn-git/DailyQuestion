@@ -235,7 +235,7 @@ class _ProfileSection extends StatelessWidget {
                         children: <Widget>[
                           Expanded(
                             child: Text(
-                              "user_$nickname",
+                              nickname,
                               style: AppTypography.headingSmall.copyWith(
                                 color: AppNeutralColors.grey900,
                               ),
