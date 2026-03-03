@@ -877,7 +877,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
                 boxShadow: AppElevation.level1,
               ),
               child: Text(
-                "오늘의 질문을 아직 저장된\n버킷리스트가 없어요 추가해볼까요?!",
+                "아직 저장된 버킷리스트가 없어요\n추가해볼까요?!",
                 textAlign: TextAlign.center,
                 style: AppTypography.bodySmallMedium.copyWith(
                   color: AppNeutralColors.grey700,
