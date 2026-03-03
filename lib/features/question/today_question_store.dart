@@ -5,6 +5,7 @@ import "package:isar/isar.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/answer_record_entity.dart";
+import "../../data/local_db/entities/daily_checkin_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "public_answer_uploader.dart";
 
@@ -17,8 +18,12 @@ class TodayQuestionRecord {
     this.bucketTags = const <String>[],
     this.isPublic = false,
     this.questionSlot = 0,
+    this.questionDayOfYear,
     this.questionDateKey,
     this.questionText,
+    this.moodScore5,
+    this.energyScore5,
+    this.stressScore5,
   });
 
   final DateTime createdAt;
@@ -28,8 +33,12 @@ class TodayQuestionRecord {
   final List<String> bucketTags;
   final bool isPublic;
   final int questionSlot;
+  final int? questionDayOfYear;
   final String? questionDateKey;
   final String? questionText;
+  final int? moodScore5;
+  final int? energyScore5;
+  final int? stressScore5;
 }
 
 class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
@@ -149,6 +158,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     List<String> bucketTags = const <String>[],
     DateTime? createdAt,
     int? questionSlot,
+    int? questionDayOfYear,
     String? questionDateKey,
     String? questionText,
   }) async {
@@ -166,7 +176,12 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
         : bucketTag?.trim();
     final DateTime resolvedCreatedAt = createdAt ?? nowInKst();
     final int resolvedQuestionSlot = _normalizeSlot(questionSlot ?? 0);
+    final int resolvedDayOfYear =
+        questionDayOfYear ?? _dayOfYearFromDate(resolvedCreatedAt);
     final String resolvedQuestionDateKey = kstDateKeyFromDateTime(
+      resolvedCreatedAt,
+    );
+    final _ScoreSnapshot scores = await _scoreSnapshotForDate(
       resolvedCreatedAt,
     );
 
@@ -189,8 +204,12 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
           questionSlot: questionSlot == null
               ? existing.questionSlot
               : resolvedQuestionSlot,
+          questionDayOfYear: resolvedDayOfYear,
           questionDateKey: resolvedQuestionDateKey,
           questionText: questionText ?? existing.questionText,
+          moodScore5: scores.moodScore5,
+          energyScore5: scores.energyScore5,
+          stressScore5: scores.stressScore5,
         );
         final List<TodayQuestionRecord> next = List<TodayQuestionRecord>.from(
           value,
@@ -211,8 +230,12 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       bucketTags: normalizedTags,
       isPublic: isPublic,
       questionSlot: resolvedQuestionSlot,
+      questionDayOfYear: resolvedDayOfYear,
       questionDateKey: resolvedQuestionDateKey,
       questionText: questionText,
+      moodScore5: scores.moodScore5,
+      energyScore5: scores.energyScore5,
+      stressScore5: scores.stressScore5,
     );
     final List<TodayQuestionRecord> merged =
         <TodayQuestionRecord>[next, ...value]
@@ -241,6 +264,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
         .map((String item) => item.trim())
         .where((String item) => item.isNotEmpty)
         .toList(growable: false);
+    final _ScoreSnapshot scores = await _scoreSnapshotForDate(createdAt);
 
     TodayQuestionRecord? updatedRecord;
     final List<TodayQuestionRecord> next = value
@@ -258,10 +282,15 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
             bucketTags: normalizedTags,
             isPublic: isPublic,
             questionSlot: item.questionSlot,
+            questionDayOfYear: item.questionDayOfYear,
             questionDateKey: item.questionDateKey,
-            questionText: (questionText != null && questionText.trim().isNotEmpty)
+            questionText:
+                (questionText != null && questionText.trim().isNotEmpty)
                 ? questionText.trim()
                 : item.questionText,
+            moodScore5: scores.moodScore5,
+            energyScore5: scores.energyScore5,
+            stressScore5: scores.stressScore5,
           );
           updatedRecord = updated;
           return updated;
@@ -333,8 +362,12 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
             bucketTags: normalizedTags,
             isPublic: item.isPublic,
             questionSlot: item.questionSlot,
+            questionDayOfYear: item.questionDayOfYear,
             questionDateKey: item.questionDateKey,
             questionText: item.questionText,
+            moodScore5: item.moodScore5,
+            energyScore5: item.energyScore5,
+            stressScore5: item.stressScore5,
           );
           return updatedRecord!;
         })
@@ -385,8 +418,12 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       entity.bucketTags = List<String>.from(record.bucketTags);
       entity.isPublic = record.isPublic;
       entity.questionSlot = _normalizeSlot(record.questionSlot);
+      entity.questionDayOfYear = record.questionDayOfYear;
       entity.questionDateKey = kstDateKeyFromDateTime(record.createdAt);
       entity.questionText = record.questionText;
+      entity.moodScore5 = record.moodScore5;
+      entity.energyScore5 = record.energyScore5;
+      entity.stressScore5 = record.stressScore5;
       entity.updatedAt = nowInKst();
       await isar.answerRecordEntitys.put(entity);
     });
@@ -415,8 +452,12 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       bucketTags: List<String>.from(entity.bucketTags),
       isPublic: entity.isPublic,
       questionSlot: _normalizeSlot(entity.questionSlot),
+      questionDayOfYear: entity.questionDayOfYear,
       questionDateKey: entity.questionDateKey,
       questionText: entity.questionText,
+      moodScore5: entity.moodScore5,
+      energyScore5: entity.energyScore5,
+      stressScore5: entity.stressScore5,
     );
   }
 
@@ -450,4 +491,41 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
   int _normalizeSlot(int slot) {
     return slot.clamp(0, 2);
   }
+
+  int _dayOfYearFromDate(DateTime date) {
+    final DateTime local = DateTime(date.year, date.month, date.day);
+    return local.difference(DateTime(local.year, 1, 1)).inDays + 1;
+  }
+
+  Future<_ScoreSnapshot> _scoreSnapshotForDate(DateTime date) async {
+    final Isar isar = await LocalDatabase.instance.isar;
+    final String key = kstDateKeyFromDateTime(date);
+    final DailyCheckinEntity? checkin = await isar.dailyCheckinEntitys
+        .where()
+        .dateKeyEqualTo(key)
+        .findFirst();
+    if (checkin == null) {
+      return const _ScoreSnapshot();
+    }
+    return _ScoreSnapshot(
+      moodScore5: _scoreFromIndex(checkin.moodIndex),
+      energyScore5: _scoreFromIndex(checkin.energyIndex),
+      stressScore5: _scoreFromIndex(checkin.stressIndex),
+    );
+  }
+
+  int? _scoreFromIndex(int? index) {
+    if (index == null || index < 0 || index > 4) {
+      return null;
+    }
+    return 5 - index;
+  }
+}
+
+class _ScoreSnapshot {
+  const _ScoreSnapshot({this.moodScore5, this.energyScore5, this.stressScore5});
+
+  final int? moodScore5;
+  final int? energyScore5;
+  final int? stressScore5;
 }

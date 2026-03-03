@@ -16,7 +16,11 @@ class AnswerRecordEntity {
   List<String> bucketTags = <String>[];
   late bool isPublic;
   late int questionSlot;
+  int? questionDayOfYear;
   late String questionDateKey;
   String? questionText;
+  int? moodScore5;
+  int? energyScore5;
+  int? stressScore5;
   late DateTime updatedAt;
 }
