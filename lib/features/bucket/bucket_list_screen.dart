@@ -19,7 +19,8 @@ class BucketListScreen extends StatefulWidget {
   State<BucketListScreen> createState() => _BucketListScreenState();
 }
 
-class _BucketListScreenState extends State<BucketListScreen> {
+class _BucketListScreenState extends State<BucketListScreen>
+    with SingleTickerProviderStateMixin {
   static const String _emptyBucketAsset =
       "assets/images/bucket/bucketlist_empty_state_note.png";
   static const String _allCategoryName = "ALL";
@@ -29,11 +30,26 @@ class _BucketListScreenState extends State<BucketListScreen> {
   final List<BucketCategorySelection> _customCategories =
       <BucketCategorySelection>[];
   bool _isLoading = true;
+  late final AnimationController _floatingController;
+  late final Animation<double> _floatingOffset;
 
   @override
   void initState() {
     super.initState();
+    _floatingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
+    _floatingOffset = Tween<double>(begin: -6, end: 6).animate(
+      CurvedAnimation(parent: _floatingController, curve: Curves.easeInOut),
+    );
     _loadPersistedData();
+  }
+
+  @override
+  void dispose() {
+    _floatingController.dispose();
+    super.dispose();
   }
 
   bool _isAllCategoryName(String name) {
@@ -740,7 +756,7 @@ class _BucketListScreenState extends State<BucketListScreen> {
         AppNavigationBar.totalHeight(context) + AppSpacing.s24;
 
     return Scaffold(
-      backgroundColor: brand.bg,
+      backgroundColor: isEmpty ? brand.c100 : brand.bg,
       body: Stack(
         children: <Widget>[
           Positioned.fill(
@@ -852,47 +868,77 @@ class _BucketListScreenState extends State<BucketListScreen> {
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: _openAddScreen,
-                child: const Icon(
-                  Icons.edit_outlined,
-                  size: AppSpacing.s24,
-                  color: AppNeutralColors.grey900,
-                ),
-              ),
+              const SizedBox(width: 24, height: 24),
             ],
           ),
         ),
         const Spacer(),
-        Column(
-          children: <Widget>[
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.s16,
-                vertical: AppSpacing.s8,
-              ),
-              decoration: BoxDecoration(
-                color: AppNeutralColors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: AppElevation.level1,
-              ),
-              child: Text(
-                "아직 저장된 버킷리스트가 없어요\n추가해볼까요?!",
-                textAlign: TextAlign.center,
-                style: AppTypography.bodySmallMedium.copyWith(
-                  color: AppNeutralColors.grey700,
+        SizedBox(
+          height: 308,
+          child: Stack(
+            alignment: Alignment.center,
+            children: <Widget>[
+              Container(
+                width: 308,
+                height: 308,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppNeutralColors.white.withValues(alpha: 0.56),
+                  boxShadow: <BoxShadow>[
+                    BoxShadow(
+                      color: AppNeutralColors.white.withValues(alpha: 0.75),
+                      blurRadius: 100,
+                      spreadRadius: 4,
+                    ),
+                  ],
                 ),
               ),
-            ),
-            CustomPaint(size: const Size(10, 6), painter: _BubbleTailPainter()),
-            const SizedBox(height: AppSpacing.s16),
-            Image.asset(
-              _emptyBucketAsset,
-              width: 140,
-              height: 140,
-              fit: BoxFit.contain,
-            ),
-          ],
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    width: 235,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.s16,
+                      vertical: AppSpacing.s8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppNeutralColors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: AppElevation.level1,
+                    ),
+                    child: Text(
+                      "아직 저장된 버킷리스트가 없어요\n추가해볼까요?!",
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodySmallMedium.copyWith(
+                        color: AppNeutralColors.grey700,
+                      ),
+                    ),
+                  ),
+                  CustomPaint(
+                    size: const Size(10, 6),
+                    painter: _BubbleTailPainter(),
+                  ),
+                  const SizedBox(height: AppSpacing.s24),
+                  AnimatedBuilder(
+                    animation: _floatingOffset,
+                    builder: (BuildContext context, Widget? child) {
+                      return Transform.translate(
+                        offset: Offset(0, _floatingOffset.value),
+                        child: child,
+                      );
+                    },
+                    child: Image.asset(
+                      _emptyBucketAsset,
+                      width: 160,
+                      height: 160,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         const Spacer(),
       ],

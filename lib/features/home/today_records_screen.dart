@@ -232,6 +232,22 @@ class _RecordsListView extends StatelessWidget {
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     final TextTheme textTheme = Theme.of(context).textTheme;
+    void goHome() {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
+        (Route<dynamic> route) => false,
+      );
+    }
+
+    void popOrGoHome() {
+      final NavigatorState navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+        return;
+      }
+      goHome();
+    }
+
     return Stack(
       children: <Widget>[
         Positioned(
@@ -252,7 +268,7 @@ class _RecordsListView extends StatelessWidget {
                     child: Row(
                       children: <Widget>[
                         IconButton(
-                          onPressed: () => Navigator.of(context).maybePop(),
+                          onPressed: popOrGoHome,
                           icon: const Icon(
                             Icons.arrow_back_ios_new,
                             color: AppNeutralColors.grey900,
@@ -335,10 +351,7 @@ class _RecordsListView extends StatelessWidget {
             currentIndex: 0,
             onTap: (int index) {
               if (index == 0) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
-                  (Route<dynamic> route) => false,
-                );
+                goHome();
                 return;
               }
               if (index == 1) {
