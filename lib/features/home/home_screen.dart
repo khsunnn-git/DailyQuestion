@@ -6,6 +6,7 @@ import "package:flutter/material.dart";
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "../more/more_settings_screen.dart";
 import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
 import "my_records_screen.dart";
@@ -117,7 +118,7 @@ class HomeScreen extends StatelessWidget {
                     return;
                   }
                   if (index == 1) {
-                    Navigator.of(context).push(
+                    Navigator.of(context).pushReplacement(
                       MaterialPageRoute<void>(
                         builder: (_) => const BucketListScreen(),
                       ),
@@ -125,11 +126,15 @@ class HomeScreen extends StatelessWidget {
                     return;
                   }
                   if (index == 2) {
-                    Navigator.of(context).push(
+                    Navigator.of(context).pushReplacement(
                       MaterialPageRoute<void>(
                         builder: (_) => const MyRecordsScreen(),
                       ),
                     );
+                    return;
+                  }
+                  if (index == 3) {
+                    MoreSettingsScreen.open(context, replace: true);
                   }
                 },
                 items: const <AppNavigationBarItemData>[

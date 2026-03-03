@@ -6,6 +6,7 @@ import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
 import "../home/home_screen.dart";
+import "../more/more_settings_screen.dart";
 import "bucket_add_screen.dart";
 import "bucket_category_empty_screen.dart";
 import "bucket_save_success_screen.dart";
@@ -74,7 +75,8 @@ class _BucketListScreenState extends State<BucketListScreen> {
     for (int i = 0; i < before.length; i++) {
       final BucketCategorySelection prev = before[i];
       final BucketCategorySelection next = after[i];
-      if (_normalizeCategoryKey(prev.name) != _normalizeCategoryKey(next.name)) {
+      if (_normalizeCategoryKey(prev.name) !=
+          _normalizeCategoryKey(next.name)) {
         return false;
       }
       if (prev.color.toARGB32() != next.color.toARGB32()) {
@@ -135,15 +137,17 @@ class _BucketListScreenState extends State<BucketListScreen> {
     final List<BucketItemEntity> items = await isar.bucketItemEntitys
         .where()
         .findAll();
-    final List<BucketCategorySelection> rawCategories =
-        persistedCategories.map((BucketCategoryEntity item) {
+    final List<BucketCategorySelection> rawCategories = persistedCategories
+        .map((BucketCategoryEntity item) {
           return BucketCategorySelection(
             name: item.name,
             color: Color(item.colorValue),
           );
-        }).toList(growable: false);
-    final List<BucketCategorySelection> categories =
-        _sanitizeCustomCategories(rawCategories);
+        })
+        .toList(growable: false);
+    final List<BucketCategorySelection> categories = _sanitizeCustomCategories(
+      rawCategories,
+    );
     if (!mounted) {
       return;
     }
@@ -164,10 +168,13 @@ class _BucketListScreenState extends State<BucketListScreen> {
     }
   }
 
-  Future<void> _saveCategories({List<BucketCategorySelection>? categories}) async {
+  Future<void> _saveCategories({
+    List<BucketCategorySelection>? categories,
+  }) async {
     final isar = await LocalDatabase.instance.isar;
-    final List<BucketCategorySelection> source =
-        _sanitizeCustomCategories(categories ?? _customCategories);
+    final List<BucketCategorySelection> source = _sanitizeCustomCategories(
+      categories ?? _customCategories,
+    );
     final List<BucketCategoryEntity> entities = source
         .map((BucketCategorySelection item) {
           final BucketCategoryEntity entity = BucketCategoryEntity();
@@ -788,19 +795,21 @@ class _BucketListScreenState extends State<BucketListScreen> {
               onTap: (int index) {
                 if (index == 0) {
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const HomeScreen(),
-                    ),
+                    MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
                     (Route<dynamic> route) => false,
                   );
                   return;
                 }
                 if (index == 2) {
-                  Navigator.of(context).push(
+                  Navigator.of(context).pushReplacement(
                     MaterialPageRoute<void>(
                       builder: (_) => const MyRecordsScreen(),
                     ),
                   );
+                  return;
+                }
+                if (index == 3) {
+                  MoreSettingsScreen.open(context, replace: true);
                 }
               },
               items: const <AppNavigationBarItemData>[

@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "../more/more_settings_screen.dart";
 import "home_screen.dart";
 
 class AnnualRecordScreen extends StatelessWidget {
@@ -118,19 +119,21 @@ class AnnualRecordScreen extends StatelessWidget {
               onTap: (int index) {
                 if (index == 0) {
                   Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const HomeScreen(),
-                    ),
+                    MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
                     (Route<dynamic> route) => false,
                   );
                   return;
                 }
                 if (index == 1) {
-                  Navigator.of(context).push(
+                  Navigator.of(context).pushReplacement(
                     MaterialPageRoute<void>(
                       builder: (_) => const BucketListScreen(),
                     ),
                   );
+                  return;
+                }
+                if (index == 3) {
+                  MoreSettingsScreen.open(context, replace: true);
                 }
               },
               items: const <AppNavigationBarItemData>[
@@ -146,10 +149,7 @@ class AnnualRecordScreen extends StatelessWidget {
                   label: "나의기록",
                   icon: Icons.assignment_outlined,
                 ),
-                AppNavigationBarItemData(
-                  label: "더보기",
-                  icon: Icons.more_horiz,
-                ),
+                AppNavigationBarItemData(label: "더보기", icon: Icons.more_horiz),
               ],
             ),
           ),
