@@ -32,6 +32,21 @@ function validateQuestion(item, index) {
   if (item.active !== undefined && typeof item.active !== "boolean") {
     fail(`${label}.active must be a boolean.`);
   }
+  if (item.primaryCategory !== undefined) {
+    if (typeof item.primaryCategory !== "string" || item.primaryCategory.trim().length === 0) {
+      fail(`${label}.primaryCategory must be a non-empty string when provided.`);
+    }
+  }
+  if (item.tags !== undefined) {
+    if (!Array.isArray(item.tags)) {
+      fail(`${label}.tags must be an array when provided.`);
+    }
+    for (let i = 0; i < item.tags.length; i += 1) {
+      if (typeof item.tags[i] !== "string" || item.tags[i].trim().length === 0) {
+        fail(`${label}.tags[${i}] must be a non-empty string.`);
+      }
+    }
+  }
 }
 
 async function uploadQuestions({ serviceAccountPath, questionsPath, collectionId }) {
@@ -69,6 +84,11 @@ async function uploadQuestions({ serviceAccountPath, questionsPath, collectionId
           dayOfYear: item.dayOfYear,
           base: item.base.trim(),
           active: item.active ?? true,
+          primaryCategory:
+            typeof item.primaryCategory === "string" ? item.primaryCategory.trim() : null,
+          tags: Array.isArray(item.tags)
+            ? item.tags.map((tag) => String(tag).trim()).filter((tag) => tag.length > 0)
+            : [],
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true },
