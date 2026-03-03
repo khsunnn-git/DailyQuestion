@@ -5,6 +5,7 @@ import "../bucket/bucket_list_screen.dart";
 import "../home/home_screen.dart";
 import "../home/my_records_screen.dart";
 import "more_profile_stats_store.dart";
+import "notification_settings_screen.dart";
 import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_store.dart";
 
@@ -46,6 +47,16 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
     });
   }
 
+  Future<void> _openNotificationSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationSettingsScreen(
+          onBackToSettings: () => Navigator.of(context).pop(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
@@ -69,9 +80,14 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
                     onEditPressed: _openNicknameEdit,
                   ),
                   const SizedBox(height: AppSpacing.s32),
-                  const _SettingsSectionCard(
+                  _SettingsSectionCard(
                     title: "서비스 설정",
-                    items: <_SettingsItem>[_SettingsItem(title: "알림 설정")],
+                    items: <_SettingsItem>[
+                      _SettingsItem(
+                        title: "알림 설정",
+                        onTap: _openNotificationSettings,
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.s16),
                   const _SettingsSectionCard(
@@ -381,10 +397,11 @@ class _SettingsSectionCard extends StatelessWidget {
 }
 
 class _SettingsItem {
-  const _SettingsItem({required this.title, this.trailingText});
+  const _SettingsItem({required this.title, this.trailingText, this.onTap});
 
   final String title;
   final String? trailingText;
+  final VoidCallback? onTap;
 }
 
 class _SettingsRow extends StatelessWidget {
@@ -394,7 +411,7 @@ class _SettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final Widget row = Row(
       children: <Widget>[
         Expanded(
           child: Text(
@@ -419,6 +436,14 @@ class _SettingsRow extends StatelessWidget {
             color: AppNeutralColors.grey900,
           ),
       ],
+    );
+    if (item.onTap == null) {
+      return row;
+    }
+    return GestureDetector(
+      onTap: item.onTap,
+      behavior: HitTestBehavior.opaque,
+      child: row,
     );
   }
 }

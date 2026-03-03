@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:isar/isar.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 import "../../data/local_db/entities/bucket_category_entity.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";
@@ -11,6 +12,8 @@ import "bucket_add_screen.dart";
 import "bucket_category_empty_screen.dart";
 import "bucket_save_success_screen.dart";
 import "../home/my_records_screen.dart";
+import "../more/notification_prefs_keys.dart";
+import "../notifications/daily_question_notification_scheduler.dart";
 
 class BucketListScreen extends StatefulWidget {
   const BucketListScreen({super.key});
@@ -182,6 +185,7 @@ class _BucketListScreenState extends State<BucketListScreen>
     if (!_sameCategorySet(rawCategories, categories)) {
       await _saveCategories(categories: categories);
     }
+    await _syncBucketDdayNotificationsFromPrefs();
   }
 
   Future<void> _saveCategories({
@@ -208,6 +212,19 @@ class _BucketListScreenState extends State<BucketListScreen>
     });
   }
 
+  Future<void> _syncBucketDdayNotificationsFromPrefs() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final bool enabled =
+        prefs.getBool(NotificationPrefsKeys.bucketDdayEnabled) ?? false;
+    final int daysBefore =
+        prefs.getInt(NotificationPrefsKeys.bucketDdayDaysBefore) ??
+        NotificationPrefsKeys.defaultBucketDdayDaysBefore;
+    await syncBucketDdayNotificationSchedule(
+      enabled: enabled,
+      daysBefore: daysBefore,
+    );
+  }
+
   Future<_BucketEntry> _putEntry(_BucketEntry entry) async {
     final isar = await LocalDatabase.instance.isar;
     final BucketItemEntity entity = BucketItemEntity();
@@ -224,6 +241,7 @@ class _BucketListScreenState extends State<BucketListScreen>
     final int savedId = await isar.writeTxn(() async {
       return isar.bucketItemEntitys.put(entity);
     });
+    await _syncBucketDdayNotificationsFromPrefs();
     return entry.copyWith(id: savedId);
   }
 
@@ -235,6 +253,7 @@ class _BucketListScreenState extends State<BucketListScreen>
     await isar.writeTxn(() async {
       await isar.bucketItemEntitys.delete(entry.id!);
     });
+    await _syncBucketDdayNotificationsFromPrefs();
   }
 
   _BucketEntry _fromBucketEntity(BucketItemEntity entity) {
