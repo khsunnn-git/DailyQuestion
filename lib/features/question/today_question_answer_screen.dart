@@ -1,5 +1,6 @@
 import "dart:async";
 
+import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:isar/isar.dart";
 
@@ -37,9 +38,11 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   static const String _allCategoryName = "ALL";
   static const Color _allCategoryColor = AppNeutralColors.grey100;
   static const bool _showPolishUi = false;
+  static const String _unopenedQuestionMessage = "아직 열어보지 않은 질문입니다.";
   bool _isPublic = false;
   int _polishUsedCount = 0;
   bool _showPolishLoading = false;
+  String? _resolvedQuestionText;
   final List<String> _bucketTags = <String>[];
   final List<String> _initialBucketTags = <String>[];
   final TextEditingController _answerController = TextEditingController();
@@ -49,6 +52,102 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
 
   bool get _canPolish =>
       _effectiveCharCount(_answerController.text) >= 5 && _polishUsedCount < 3;
+
+  String? _normalizeQuestionText(String? value) {
+    final String? normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    if (normalized == _unopenedQuestionMessage) {
+      return null;
+    }
+    return normalized;
+  }
+
+  int _dayOfYear(DateTime date) {
+    return date.difference(DateTime(date.year, 1, 1)).inDays + 1;
+  }
+
+  Future<String?> _fetchQuestionForDate(DateTime date) async {
+    try {
+      final CollectionReference<Map<String, dynamic>> ref = FirebaseFirestore
+          .instance
+          .collection("daily_questions");
+      final int dayOfYear = _dayOfYear(date);
+      final List<String> docIds = <String>[
+        "$dayOfYear",
+        dayOfYear.toString().padLeft(3, "0"),
+      ];
+      for (final String id in docIds) {
+        final DocumentSnapshot<Map<String, dynamic>> snapshot = await ref
+            .doc(id)
+            .get();
+        final String? base = (snapshot.data()?["base"] as String?)?.trim();
+        if (base != null && base.isNotEmpty) {
+          return base;
+        }
+      }
+      final QuerySnapshot<Map<String, dynamic>> query = await ref
+          .where("dayOfYear", isEqualTo: dayOfYear)
+          .limit(1)
+          .get();
+      if (query.docs.isEmpty) {
+        return null;
+      }
+      final String? base = (query.docs.first.data()["base"] as String?)
+          ?.trim();
+      if (base == null || base.isEmpty) {
+        return null;
+      }
+      return base;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _currentQuestionText() {
+    return _resolvedQuestionText ??
+        _normalizeQuestionText(widget.questionText) ??
+        _normalizeQuestionText(widget.editingRecord?.questionText) ??
+        TodayQuestionPromptStore.instance.value.currentQuestionText;
+  }
+
+  Future<void> _resolveQuestionText() async {
+    final String? direct = _normalizeQuestionText(widget.questionText);
+    if (direct != null) {
+      _resolvedQuestionText = direct;
+      return;
+    }
+
+    final String? fromRecord = _normalizeQuestionText(
+      widget.editingRecord?.questionText,
+    );
+    if (fromRecord != null) {
+      _resolvedQuestionText = fromRecord;
+      return;
+    }
+
+    final DateTime? targetDate = widget.initialDate ?? widget.editingRecord?.createdAt;
+    if (targetDate != null) {
+      final String? fetched = await _fetchQuestionForDate(targetDate);
+      if (!mounted) {
+        return;
+      }
+      if (fetched != null) {
+        setState(() {
+          _resolvedQuestionText = fetched;
+        });
+        return;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _resolvedQuestionText =
+            TodayQuestionPromptStore.instance.value.currentQuestionText;
+      });
+    }
+  }
 
   String _normalizeBucketTag(String value) {
     return value.replaceAll(RegExp(r"\s+"), " ").trim();
@@ -70,10 +169,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       final int resolvedQuestionDayOfYear = _resolveQuestionDayOfYear(
         normalizedRecordDate,
       );
-      final String resolvedQuestionText =
-          widget.questionText ??
-          widget.editingRecord?.questionText ??
-          TodayQuestionPromptStore.instance.value.currentQuestionText;
+      final String resolvedQuestionText = _currentQuestionText();
       final DateTime groupDate = normalizedRecordDate;
       final TodayQuestionRecord? savedRecord = isEditMode
           ? await TodayQuestionStore.instance.updateRecord(
@@ -161,9 +257,10 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.questionText == null) {
+    if (_normalizeQuestionText(widget.questionText) == null) {
       unawaited(TodayQuestionPromptStore.instance.initialize());
     }
+    unawaited(_resolveQuestionText());
     final TodayQuestionRecord? editingRecord = widget.editingRecord;
     if (editingRecord != null) {
       _answerController.text = editingRecord.answer;
@@ -772,10 +869,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
     final DateTime displayDate =
         widget.editingRecord?.createdAt ?? widget.initialDate ?? now;
     final String headerTitle = widget.headerTitle ?? "오늘의 질문";
-    final String questionText =
-        widget.questionText ??
-        widget.editingRecord?.questionText ??
-        TodayQuestionPromptStore.instance.value.currentQuestionText;
+    final String questionText = _currentQuestionText();
     final String currentDate =
         "${displayDate.year.toString().padLeft(4, "0")}."
         "${displayDate.month.toString().padLeft(2, "0")}."

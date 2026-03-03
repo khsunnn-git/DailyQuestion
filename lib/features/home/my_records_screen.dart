@@ -8,6 +8,7 @@ import "package:shared_preferences/shared_preferences.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
 import "home_screen.dart";
+import "../more/more_settings_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
 import "annual_record_screen.dart";
@@ -300,11 +301,15 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                     return;
                   }
                   if (index == 1) {
-                    Navigator.of(context).push(
+                    Navigator.of(context).pushReplacement(
                       MaterialPageRoute<void>(
                         builder: (_) => const BucketListScreen(),
                       ),
                     );
+                    return;
+                  }
+                  if (index == 3) {
+                    MoreSettingsScreen.open(context, replace: true);
                   }
                 },
                 items: const <AppNavigationBarItemData>[
@@ -2216,6 +2221,12 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                                                 widget.selectedMonth,
                                                 day,
                                               );
+                                          final String selectedQuestion =
+                                              _questionForDay(
+                                                day: day,
+                                                monthQuestions: monthQuestions,
+                                                record: recordByDay[day],
+                                              );
                                           if (recordByDay.containsKey(day)) {
                                             Navigator.of(context).push(
                                               MaterialPageRoute<void>(
@@ -2234,7 +2245,7 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                                                     initialDate: selectedDate,
                                                     headerTitle: "지난 질문",
                                                     questionText:
-                                                        monthlyItems[i].text,
+                                                        selectedQuestion,
                                                   ),
                                             ),
                                           );
@@ -2603,11 +2614,15 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                   return;
                 }
                 if (index == 1) {
-                  Navigator.of(context).push(
+                  Navigator.of(context).pushReplacement(
                     MaterialPageRoute<void>(
                       builder: (_) => const BucketListScreen(),
                     ),
                   );
+                  return;
+                }
+                if (index == 3) {
+                  MoreSettingsScreen.open(context, replace: true);
                 }
               },
               items: const <AppNavigationBarItemData>[
