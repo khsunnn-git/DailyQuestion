@@ -138,10 +138,21 @@ class MyRecordsScreen extends StatefulWidget {
     if (!isCurrentMonth) {
       return DateTime(year, month + 1, 0).day;
     }
-    if (hasRecordForToday) {
-      return now.day;
+    return now.day;
+  }
+
+  static int firstVisibleDayOfMonth({
+    required int year,
+    required int month,
+    DateTime? installDate,
+  }) {
+    if (installDate == null) {
+      return 1;
     }
-    return math.max(0, now.day - 1);
+    if (installDate.year == year && installDate.month == month) {
+      return installDate.day;
+    }
+    return 1;
   }
 
   static TodayQuestionRecord? debugMockRecordForMonth({
@@ -209,13 +220,16 @@ class MyRecordsScreen extends StatefulWidget {
 
 class _MyRecordsScreenState extends State<MyRecordsScreen> {
   static const String _installMonthKey = "my_records_install_month";
-  static const int _debugInstallYear = 2024;
-  static const int _debugInstallMonth = 8;
+  static const String _installDateKey = "my_records_install_date";
+  static const String _installDateSchemaVersionKey =
+      "my_records_install_date_schema_version";
+  static const int _installDateSchemaVersion = 1;
 
   late int _selectedYear;
   late int _selectedMonth;
   late DateTime _maxMonth;
-  DateTime? _installMonth = DateTime(_debugInstallYear, _debugInstallMonth);
+  DateTime? _installMonth;
+  DateTime? _installDate;
 
   @override
   void initState() {
@@ -248,6 +262,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                       brand: brand,
                       selectedYear: _selectedYear,
                       selectedMonth: _selectedMonth,
+                      installDate: _installDate,
                       onTapYearMonth: _handleTapYearMonth,
                     ),
                     Padding(
@@ -264,6 +279,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                           _PastRecordsSection(
                             selectedYear: _selectedYear,
                             selectedMonth: _selectedMonth,
+                            installDate: _installDate,
                             minMonth: _installMonth ?? _maxMonth,
                             maxMonth: _maxMonth,
                           ),
@@ -390,16 +406,34 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
 
   Future<void> _loadInstallMonth() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final int savedMillis = DateTime(
-      _debugInstallYear,
-      _debugInstallMonth,
-    ).millisecondsSinceEpoch;
-    await prefs.setInt(_installMonthKey, savedMillis);
-    final DateTime installMonth = _monthOnly(
-      DateTime.fromMillisecondsSinceEpoch(savedMillis),
+    final DateTime now = DateTime.now();
+    final int schemaVersion = prefs.getInt(_installDateSchemaVersionKey) ?? 0;
+    int? savedMillis = prefs.getInt(_installDateKey);
+    if (schemaVersion < _installDateSchemaVersion || savedMillis == null) {
+      savedMillis = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).millisecondsSinceEpoch;
+      await prefs.setInt(_installDateKey, savedMillis);
+      await prefs.setInt(
+        _installDateSchemaVersionKey,
+        _installDateSchemaVersion,
+      );
+    }
+    final DateTime storedDate = DateTime.fromMillisecondsSinceEpoch(
+      savedMillis,
     );
+    final DateTime installDate = DateTime(
+      storedDate.year,
+      storedDate.month,
+      storedDate.day,
+    );
+    final DateTime installMonth = _monthOnly(installDate);
+    await prefs.setInt(_installMonthKey, installMonth.millisecondsSinceEpoch);
     if (!mounted) return;
     setState(() {
+      _installDate = installDate;
       _installMonth = installMonth;
       final DateTime selected = _clampMonth(
         DateTime(_selectedYear, _selectedMonth),
@@ -426,12 +460,14 @@ class _TopMainPanel extends StatelessWidget {
     required this.brand,
     required this.selectedYear,
     required this.selectedMonth,
+    required this.installDate,
     required this.onTapYearMonth,
   });
 
   final BrandScale brand;
   final int selectedYear;
   final int selectedMonth;
+  final DateTime? installDate;
   final VoidCallback onTapYearMonth;
 
   @override
@@ -508,6 +544,7 @@ class _TopMainPanel extends StatelessWidget {
           _MonthlyPreviewStrip(
             selectedYear: selectedYear,
             selectedMonth: selectedMonth,
+            installDate: installDate,
           ),
         ],
       ),
@@ -626,10 +663,12 @@ class _MonthlyPreviewStrip extends StatefulWidget {
   const _MonthlyPreviewStrip({
     required this.selectedYear,
     required this.selectedMonth,
+    required this.installDate,
   });
 
   final int selectedYear;
   final int selectedMonth;
+  final DateTime? installDate;
 
   @override
   State<_MonthlyPreviewStrip> createState() => _MonthlyPreviewStripState();
@@ -694,8 +733,13 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
               hasRecordForToday:
                   isCurrentMonth && recordByDay.containsKey(now.day),
             );
+            final int firstDay = MyRecordsScreen.firstVisibleDayOfMonth(
+              year: widget.selectedYear,
+              month: widget.selectedMonth,
+              installDate: widget.installDate,
+            );
 
-            if (latestDay <= 0) {
+            if (latestDay <= 0 || firstDay > latestDay) {
               return const SizedBox(height: 458);
             }
             return FutureBuilder<Map<int, String>>(
@@ -712,73 +756,74 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                   ) {
                     final Map<int, String> monthQuestions =
                         questionSnapshot.data ?? const <int, String>{};
-                    final List<_MonthlyRecordPreview> previews =
-                        List<_MonthlyRecordPreview>.generate(latestDay, (
-                          int index,
-                        ) {
-                          final int day = index + 1;
-                          final String weekday = _weekdayKorean(
-                            DateTime(
-                              widget.selectedYear,
-                              widget.selectedMonth,
-                              day,
-                            ).weekday,
-                          );
-                          final TodayQuestionRecord? record = recordByDay[day];
-                          final _MonthlyRecordPreview? seed = seedByDay[day];
+                    final List<_MonthlyRecordPreview>
+                    previews = List<_MonthlyRecordPreview>.generate(
+                      latestDay - firstDay + 1,
+                      (int index) {
+                        final int day = firstDay + index;
+                        final String weekday = _weekdayKorean(
+                          DateTime(
+                            widget.selectedYear,
+                            widget.selectedMonth,
+                            day,
+                          ).weekday,
+                        );
+                        final TodayQuestionRecord? record = recordByDay[day];
+                        final _MonthlyRecordPreview? seed = seedByDay[day];
 
-                          if (record != null) {
-                            final List<String> tags =
-                                record.bucketTags.isNotEmpty
-                                ? record.bucketTags
-                                : (record.bucketTag == null ||
-                                      record.bucketTag!.trim().isEmpty)
-                                ? const <String>[]
-                                : <String>[record.bucketTag!.trim()];
-                            return _MonthlyRecordPreview(
-                              day: day,
-                              date: seed?.date ?? "$day일 $weekday",
-                              question: _PastQuestionDb.resolveQuestion(
-                                day: day,
-                                questionsByDay: monthQuestions,
-                                record: record,
-                              ),
-                              body: record.answer,
-                              tags: tags,
-                              record: record,
-                              year: widget.selectedYear,
-                              month: widget.selectedMonth,
-                            );
-                          }
-                          if (seed != null) {
-                            return _MonthlyRecordPreview(
-                              day: seed.day,
-                              date: seed.date,
-                              question: _PastQuestionDb.resolveQuestion(
-                                day: day,
-                                questionsByDay: monthQuestions,
-                                record: seed.record,
-                              ),
-                              body: seed.body,
-                              tags: seed.tags,
-                              record: seed.record,
-                              year: widget.selectedYear,
-                              month: widget.selectedMonth,
-                            );
-                          }
+                        if (record != null) {
+                          final List<String> tags = record.bucketTags.isNotEmpty
+                              ? record.bucketTags
+                              : (record.bucketTag == null ||
+                                    record.bucketTag!.trim().isEmpty)
+                              ? const <String>[]
+                              : <String>[record.bucketTag!.trim()];
                           return _MonthlyRecordPreview(
                             day: day,
-                            date: "$day일 $weekday",
+                            date: seed?.date ?? "$day일 $weekday",
                             question: _PastQuestionDb.resolveQuestion(
                               day: day,
                               questionsByDay: monthQuestions,
+                              record: record,
                             ),
-                            body: MyRecordsScreen._unansweredMessage,
-                            tags: const <String>[],
+                            body: record.answer,
+                            tags: tags,
+                            record: record,
                             year: widget.selectedYear,
                             month: widget.selectedMonth,
                           );
-                        }, growable: false);
+                        }
+                        if (seed != null) {
+                          return _MonthlyRecordPreview(
+                            day: seed.day,
+                            date: seed.date,
+                            question: _PastQuestionDb.resolveQuestion(
+                              day: day,
+                              questionsByDay: monthQuestions,
+                              record: seed.record,
+                            ),
+                            body: seed.body,
+                            tags: seed.tags,
+                            record: seed.record,
+                            year: widget.selectedYear,
+                            month: widget.selectedMonth,
+                          );
+                        }
+                        return _MonthlyRecordPreview(
+                          day: day,
+                          date: "$day일 $weekday",
+                          question: _PastQuestionDb.resolveQuestion(
+                            day: day,
+                            questionsByDay: monthQuestions,
+                          ),
+                          body: MyRecordsScreen._unansweredMessage,
+                          tags: const <String>[],
+                          year: widget.selectedYear,
+                          month: widget.selectedMonth,
+                        );
+                      },
+                      growable: false,
+                    );
 
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       final PageController? controller = _pageController;
@@ -1994,12 +2039,14 @@ class _PastRecordsSection extends StatefulWidget {
   const _PastRecordsSection({
     required this.selectedYear,
     required this.selectedMonth,
+    required this.installDate,
     required this.minMonth,
     required this.maxMonth,
   });
 
   final int selectedYear;
   final int selectedMonth;
+  final DateTime? installDate;
   final DateTime minMonth;
   final DateTime maxMonth;
 
@@ -2033,6 +2080,7 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
         builder: (_) => _PastRecordsListScreen(
           initialYear: widget.selectedYear,
           initialMonth: widget.selectedMonth,
+          installDate: widget.installDate,
           minMonth: widget.minMonth,
           maxMonth: widget.maxMonth,
         ),
@@ -2150,6 +2198,11 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                       DateTime.now().day,
                     ),
                   );
+                  final int firstDay = MyRecordsScreen.firstVisibleDayOfMonth(
+                    year: widget.selectedYear,
+                    month: widget.selectedMonth,
+                    installDate: widget.installDate,
+                  );
 
                   return FutureBuilder<Map<int, String>>(
                     future: _PastQuestionDb.loadMonthQuestions(
@@ -2165,32 +2218,37 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                         ) {
                           final Map<int, String> monthQuestions =
                               questionSnapshot.data ?? const <int, String>{};
+                          if (firstDay > lastDay) {
+                            return const SizedBox.shrink();
+                          }
                           final List<_RecordListItem> monthlyItems =
-                              List<_RecordListItem>.generate(lastDay, (
-                                int index,
-                              ) {
-                                final int day = lastDay - index;
-                                final bool isCompleted = recordByDay
-                                    .containsKey(day);
-                                return _RecordListItem(
-                                  day: day.toString().padLeft(2, "0"),
-                                  weekday: _weekdayLabel(
-                                    DateTime(
-                                      widget.selectedYear,
-                                      widget.selectedMonth,
-                                      day,
+                              List<_RecordListItem>.generate(
+                                lastDay - firstDay + 1,
+                                (int index) {
+                                  final int day = lastDay - index;
+                                  final bool isCompleted = recordByDay
+                                      .containsKey(day);
+                                  return _RecordListItem(
+                                    day: day.toString().padLeft(2, "0"),
+                                    weekday: _weekdayLabel(
+                                      DateTime(
+                                        widget.selectedYear,
+                                        widget.selectedMonth,
+                                        day,
+                                      ),
                                     ),
-                                  ),
-                                  text: isCompleted
-                                      ? _questionForDay(
-                                          day: day,
-                                          monthQuestions: monthQuestions,
-                                          record: recordByDay[day],
-                                        )
-                                      : MyRecordsScreen._unansweredMessage,
-                                  isCompleted: isCompleted,
-                                );
-                              }, growable: false);
+                                    text: isCompleted
+                                        ? _questionForDay(
+                                            day: day,
+                                            monthQuestions: monthQuestions,
+                                            record: recordByDay[day],
+                                          )
+                                        : MyRecordsScreen._unansweredMessage,
+                                    isCompleted: isCompleted,
+                                  );
+                                },
+                                growable: false,
+                              );
 
                           final int total = monthlyItems.length;
                           final int visibleCount = _visibleCount > total
@@ -2305,12 +2363,14 @@ class _PastRecordsListScreen extends StatefulWidget {
   const _PastRecordsListScreen({
     required this.initialYear,
     required this.initialMonth,
+    required this.installDate,
     required this.minMonth,
     required this.maxMonth,
   });
 
   final int initialYear;
   final int initialMonth;
+  final DateTime? installDate;
   final DateTime minMonth;
   final DateTime maxMonth;
 
@@ -2434,6 +2494,11 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                     DateTime.now().day,
                   ),
                 );
+                final int firstDay = MyRecordsScreen.firstVisibleDayOfMonth(
+                  year: _selectedYear,
+                  month: _selectedMonth,
+                  installDate: widget.installDate,
+                );
 
                 return FutureBuilder<Map<int, String>>(
                   future: _PastQuestionDb.loadMonthQuestions(
@@ -2449,6 +2514,10 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                       ) {
                         final Map<int, String> monthQuestions =
                             questionSnapshot.data ?? const <int, String>{};
+                        if (firstDay > lastDay) {
+                          return const SizedBox.shrink();
+                        }
+                        final int totalRows = lastDay - firstDay + 1;
                         return SingleChildScrollView(
                           padding: EdgeInsets.fromLTRB(
                             AppSpacing.s20,
@@ -2528,7 +2597,7 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                                 ),
                               ),
                               const SizedBox(height: AppSpacing.s16),
-                              for (int index = 0; index < lastDay; index++)
+                              for (int index = 0; index < totalRows; index++)
                                 _PastRecordsListRow(
                                   item: _RecordListItem(
                                     day: (lastDay - index).toString().padLeft(
@@ -2555,7 +2624,7 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                                       lastDay - index,
                                     ),
                                   ),
-                                  isLast: index == lastDay - 1,
+                                  isLast: index == totalRows - 1,
                                   onTap: () {
                                     final int day = lastDay - index;
                                     final DateTime selectedDate = DateTime(
@@ -2798,10 +2867,11 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
   final int selectedMonth;
 
   static const List<Color> _sliceColors = <Color>[
+    Color(0xFF0069D6),
+    Color(0xFF017AF7),
+    Color(0xFF86CAFF),
     Color(0xFFB6E2FF),
-    Color(0xFFD4EEFF),
-    Color(0xFFD6E7F3),
-    Color(0xFFE8EEF4),
+    Color(0xFFD3EEFF),
   ];
 
   static const Set<String> _stopWords = <String>{
@@ -2871,10 +2941,54 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "보기",
     "먹기",
     "듣기",
+    "한다",
+    "된다",
+    "했다가",
+    "하려",
+    "하려고",
+    "하도록",
+    "되도록",
+    "시키다",
+    "시킨다",
+    "시키는",
+    "시키고",
+    "하기로",
+    "되기로",
+    "하려면",
+    "된다면",
+    "되게",
+    "할수록",
+    "될수록",
+    "해보자",
+    "해보기",
     "고",
     "어",
     "나",
   };
+
+  static const List<String> _verbLikeFragments = <String>[
+    "하도록",
+    "되도록",
+    "하려고",
+    "하려",
+    "한다",
+    "된다",
+    "했다",
+    "되고",
+    "되는",
+    "되게",
+    "하기로",
+    "되기로",
+    "하려면",
+    "한다면",
+    "된다면",
+    "할수록",
+    "될수록",
+    "해보자",
+    "해보기",
+    "하며",
+    "하면",
+  ];
 
   static const List<String> _josaSuffixes = <String>[
     "으로부터",
@@ -2958,7 +3072,7 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
       });
 
     final List<_KeywordSlice> result = List<_KeywordSlice>.generate(
-      top.length > 4 ? 4 : top.length,
+      top.length > _sliceColors.length ? _sliceColors.length : top.length,
       (int index) {
         final MapEntry<String, int> item = top[index];
         return _KeywordSlice(
@@ -2968,11 +3082,6 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
         );
       },
     );
-    if (result.isEmpty) {
-      return const <_KeywordSlice>[
-        _KeywordSlice(label: "기록", count: 1, color: Color(0xFFB6E2FF)),
-      ];
-    }
     return result;
   }
 
@@ -2990,6 +3099,13 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     }
     if (!_isLikelyNoun(value)) {
       return null;
+    }
+    for (final String fragment in _verbLikeFragments) {
+      if (value == fragment ||
+          value.endsWith(fragment) ||
+          value.contains(fragment)) {
+        return null;
+      }
     }
     for (final String noise in <String>["계속", "많이", "말고", "돼요", "되요", "되고"]) {
       if (value.contains(noise)) {
@@ -3013,7 +3129,17 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     return ValueListenableBuilder<List<TodayQuestionRecord>>(
       valueListenable: TodayQuestionStore.instance,
       builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
+        final int monthlyRecordCount = records
+            .where(
+              (TodayQuestionRecord item) =>
+                  item.createdAt.year == selectedYear &&
+                  item.createdAt.month == selectedMonth &&
+                  item.answer.trim().isNotEmpty,
+            )
+            .length;
         final List<_KeywordSlice> slices = _buildKeywordSlices(records);
+        final bool showNoKeywordDonut =
+            monthlyRecordCount == 0 || slices.isEmpty;
         final int total = math.max(
           1,
           slices.fold(0, (int acc, _KeywordSlice item) => acc + item.count),
@@ -3036,65 +3162,75 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                   color: AppNeutralColors.grey900,
                 ),
               ),
-              const SizedBox(height: AppSpacing.s20),
-              if (slices.isEmpty)
+              const SizedBox(height: AppSpacing.s16),
+              if (showNoKeywordDonut)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.s24),
-                  child: SizedBox(
-                    height: 168,
-                    child: Center(
-                      child: Text(
+                  child: Column(
+                    children: <Widget>[
+                      Center(
+                        child: SizedBox(
+                          width: 180,
+                          height: 180,
+                          child: CustomPaint(
+                            size: const Size(180, 180),
+                            painter: const _KeywordNoDataDonutPainter(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.s12),
+                      Text(
                         "아직 분석할 답변이 부족해요",
                         style: AppTypography.bodyMediumRegular.copyWith(
                           color: AppNeutralColors.grey500,
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 )
               else ...<Widget>[
                 Center(
                   child: SizedBox(
-                    width: 168,
-                    height: 168,
+                    width: 180,
+                    height: 180,
                     child: CustomPaint(
-                      size: const Size(168, 168),
+                      size: const Size(180, 180),
                       painter: _KeywordPieChartPainter(slices: slices),
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.s20),
+                const SizedBox(height: AppSpacing.s16),
                 Column(
                   children: slices
                       .map((_KeywordSlice slice) {
                         final String ratio = ((slice.count / total) * 100)
                             .toStringAsFixed(0);
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.s8),
+                          padding: const EdgeInsets.only(bottom: AppSpacing.s4),
                           child: Row(
                             children: <Widget>[
                               Container(
-                                width: 10,
-                                height: 10,
+                                width: 14,
+                                height: 14,
                                 decoration: BoxDecoration(
                                   color: slice.color,
                                   shape: BoxShape.circle,
                                 ),
                               ),
-                              const SizedBox(width: AppSpacing.s8),
+                              const SizedBox(width: AppSpacing.s4),
                               Expanded(
                                 child: Text(
                                   slice.label,
-                                  style: AppTypography.bodyMediumRegular
+                                  style: AppTypography.bodySmallRegular
                                       .copyWith(
                                         color: AppNeutralColors.grey900,
                                       ),
                                 ),
                               ),
                               Text(
-                                "$ratio% (${slice.count})",
+                                "$ratio%(${slice.count}건)",
                                 style: AppTypography.bodySmallRegular.copyWith(
-                                  color: AppNeutralColors.grey600,
+                                  color: AppNeutralColors.grey900,
                                 ),
                               ),
                             ],
@@ -3138,7 +3274,12 @@ class _KeywordPieChartPainter extends CustomPainter {
     if (total == 0) return;
 
     final double strokeWidth = 60;
-    final Rect rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final Rect rect = Rect.fromLTWH(
+      strokeWidth / 2,
+      strokeWidth / 2,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
     final Paint paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
@@ -3151,15 +3292,6 @@ class _KeywordPieChartPainter extends CustomPainter {
       canvas.drawArc(rect, startAngle, sweep, false, paint);
       startAngle += sweep;
     }
-
-    final Paint holePaint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = AppNeutralColors.white;
-    canvas.drawCircle(
-      Offset(size.width / 2, size.height / 2),
-      (size.width / 2) - (strokeWidth / 2),
-      holePaint,
-    );
   }
 
   @override
@@ -3172,6 +3304,33 @@ class _KeywordPieChartPainter extends CustomPainter {
         return true;
       }
     }
+    return false;
+  }
+}
+
+class _KeywordNoDataDonutPainter extends CustomPainter {
+  const _KeywordNoDataDonutPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double strokeWidth = 60;
+    final Rect rect = Rect.fromLTWH(
+      strokeWidth / 2,
+      strokeWidth / 2,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
+    final Paint ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt
+      ..color = AppNeutralColors.grey100;
+
+    canvas.drawArc(rect, 0, math.pi * 2, false, ringPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _KeywordNoDataDonutPainter oldDelegate) {
     return false;
   }
 }
