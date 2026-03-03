@@ -83,6 +83,7 @@ flutter:
     - assets/images/home/
     - assets/images/bucket/
     - assets/images/record/
+    - assets/images/signup/
     - assets/images/question/
 
   fonts:

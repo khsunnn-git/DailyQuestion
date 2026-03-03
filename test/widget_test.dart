@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dailyquestion/main.dart';
 
 void main() {
-  testWidgets('Splash renders initial copy', (WidgetTester tester) async {
+  testWidgets('App renders splash initially', (WidgetTester tester) async {
     await tester.pumpWidget(const DailyQuestionApp());
 
     expect(find.text('오늘의 질문으로\n내일의 나를 만나는 시간'), findsOneWidget);

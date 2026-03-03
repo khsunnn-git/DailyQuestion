@@ -5,6 +5,7 @@ import "entities/answer_record_entity.dart";
 import "entities/bucket_category_entity.dart";
 import "entities/bucket_item_entity.dart";
 import "entities/daily_checkin_entity.dart";
+import "entities/user_profile_entity.dart";
 
 class LocalDatabase {
   LocalDatabase._();
@@ -25,6 +26,7 @@ class LocalDatabase {
         BucketItemEntitySchema,
         BucketCategoryEntitySchema,
         DailyCheckinEntitySchema,
+        UserProfileEntitySchema,
       ],
       directory: directory.path,
       name: "dailyquestion_db",

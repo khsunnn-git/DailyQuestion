@@ -1,19 +1,17 @@
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
+import "package:flutter/foundation.dart";
 import "package:firebase_core/firebase_core.dart";
 
-import "data/local_db/local_database.dart";
+import "app_bootstrap.dart";
 import "design_system/design_system.dart";
-import "features/home/daily_checkin_store.dart";
-import "features/question/today_question_store.dart";
+import "features/profile/nickname_setup_screen.dart";
 import "features/splash/splash_screen.dart";
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await LocalDatabase.instance.initialize();
-  await TodayQuestionStore.instance.initialize();
-  await DailyCheckinStore.instance.initialize();
+  await _initializeFirebaseSafely();
+  await initializeAppDependencies();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -30,9 +28,21 @@ Future<void> main() async {
   runApp(const DailyQuestionApp());
 }
 
+Future<void> _initializeFirebaseSafely() async {
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    if (!kIsWeb) {
+      rethrow;
+    }
+    // Web local runs may not have Firebase web options configured.
+  }
+}
+
 class DailyQuestionApp extends StatelessWidget {
   const DailyQuestionApp({super.key});
 
+  static const bool _forceNicknameSetupPreview = false;
   static const String _selectedCharacterName = "물고기";
   static const SystemUiOverlayStyle _systemUiStyle = SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -58,11 +68,13 @@ class DailyQuestionApp extends StatelessWidget {
       theme: AppTheme.of(
         AppCharacterThemeMapper.fromCharacterName(_selectedCharacterName),
       ),
-      home: SplashScreen(
-        isLoggedIn: true,
-        firstDuration: Duration(milliseconds: 1400),
-        secondDuration: Duration(milliseconds: 1400),
-      ),
+      home: _forceNicknameSetupPreview
+          ? const NicknameSetupScreen()
+          : SplashScreen(
+              isLoggedIn: true,
+              firstDuration: Duration(milliseconds: 1400),
+              secondDuration: Duration(milliseconds: 1400),
+            ),
     );
   }
 }

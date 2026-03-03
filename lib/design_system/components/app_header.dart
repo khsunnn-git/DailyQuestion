@@ -14,7 +14,7 @@ class AppHeader extends StatelessWidget {
 
   final String title;
   final IconData leading;
-  final IconData trailing;
+  final IconData? trailing;
   final VoidCallback? onLeadingPressed;
   final VoidCallback? onTrailingPressed;
 
@@ -29,6 +29,11 @@ class AppHeader extends StatelessWidget {
           children: <Widget>[
             IconButton(
               onPressed: onLeadingPressed,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(
+                width: AppHeaderTokens.iconSize,
+                height: AppHeaderTokens.iconSize,
+              ),
               icon: Icon(leading, size: AppHeaderTokens.iconSize),
             ),
             Expanded(
@@ -40,10 +45,21 @@ class AppHeader extends StatelessWidget {
                 ),
               ),
             ),
-            IconButton(
-              onPressed: onTrailingPressed,
-              icon: Icon(trailing, size: AppHeaderTokens.iconSize),
-            ),
+            if (trailing != null)
+              IconButton(
+                onPressed: onTrailingPressed,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: AppHeaderTokens.iconSize,
+                  height: AppHeaderTokens.iconSize,
+                ),
+                icon: Icon(trailing, size: AppHeaderTokens.iconSize),
+              )
+            else
+              const SizedBox(
+                width: AppHeaderTokens.iconSize,
+                height: AppHeaderTokens.iconSize,
+              ),
           ],
         ),
       ),

@@ -6,6 +6,8 @@ import "package:flutter_svg/flutter_svg.dart";
 import "../../design_system/design_system.dart";
 import "../auth/login_screen.dart";
 import "../home/home_screen.dart";
+import "../profile/nickname_setup_screen.dart";
+import "../profile/user_profile_prefs.dart";
 
 class SplashScreen extends StatefulWidget {
   SplashScreen({
@@ -50,10 +52,20 @@ class _SplashScreenState extends State<SplashScreen> {
     super.dispose();
   }
 
-  void _routeNext() {
+  Future<void> _routeNext() async {
     if (!mounted) return;
 
     if (widget.isLoggedIn) {
+      final bool hasNickname = await UserProfilePrefs.hasNickname();
+      if (!mounted) return;
+
+      if (!hasNickname) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(builder: (_) => const NicknameSetupScreen()),
+        );
+        return;
+      }
+
       if (widget.onRouteHome != null) {
         widget.onRouteHome!();
         return;
@@ -79,7 +91,9 @@ class _SplashScreenState extends State<SplashScreen> {
       setState(() {
         _showSecondSplash = true;
       });
-      _timer = Timer(widget.secondDuration, _routeNext);
+      _timer = Timer(widget.secondDuration, () {
+        _routeNext();
+      });
     });
   }
 
@@ -183,7 +197,11 @@ class _SplashIcon extends StatelessWidget {
       );
     }
 
-    return const SizedBox(width: 124, height: 124, child: _SplashQuestionIcon());
+    return const SizedBox(
+      width: 124,
+      height: 124,
+      child: _SplashQuestionIcon(),
+    );
   }
 }
 
