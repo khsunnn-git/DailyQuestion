@@ -1,5 +1,7 @@
 import "dart:async";
 
+import "package:cloud_firestore/cloud_firestore.dart";
+import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 
 import "../../core/kst_date_time.dart";
@@ -44,8 +46,12 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
     _questionText = widget.questionText ?? "오늘의 질문";
     _records = widget.initialRecords
         .map(
-          (PublicTodayRecord item) =>
-              _TodayRecordItem(body: item.body, author: item.author),
+          (PublicTodayRecord item) => _TodayRecordItem(
+            body: item.body,
+            author: item.author,
+            createdAt: item.createdAt,
+            questionDateKey: _lastKstDateKey,
+          ),
         )
         .toList(growable: false);
     _isLoading = widget.initialRecords.isEmpty;
@@ -80,8 +86,12 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
                 _mergeWithLocalPublicRecords(remoteRecords);
             final List<_TodayRecordItem> mergedRecords = mergedWithLocal
                 .map(
-                  (PublicTodayRecord item) =>
-                      _TodayRecordItem(body: item.body, author: item.author),
+                  (PublicTodayRecord item) => _TodayRecordItem(
+                    body: item.body,
+                    author: item.author,
+                    createdAt: item.createdAt,
+                    questionDateKey: _lastKstDateKey,
+                  ),
                 )
                 .toList(growable: false);
             setState(() {
@@ -98,8 +108,12 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
                   _mergeWithLocalPublicRecords(const <PublicTodayRecord>[]);
               _records = localOnly
                   .map(
-                    (PublicTodayRecord item) =>
-                        _TodayRecordItem(body: item.body, author: item.author),
+                    (PublicTodayRecord item) => _TodayRecordItem(
+                      body: item.body,
+                      author: item.author,
+                      createdAt: item.createdAt,
+                      questionDateKey: _lastKstDateKey,
+                    ),
                   )
                   .toList(growable: false);
               _isLoading = false;
@@ -388,16 +402,240 @@ class _RecordsListView extends StatelessWidget {
 }
 
 class _TodayRecordItem {
-  const _TodayRecordItem({required this.body, required this.author});
+  const _TodayRecordItem({
+    required this.body,
+    required this.author,
+    required this.createdAt,
+    required this.questionDateKey,
+  });
 
   final String body;
   final String author;
+  final DateTime createdAt;
+  final String questionDateKey;
+
+  String get reportTargetId =>
+      "${createdAt.millisecondsSinceEpoch}|$author|$body";
 }
 
-class _FullRecordCard extends StatelessWidget {
+enum _RecordMenuAction { report, hide, block }
+
+class _FullRecordCard extends StatefulWidget {
   const _FullRecordCard({required this.item});
 
   final _TodayRecordItem item;
+
+  @override
+  State<_FullRecordCard> createState() => _FullRecordCardState();
+}
+
+class _FullRecordCardState extends State<_FullRecordCard> {
+  final _UserReportRepository _reportRepository = _UserReportRepository();
+  bool _showMoreMenu = false;
+  _RecordMenuAction? _selectedAction;
+
+  void _toggleMoreMenu() {
+    setState(() {
+      _showMoreMenu = !_showMoreMenu;
+    });
+  }
+
+  Future<void> _selectAction(_RecordMenuAction action) async {
+    setState(() {
+      _selectedAction = action;
+      _showMoreMenu = false;
+    });
+    if (action == _RecordMenuAction.report) {
+      await _openReportBottomSheet();
+    }
+  }
+
+  Future<void> _openReportBottomSheet() async {
+    final TextEditingController reasonController = TextEditingController();
+    final bool? submitted = await showModalBottomSheet<bool>(
+      context: context,
+      useSafeArea: false,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: AppPopupTokens.dimmed,
+      builder: (BuildContext sheetContext) {
+        final double bottomInset = MediaQuery.viewPaddingOf(
+          sheetContext,
+        ).bottom;
+        final double bottomPadding = bottomInset + AppSpacing.s24;
+        final double safeBottomPadding = bottomPadding < AppSpacing.s48
+            ? AppSpacing.s48
+            : bottomPadding;
+        final BrandScale brand = sheetContext.appBrandScale;
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: AppNeutralColors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              boxShadow: AppPopupTokens.bottomSheetShadow,
+            ),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.s24,
+                AppSpacing.s24,
+                AppSpacing.s24,
+                safeBottomPadding,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  Center(
+                    child: Container(
+                      width: 48,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppNeutralColors.grey300,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s20),
+                  Text(
+                    "이 답변을 신고하시겠어요?",
+                    style: AppTypography.headingSmall.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s8),
+                  Text(
+                    "아래 신고 사유를 간단하게 적어주세요.",
+                    style: AppTypography.bodyMediumRegular.copyWith(
+                      color: AppNeutralColors.grey500,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s20),
+                  Container(
+                    constraints: const BoxConstraints(minHeight: 100),
+                    decoration: BoxDecoration(
+                      color: AppNeutralColors.grey50,
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    child: TextField(
+                      controller: reasonController,
+                      maxLines: 4,
+                      minLines: 1,
+                      textInputAction: TextInputAction.done,
+                      style: AppTypography.bodyMediumMedium.copyWith(
+                        color: AppNeutralColors.grey900,
+                      ),
+                      decoration: InputDecoration.collapsed(
+                        hintText: "신고사유",
+                        hintStyle: AppTypography.bodyMediumMedium.copyWith(
+                          color: AppNeutralColors.grey300,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s20),
+                  SizedBox(
+                    height: 56,
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () =>
+                                Navigator.of(sheetContext).pop(false),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppNeutralColors.grey100,
+                              foregroundColor: AppNeutralColors.grey600,
+                              textStyle: AppTypography.buttonLarge,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppSpacing.s8,
+                                ),
+                              ),
+                            ),
+                            child: const Text("취소"),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.s8),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () =>
+                                Navigator.of(sheetContext).pop(true),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: brand.c500,
+                              foregroundColor: AppNeutralColors.white,
+                              textStyle: AppTypography.buttonLarge,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppSpacing.s8,
+                                ),
+                              ),
+                            ),
+                            child: const Text("보내기"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!mounted) {
+      reasonController.dispose();
+      return;
+    }
+
+    if (submitted == true) {
+      final String reason = reasonController.text.trim();
+      if (reason.isEmpty) {
+        _showToast("신고 사유를 입력해주세요.");
+        reasonController.dispose();
+        return;
+      }
+      try {
+        await _reportRepository.submit(
+          reason: reason,
+          targetId: widget.item.reportTargetId,
+          targetType: "public_answer",
+          questionDateKey: widget.item.questionDateKey,
+          authorName: widget.item.author,
+          answerPreview: widget.item.body,
+        );
+        if (mounted) {
+          _showToast("신고가 접수되었습니다. 빠르게 확인할게요.");
+        }
+      } catch (_) {
+        if (mounted) {
+          _showToast("신고 접수에 실패했어요. 잠시 후 다시 시도해주세요.");
+        }
+      }
+    }
+    reasonController.dispose();
+  }
+
+  void _showToast(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            message,
+            style: AppTypography.captionMedium.copyWith(
+              color: AppNeutralColors.white,
+            ),
+          ),
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -411,34 +649,145 @@ class _FullRecordCard extends StatelessWidget {
         borderRadius: AppRadius.br16,
         boxShadow: AppElevation.level1,
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: <Widget>[
-          SizedBox(
-            width: double.infinity,
-            child: Text(
-              item.body,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodyMediumMedium.copyWith(
-                color: AppNeutralColors.grey900,
-                height: 1.5,
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              SizedBox(
+                width: double.infinity,
+                child: Text(
+                  widget.item.body,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodyMediumMedium.copyWith(
+                    color: AppNeutralColors.grey900,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s24),
+              SizedBox(
+                width: double.infinity,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: <Widget>[
+                    Text(
+                      widget.item.author,
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodySmallSemiBold.copyWith(
+                        color: brand.c500,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: IconButton(
+                          onPressed: _toggleMoreMenu,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 20,
+                            height: 20,
+                          ),
+                          icon: const Icon(
+                            Icons.more_horiz,
+                            size: 20,
+                            color: AppNeutralColors.grey500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_showMoreMenu)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: () => setState(() {
+                  _showMoreMenu = false;
+                }),
+                child: const SizedBox.expand(),
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.s24),
-          SizedBox(
-            width: double.infinity,
-            child: Text(
-              item.author,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodySmallSemiBold.copyWith(
-                color: brand.c500,
+          if (_showMoreMenu)
+            Positioned(
+              right: 0,
+              bottom: 8,
+              child: AppDropdownMenu(
+                size: AppDropdownMenuSize.lg,
+                items: <AppDropdownItem>[
+                  AppDropdownItem(
+                    label: "신고",
+                    state: _selectedAction == _RecordMenuAction.report
+                        ? AppDropdownItemState.selected
+                        : AppDropdownItemState.defaultState,
+                    onTap: () {
+                      _selectAction(_RecordMenuAction.report);
+                    },
+                  ),
+                  AppDropdownItem(
+                    label: "숨김",
+                    state: _selectedAction == _RecordMenuAction.hide
+                        ? AppDropdownItemState.selected
+                        : AppDropdownItemState.defaultState,
+                    onTap: () {
+                      _selectAction(_RecordMenuAction.hide);
+                    },
+                  ),
+                  AppDropdownItem(
+                    label: "차단",
+                    state: _selectedAction == _RecordMenuAction.block
+                        ? AppDropdownItemState.selected
+                        : AppDropdownItemState.defaultState,
+                    onTap: () {
+                      _selectAction(_RecordMenuAction.block);
+                    },
+                  ),
+                ],
               ),
             ),
-          ),
         ],
       ),
     );
+  }
+}
+
+class _UserReportRepository {
+  _UserReportRepository({FirebaseFirestore? firestore, FirebaseAuth? auth})
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _auth = auth ?? FirebaseAuth.instance;
+
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+
+  Future<void> submit({
+    required String reason,
+    required String targetId,
+    required String targetType,
+    required String questionDateKey,
+    required String authorName,
+    required String answerPreview,
+  }) async {
+    final User? user = _auth.currentUser;
+    await _firestore.collection("reports").add(<String, dynamic>{
+      "reason": reason,
+      "targetId": targetId,
+      "targetType": targetType,
+      "questionDateKey": questionDateKey,
+      "authorName": authorName,
+      "answerPreview": answerPreview,
+      "reporterUid": user?.uid,
+      "status": "open",
+      "source": "mobile_app",
+      "reportedAt": DateTime.now().toUtc().toIso8601String(),
+      "createdAt": FieldValue.serverTimestamp(),
+      "updatedAt": FieldValue.serverTimestamp(),
+    });
   }
 }
