@@ -27,14 +27,18 @@ class AppHeader extends StatelessWidget {
         padding: AppHeaderTokens.padding,
         child: Row(
           children: <Widget>[
-            IconButton(
-              onPressed: onLeadingPressed,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(
-                width: AppHeaderTokens.iconSize,
-                height: AppHeaderTokens.iconSize,
+            SizedBox(
+              width: AppHeaderTokens.iconSize,
+              height: AppHeaderTokens.iconSize,
+              child: IconButton(
+                onPressed: onLeadingPressed,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: AppHeaderTokens.iconSize,
+                  height: AppHeaderTokens.iconSize,
+                ),
+                icon: Icon(leading, size: AppHeaderTokens.iconSize),
               ),
-              icon: Icon(leading, size: AppHeaderTokens.iconSize),
             ),
             Expanded(
               child: Text(
@@ -45,21 +49,21 @@ class AppHeader extends StatelessWidget {
                 ),
               ),
             ),
-            if (trailing != null)
-              IconButton(
-                onPressed: onTrailingPressed,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: AppHeaderTokens.iconSize,
-                  height: AppHeaderTokens.iconSize,
-                ),
-                icon: Icon(trailing, size: AppHeaderTokens.iconSize),
-              )
-            else
-              const SizedBox(
-                width: AppHeaderTokens.iconSize,
-                height: AppHeaderTokens.iconSize,
-              ),
+            SizedBox(
+              width: AppHeaderTokens.iconSize,
+              height: AppHeaderTokens.iconSize,
+              child: trailing == null
+                  ? null
+                  : IconButton(
+                      onPressed: onTrailingPressed,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: AppHeaderTokens.iconSize,
+                        height: AppHeaderTokens.iconSize,
+                      ),
+                      icon: Icon(trailing, size: AppHeaderTokens.iconSize),
+                    ),
+            ),
           ],
         ),
       ),
