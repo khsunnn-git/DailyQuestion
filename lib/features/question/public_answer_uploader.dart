@@ -5,6 +5,7 @@ import "package:firebase_auth/firebase_auth.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "../../core/kst_date_time.dart";
+import "../moderation/public_record_moderation.dart";
 
 class PublicAnswerPayload {
   const PublicAnswerPayload({
@@ -46,6 +47,8 @@ class PublicAnswerUploader {
       payload.questionDateKey,
       payload.questionSlot,
     ).doc(docId);
+    final ModerationResult moderation =
+        PublicRecordModeration.classifyForUpload(payload.answer);
 
     if (!payload.isPublic) {
       await doc.delete();
@@ -61,6 +64,11 @@ class PublicAnswerUploader {
       "questionSlot": payload.questionSlot,
       "questionText": payload.questionText,
       "bucketTags": payload.bucketTags,
+      "sentimentScore": moderation.score,
+      "moderationStatus": moderation.status.name,
+      "moderationReason": moderation.reason,
+      "moderationSource": "local_heuristic",
+      "moderatedAt": FieldValue.serverTimestamp(),
       "createdAt": Timestamp.fromDate(payload.createdAt),
       "updatedAt": FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));

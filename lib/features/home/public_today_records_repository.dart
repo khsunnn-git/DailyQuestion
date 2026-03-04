@@ -2,6 +2,8 @@ import "dart:async";
 
 import "package:cloud_firestore/cloud_firestore.dart";
 
+import "../moderation/public_record_moderation.dart";
+
 class PublicTodayRecord {
   const PublicTodayRecord({
     required this.body,
@@ -37,6 +39,18 @@ class PublicTodayRecordsRepository {
         final Map<String, dynamic> data = doc.data();
         final String body = (data["answerText"] as String? ?? "").trim();
         if (body.isEmpty) {
+          continue;
+        }
+        final String? moderationStatus = (data["moderationStatus"] as String?)
+            ?.trim();
+        final double? sentimentScore = _parseSentimentScore(
+          data["sentimentScore"],
+        );
+        if (PublicRecordModeration.shouldHideOnFeed(
+          body: body,
+          moderationStatus: moderationStatus,
+          sentimentScore: sentimentScore,
+        )) {
           continue;
         }
         final String author = (data["anonymousName"] as String? ?? "익명의 사용자님")
@@ -135,6 +149,18 @@ class PublicTodayRecordsRepository {
       if (body.isEmpty) {
         continue;
       }
+      final String? moderationStatus = (data["moderationStatus"] as String?)
+          ?.trim();
+      final double? sentimentScore = _parseSentimentScore(
+        data["sentimentScore"],
+      );
+      if (PublicRecordModeration.shouldHideOnFeed(
+        body: body,
+        moderationStatus: moderationStatus,
+        sentimentScore: sentimentScore,
+      )) {
+        continue;
+      }
       final String author = (data["anonymousName"] as String? ?? "익명의 사용자님")
           .trim();
       final Timestamp? ts = data["createdAt"] as Timestamp?;
@@ -147,6 +173,16 @@ class PublicTodayRecordsRepository {
       );
     }
     return records;
+  }
+
+  double? _parseSentimentScore(Object? raw) {
+    if (raw is num) {
+      return raw.toDouble();
+    }
+    if (raw is String) {
+      return double.tryParse(raw);
+    }
+    return null;
   }
 
   Query<Map<String, dynamic>> _slotQuery(
