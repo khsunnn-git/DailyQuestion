@@ -225,9 +225,8 @@ class _ProfileSection extends StatelessWidget {
                 (profile.nickname?.trim().isNotEmpty ?? false)
                 ? profile.nickname!.trim()
                 : "{닉네임}";
-            final String questionDaysText = profile.questionStreakDays == null
-                ? "NNN"
-                : profile.questionStreakDays.toString();
+            final String questionDaysText = (profile.questionStreakDays ?? 0)
+                .toString();
             final String bucketCountText = profile.bucketCount == null
                 ? "NNN"
                 : _formatBucketCount(profile.bucketCount!);

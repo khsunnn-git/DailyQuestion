@@ -190,7 +190,9 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
       _validationState = switch (result.state) {
         NicknameCheckState.available => _NicknameValidationState.available,
         NicknameCheckState.duplicate => _NicknameValidationState.taken,
-        NicknameCheckState.unavailable => _NicknameValidationState.unavailable,
+        // 사전 중복확인 실패는 일시적인 네트워크 문제일 수 있어
+        // 사용자에게 오류를 고정 노출하지 않고 저장 시점에서 재검증한다.
+        NicknameCheckState.unavailable => _NicknameValidationState.idle,
       };
     });
   }

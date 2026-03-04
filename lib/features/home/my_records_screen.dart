@@ -7,6 +7,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "../profile/user_profile_prefs.dart";
 import "home_screen.dart";
 import "../more/more_settings_screen.dart";
 import "../question/today_question_answer_screen.dart";
@@ -230,6 +231,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
   late DateTime _maxMonth;
   DateTime? _installMonth;
   DateTime? _installDate;
+  String _nickname = "{닉네임}";
 
   @override
   void initState() {
@@ -239,6 +241,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
     _selectedMonth = now.month;
     _maxMonth = DateTime(now.year, now.month);
     _loadInstallMonth();
+    _loadNickname();
   }
 
   @override
@@ -270,7 +273,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
-                          const _RecordReportHeader(),
+                          _RecordReportHeader(nickname: _nickname),
                           const SizedBox(height: AppSpacing.s32),
                           const _RecordHeroDecor(),
                           const SizedBox(height: AppSpacing.s32),
@@ -442,6 +445,17 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
       );
       _selectedYear = selected.year;
       _selectedMonth = selected.month;
+    });
+  }
+
+  Future<void> _loadNickname() async {
+    final String? saved = await UserProfilePrefs.getNickname();
+    if (!mounted) {
+      return;
+    }
+    final String trimmed = saved?.trim() ?? "";
+    setState(() {
+      _nickname = trimmed.isEmpty ? "{닉네임}" : trimmed;
     });
   }
 
@@ -1367,21 +1381,6 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
                         ],
                       ),
                     ),
-                  if (!isEmptyState)
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: Text(
-                          item.body,
-                          textAlign: TextAlign.left,
-                          style: AppTypography.bodyLargeRegular.copyWith(
-                            color: AppNeutralColors.grey800,
-                          ),
-                          maxLines: 6,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
                   if (!isEmptyState && item.tags.isNotEmpty)
                     SizedBox(
                       width: double.infinity,
@@ -1421,6 +1420,21 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
                     ),
                   if (!isEmptyState && item.tags.isNotEmpty)
                     const SizedBox(height: AppSpacing.s16),
+                  if (!isEmptyState)
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          item.body,
+                          textAlign: TextAlign.left,
+                          style: AppTypography.bodyLargeRegular.copyWith(
+                            color: AppNeutralColors.grey800,
+                          ),
+                          maxLines: 6,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: SizedBox.shrink(),
@@ -1472,15 +1486,15 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
 }
 
 class _RecordReportHeader extends StatelessWidget {
-  const _RecordReportHeader();
+  const _RecordReportHeader({required this.nickname});
 
-  static const String _nickname = "꼬물꼬물물고기뽀글이";
+  final String nickname;
 
   String _limitedNickname() {
-    if (_nickname.length <= 10) {
-      return _nickname;
+    if (nickname.length <= 10) {
+      return nickname;
     }
-    return _nickname.substring(0, 10);
+    return nickname.substring(0, 10);
   }
 
   @override
@@ -1571,8 +1585,8 @@ class _StreakCard extends StatelessWidget {
     }
     if (missingDays <= 0) {
       return _StreakCardCopy(
-        title: "연속 $streak일째\n기록을 완료했어요!🔥",
-        body: "어제의 질문도 작성하면 연속 기록을\n이어갈 수 있어요!",
+        title: "벌써 $streak번째 날이에요!\n너무 멋져요!🔥",
+        body: "연속기록을 이어가면 \n월말에 리포트를 받아볼 수 있어요!",
       );
     }
     if (missingDays == 1) {
@@ -1589,7 +1603,7 @@ class _StreakCard extends StatelessWidget {
     }
     if (missingDays >= 5) {
       return const _StreakCardCopy(
-        title: "기다렸어요!\n오늘 하루 더 함께 알아가요!",
+        title: "기다려요!\n오늘 하루 더 함께 알아가요!",
         body: "연속 7일 이상 쉬면 연속 기록이 초기화돼요!\n나의 지난 기록에서 질문들을 작성해보세요!",
       );
     }

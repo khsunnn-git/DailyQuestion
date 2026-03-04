@@ -1,4 +1,5 @@
 import "package:cloud_firestore/cloud_firestore.dart";
+import "package:flutter/foundation.dart";
 import "package:firebase_auth/firebase_auth.dart";
 
 enum NicknameCheckState { available, duplicate, unavailable }
@@ -49,9 +50,19 @@ class NicknameFirestoreService {
         return const NicknameCheckResult(state: NicknameCheckState.available);
       }
       return const NicknameCheckResult(state: NicknameCheckState.duplicate);
-    } on FirebaseException {
+    } on FirebaseException catch (e, st) {
+      _logFirebaseException(
+        scope: "checkAvailability",
+        error: e,
+        stackTrace: st,
+      );
       return const NicknameCheckResult(state: NicknameCheckState.unavailable);
-    } catch (_) {
+    } catch (e, st) {
+      _logUnknownException(
+        scope: "checkAvailability",
+        error: e,
+        stackTrace: st,
+      );
       return const NicknameCheckResult(state: NicknameCheckState.unavailable);
     }
   }
@@ -128,9 +139,11 @@ class NicknameFirestoreService {
         );
       }
       return const NicknameReservationResult(success: true);
-    } on FirebaseException {
+    } on FirebaseException catch (e, st) {
+      _logFirebaseException(scope: "reserveAndSave", error: e, stackTrace: st);
       return const NicknameReservationResult(success: false);
-    } catch (_) {
+    } catch (e, st) {
+      _logUnknownException(scope: "reserveAndSave", error: e, stackTrace: st);
       return const NicknameReservationResult(success: false);
     }
   }
@@ -145,12 +158,48 @@ class NicknameFirestoreService {
       _cachedUid = current.uid;
       return current.uid;
     }
-    final UserCredential credential = await auth.signInAnonymously();
+    late final UserCredential credential;
+    try {
+      credential = await auth.signInAnonymously();
+    } on FirebaseException catch (e, st) {
+      _logFirebaseException(scope: "_ensureUid", error: e, stackTrace: st);
+      rethrow;
+    } catch (e, st) {
+      _logUnknownException(scope: "_ensureUid", error: e, stackTrace: st);
+      rethrow;
+    }
     _cachedUid = credential.user!.uid;
     return _cachedUid!;
   }
 
   String _normalize(String nickname) {
     return nickname.trim().toLowerCase();
+  }
+
+  void _logFirebaseException({
+    required String scope,
+    required FirebaseException error,
+    required StackTrace stackTrace,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint(
+      "[NicknameFirestoreService][$scope] FirebaseException "
+      "code=${error.code} message=${error.message}",
+    );
+    debugPrintStack(stackTrace: stackTrace);
+  }
+
+  void _logUnknownException({
+    required String scope,
+    required Object error,
+    required StackTrace stackTrace,
+  }) {
+    if (!kDebugMode) {
+      return;
+    }
+    debugPrint("[NicknameFirestoreService][$scope] Exception: $error");
+    debugPrintStack(stackTrace: stackTrace);
   }
 }
