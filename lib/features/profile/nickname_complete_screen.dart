@@ -34,14 +34,23 @@ class NicknameCompleteScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: AppSpacing.s64),
-            const Text(
-              "어서오세요!",
-              style: TextStyle(
-                fontFamily: AppFontFamily.suit,
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                height: 1.4,
-                color: AppNeutralColors.grey900,
+            RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: const TextStyle(
+                  fontFamily: AppFontFamily.suit,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                  color: AppNeutralColors.grey900,
+                ),
+                children: <InlineSpan>[
+                  TextSpan(
+                    text: nickname,
+                    style: const TextStyle(color: Color(0xFF017AF7)),
+                  ),
+                  const TextSpan(text: "님 어서오세요!"),
+                ],
               ),
             ),
             const SizedBox(height: AppSpacing.s32),
@@ -58,46 +67,15 @@ class NicknameCompleteScreen extends StatelessWidget {
               width: 350,
               child: Column(
                 children: <Widget>[
-                  RichText(
-                    textAlign: TextAlign.center,
-                    text: TextSpan(
-                      style: const TextStyle(
-                        fontFamily: AppFontFamily.suit,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        height: 1.6,
-                        color: AppNeutralColors.grey900,
-                      ),
-                      children: <InlineSpan>[
-                        TextSpan(
-                          text: nickname,
-                          style: const TextStyle(color: Color(0xFF017AF7)),
-                        ),
-                        const TextSpan(text: "님"),
-                      ],
-                    ),
-                  ),
                   const Text(
                     "데일리퀘스천과 함께",
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: AppFontFamily.suit,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      height: 1.6,
-                      color: AppNeutralColors.grey900,
-                    ),
+                    style: AppTypography.bodyLargeMedium,
                   ),
                   const Text(
                     "내일을 위한 하루를 쌓아보아요!",
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: AppFontFamily.suit,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      height: 1.6,
-                      color: AppNeutralColors.grey900,
-                    ),
+                    style: AppTypography.bodyLargeMedium,
                   ),
                 ],
               ),
