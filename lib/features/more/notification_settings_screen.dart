@@ -355,113 +355,87 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
     final int? selected = await showModalBottomSheet<int>(
       context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
+      useSafeArea: false,
       backgroundColor: Colors.transparent,
       barrierColor: AppPopupTokens.dimmed,
       builder: (BuildContext sheetContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setModalState) {
-            return DecoratedBox(
-              decoration: const BoxDecoration(
-                color: AppNeutralColors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                boxShadow: AppPopupTokens.bottomSheetShadow,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.s20,
-                  AppSpacing.s20,
-                  AppSpacing.s20,
-                  AppSpacing.s24,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Text(
-                          "디데이 설정",
-                          style: AppTypography.headingXSmall.copyWith(
-                            color: AppNeutralColors.grey900,
-                          ),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          onPressed: () => Navigator.of(sheetContext).pop(),
-                          icon: const Icon(
-                            Icons.close,
-                            size: AppSpacing.s24,
-                            color: AppNeutralColors.grey700,
-                          ),
-                        ),
-                      ],
+        final BrandScale brand = sheetContext.appBrandScale;
+        final double bottomInset = MediaQuery.viewPaddingOf(
+          sheetContext,
+        ).bottom;
+        final double bottomPadding = bottomInset + AppSpacing.s20;
+        final double safeBottomPadding = bottomPadding < AppSpacing.s48
+            ? AppSpacing.s48
+            : bottomPadding;
+
+        return DecoratedBox(
+          decoration: const BoxDecoration(
+            color: AppNeutralColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            boxShadow: AppPopupTokens.bottomSheetShadow,
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.s20,
+              AppSpacing.s16,
+              AppSpacing.s20,
+              safeBottomPadding,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppNeutralColors.grey300,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    const SizedBox(height: AppSpacing.s8),
-                    ...options.map((int value) {
-                      final bool selected = value == selectedValue;
-                      return InkWell(
-                        onTap: () {
-                          setModalState(() {
-                            selectedValue = value;
-                          });
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.s12,
-                          ),
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  "$value일 전",
-                                  style: AppTypography.bodyMediumSemiBold
-                                      .copyWith(
-                                        color: AppNeutralColors.grey900,
-                                      ),
-                                ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s20),
+                ...options.map((int value) {
+                  final bool isSelected = value == selectedValue;
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => Navigator.of(sheetContext).pop(value),
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.s8,
+                          vertical: AppSpacing.s12,
+                        ),
+                        child: Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                "$value일 전",
+                                style: AppTypography.bodyMediumSemiBold
+                                    .copyWith(
+                                      color: isSelected
+                                          ? brand.c500
+                                          : AppNeutralColors.grey900,
+                                    ),
                               ),
+                            ),
+                            if (isSelected)
                               Icon(
-                                selected
-                                    ? Icons.radio_button_checked
-                                    : Icons.radio_button_unchecked,
+                                Icons.check,
                                 size: AppSpacing.s24,
-                                color: selected
-                                    ? context.appBrandScale.c500
-                                    : AppNeutralColors.grey300,
+                                color: brand.c500,
                               ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: AppSpacing.s8),
-                    SizedBox(
-                      height: 56,
-                      child: FilledButton(
-                        onPressed: () =>
-                            Navigator.of(sheetContext).pop(selectedValue),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: context.appBrandScale.c500,
-                          foregroundColor: AppNeutralColors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.s8),
-                          ),
-                        ),
-                        child: Text(
-                          "확인",
-                          style: AppTypography.buttonLarge.copyWith(
-                            color: AppNeutralColors.white,
-                          ),
+                          ],
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            );
-          },
+                  );
+                }),
+              ],
+            ),
+          ),
         );
       },
     );
