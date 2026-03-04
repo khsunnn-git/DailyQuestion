@@ -1,3 +1,5 @@
+import "dart:ui" show ImageFilter;
+
 import "package:flutter/material.dart";
 import "package:isar/isar.dart";
 import "package:shared_preferences/shared_preferences.dart";
@@ -897,19 +899,27 @@ class _BucketListScreenState extends State<BucketListScreen>
           child: Stack(
             alignment: Alignment.center,
             children: <Widget>[
-              Container(
-                width: 308,
-                height: 308,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppNeutralColors.white.withValues(alpha: 0.56),
-                  boxShadow: <BoxShadow>[
-                    BoxShadow(
-                      color: AppNeutralColors.white.withValues(alpha: 0.75),
-                      blurRadius: 100,
-                      spreadRadius: 4,
+              IgnorePointer(
+                child: SizedBox(
+                  width: 308,
+                  height: 308,
+                  child: Center(
+                    child: ImageFiltered(
+                      imageFilter: ImageFilter.blur(
+                        // Figma blur 100 대응: sigma 50 적용
+                        sigmaX: 50,
+                        sigmaY: 50,
+                      ),
+                      child: Container(
+                        width: 208,
+                        height: 208,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppNeutralColors.white.withValues(alpha: 0.8),
+                        ),
+                      ),
                     ),
-                  ],
+                  ),
                 ),
               ),
               Column(
