@@ -36,11 +36,13 @@ class MoreSettingsScreen extends StatefulWidget {
 class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
   static const String _termsUrl = String.fromEnvironment(
     "TERMS_URL",
-    defaultValue: "https://khsunnn-git.github.io/DailyQuestion/policy/terms/",
+    defaultValue:
+        "https://khsunnn-git.github.io/DailyQuestion/docs/policy/terms/",
   );
   static const String _privacyUrl = String.fromEnvironment(
     "PRIVACY_URL",
-    defaultValue: "https://khsunnn-git.github.io/DailyQuestion/policy/privacy/",
+    defaultValue:
+        "https://khsunnn-git.github.io/DailyQuestion/docs/policy/privacy/",
   );
 
   int _profileRefreshSeed = 0;

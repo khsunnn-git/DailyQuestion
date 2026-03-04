@@ -38,6 +38,22 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
                     BuildContext context,
                     AsyncSnapshot<List<_NoticeItem>> snapshot,
                   ) {
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s24,
+                          ),
+                          child: Text(
+                            "공지사항을 불러오는 중 문제가 발생했어요.\n잠시 후 다시 시도해 주세요.",
+                            textAlign: TextAlign.center,
+                            style: AppTypography.bodyMediumMedium.copyWith(
+                              color: AppNeutralColors.grey500,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
                     if (!snapshot.hasData) {
                       return const Center(child: AppLoadingIndicator());
                     }
@@ -138,10 +154,10 @@ class _NoticeRow extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: Container(
-            color: AppNeutralColors.white,
             constraints: const BoxConstraints(minHeight: 90),
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20),
             decoration: const BoxDecoration(
+              color: AppNeutralColors.white,
               border: Border(
                 bottom: BorderSide(color: AppNeutralColors.grey100),
               ),
@@ -284,11 +300,11 @@ class _NoticeRepository {
     final String description =
         "${data["body"] ?? data["description"] ?? data["content"] ?? ""}"
             .trim();
-    final Timestamp? publishedAt = data["publishedAt"] as Timestamp?;
-    final Timestamp? createdAt = data["createdAt"] as Timestamp?;
-    final Timestamp? updatedAt = data["updatedAt"] as Timestamp?;
+    final DateTime? publishedAt = _asDateTime(data["publishedAt"]);
+    final DateTime? createdAt = _asDateTime(data["createdAt"]);
+    final DateTime? updatedAt = _asDateTime(data["updatedAt"]);
     final DateTime date =
-        (publishedAt ?? updatedAt ?? createdAt ?? Timestamp.now()).toDate();
+        publishedAt ?? updatedAt ?? createdAt ?? DateTime.now();
     final String dateText =
         "${date.year.toString().padLeft(4, "0")}."
         "${date.month.toString().padLeft(2, "0")}."
@@ -301,5 +317,27 @@ class _NoticeRepository {
       description: description.isEmpty ? null : description,
       sortMillis: date.millisecondsSinceEpoch,
     );
+  }
+
+  DateTime? _asDateTime(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    if (value is num) {
+      return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+    }
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+    return null;
   }
 }
