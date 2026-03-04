@@ -239,15 +239,6 @@ class _RecordsListView extends StatelessWidget {
       );
     }
 
-    void popOrGoHome() {
-      final NavigatorState navigator = Navigator.of(context);
-      if (navigator.canPop()) {
-        navigator.pop();
-        return;
-      }
-      goHome();
-    }
-
     return Stack(
       children: <Widget>[
         Positioned(
@@ -268,7 +259,7 @@ class _RecordsListView extends StatelessWidget {
                     child: Row(
                       children: <Widget>[
                         IconButton(
-                          onPressed: popOrGoHome,
+                          onPressed: goHome,
                           icon: const Icon(
                             Icons.arrow_back_ios_new,
                             color: AppNeutralColors.grey900,
