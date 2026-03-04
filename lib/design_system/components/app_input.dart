@@ -248,6 +248,8 @@ class AppEditableTextArea extends StatefulWidget {
     this.hintText = "무엇이든 가볍게 적어보세요",
     this.height = 370,
     this.enabled = true,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
     this.backgroundColor,
     this.borderColor,
   });
@@ -257,6 +259,8 @@ class AppEditableTextArea extends StatefulWidget {
   final String hintText;
   final double height;
   final bool enabled;
+  final bool autocorrect;
+  final bool enableSuggestions;
   final Color? backgroundColor;
   final Color? borderColor;
 
@@ -325,10 +329,14 @@ class _AppEditableTextAreaState extends State<AppEditableTextArea> {
           maxLines: null,
           expands: true,
           textAlignVertical: TextAlignVertical.top,
+          autocorrect: widget.autocorrect,
+          enableSuggestions: widget.enableSuggestions,
           style: AppInputTokens.mdTextStyle.copyWith(
             color: widget.enabled
                 ? AppNeutralColors.grey900
                 : AppNeutralColors.grey300,
+            decoration: TextDecoration.none,
+            decorationColor: Colors.transparent,
           ),
           decoration: InputDecoration(
             isCollapsed: true,

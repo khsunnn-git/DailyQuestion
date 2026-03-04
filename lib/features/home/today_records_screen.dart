@@ -526,10 +526,12 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                       height: 100,
                       backgroundColor: AppNeutralColors.grey50,
                       borderColor: Colors.transparent,
+                      autocorrect: false,
+                      enableSuggestions: false,
                     ),
                     const SizedBox(height: AppSpacing.s20),
                     SizedBox(
-                      height: buttonMetrics.height,
+                      height: 56,
                       child: Row(
                         children: <Widget>[
                           Expanded(
