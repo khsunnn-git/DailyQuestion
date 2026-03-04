@@ -6,6 +6,7 @@ import "package:flutter_svg/flutter_svg.dart";
 import "../../design_system/design_system.dart";
 import "../auth/login_screen.dart";
 import "../home/home_screen.dart";
+import "../profile/initial_terms_consent_screen.dart";
 import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_prefs.dart";
 
@@ -56,8 +57,19 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (widget.isLoggedIn) {
+      final bool hasInitialConsent =
+          await UserProfilePrefs.hasInitialConsentAccepted();
       final bool hasNickname = await UserProfilePrefs.hasNickname();
       if (!mounted) return;
+
+      if (!hasInitialConsent) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => const InitialTermsConsentScreen(),
+          ),
+        );
+        return;
+      }
 
       if (!hasNickname) {
         Navigator.of(context).pushReplacement(

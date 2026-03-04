@@ -5,6 +5,8 @@ import "../bucket/bucket_list_screen.dart";
 import "../home/home_screen.dart";
 import "../home/my_records_screen.dart";
 import "more_profile_stats_store.dart";
+import "feedback_send_screen.dart";
+import "notice_list_screen.dart";
 import "notification_settings_screen.dart";
 import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_store.dart";
@@ -57,6 +59,18 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
     );
   }
 
+  Future<void> _openNoticeList() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const NoticeListScreen()));
+  }
+
+  Future<void> _openFeedbackSend() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const FeedbackSendScreen()));
+  }
+
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
@@ -90,11 +104,11 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.s16),
-                  const _SettingsSectionCard(
+                  _SettingsSectionCard(
                     title: "고객 센터",
                     items: <_SettingsItem>[
-                      _SettingsItem(title: "공지사항"),
-                      _SettingsItem(title: "의견 보내기"),
+                      _SettingsItem(title: "공지사항", onTap: _openNoticeList),
+                      _SettingsItem(title: "의견 보내기", onTap: _openFeedbackSend),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.s16),

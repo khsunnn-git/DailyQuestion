@@ -4,3 +4,6 @@ import "user_profile_store_io.dart"
 
 Future<String?> loadNickname() => store.loadNickname();
 Future<void> saveNickname(String nickname) => store.saveNickname(nickname);
+Future<bool> loadInitialConsentAccepted() => store.loadInitialConsentAccepted();
+Future<void> saveInitialConsentAccepted(bool accepted) =>
+    store.saveInitialConsentAccepted(accepted);

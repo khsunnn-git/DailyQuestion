@@ -1,6 +1,7 @@
 import "package:shared_preferences/shared_preferences.dart";
 
 const String _nicknameKey = "user_nickname";
+const String _initialConsentKey = "initial_consent_accepted";
 
 Future<String?> loadNickname() async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -18,4 +19,14 @@ Future<void> saveNickname(String nickname) async {
   }
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   await prefs.setString(_nicknameKey, normalized);
+}
+
+Future<bool> loadInitialConsentAccepted() async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(_initialConsentKey) ?? false;
+}
+
+Future<void> saveInitialConsentAccepted(bool accepted) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_initialConsentKey, accepted);
 }

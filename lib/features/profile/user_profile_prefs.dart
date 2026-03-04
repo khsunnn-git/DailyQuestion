@@ -15,4 +15,12 @@ class UserProfilePrefs {
     final String? nickname = await getNickname();
     return nickname != null;
   }
+
+  static Future<bool> hasInitialConsentAccepted() async {
+    return loadInitialConsentAccepted();
+  }
+
+  static Future<void> setInitialConsentAccepted(bool accepted) async {
+    await saveInitialConsentAccepted(accepted);
+  }
 }

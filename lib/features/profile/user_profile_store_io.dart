@@ -5,6 +5,7 @@ import "../../data/local_db/local_database.dart";
 
 const String _nicknameKey = "nickname";
 const String _legacyNicknamePrefKey = "user_nickname";
+const String _initialConsentPrefKey = "initial_consent_accepted";
 
 Future<String?> loadNickname() async {
   final isar = await LocalDatabase.instance.isar;
@@ -41,4 +42,14 @@ Future<void> saveNickname(String nickname) async {
   await isar.writeTxn(() async {
     await isar.userProfileEntitys.putByKey(entity);
   });
+}
+
+Future<bool> loadInitialConsentAccepted() async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  return prefs.getBool(_initialConsentPrefKey) ?? false;
+}
+
+Future<void> saveInitialConsentAccepted(bool accepted) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_initialConsentPrefKey, accepted);
 }
