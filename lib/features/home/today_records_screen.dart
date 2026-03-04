@@ -452,6 +452,10 @@ class _FullRecordCardState extends State<_FullRecordCard> {
 
   Future<void> _openReportBottomSheet() async {
     final TextEditingController reasonController = TextEditingController();
+    final FocusNode reasonFocusNode = FocusNode();
+    final AppButtonMetrics buttonMetrics = AppButtonTokens.metrics(
+      AppButtonSize.large,
+    );
     final bool? submitted = await showModalBottomSheet<bool>(
       context: context,
       useSafeArea: false,
@@ -485,102 +489,89 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                 AppSpacing.s24,
                 safeBottomPadding,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Center(
-                    child: Container(
-                      width: 48,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppNeutralColors.grey300,
-                        borderRadius: BorderRadius.circular(16),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Center(
+                      child: Container(
+                        width: 48,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppNeutralColors.grey300,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.s20),
-                  Text(
-                    "이 답변을 신고하시겠어요?",
-                    style: AppTypography.headingSmall.copyWith(
-                      color: AppNeutralColors.grey900,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.s8),
-                  Text(
-                    "아래 신고 사유를 간단하게 적어주세요.",
-                    style: AppTypography.bodyMediumRegular.copyWith(
-                      color: AppNeutralColors.grey500,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.s20),
-                  Container(
-                    constraints: const BoxConstraints(minHeight: 100),
-                    decoration: BoxDecoration(
-                      color: AppNeutralColors.grey50,
-                      borderRadius: BorderRadius.circular(AppSpacing.s8),
-                    ),
-                    padding: const EdgeInsets.all(10),
-                    child: TextField(
-                      controller: reasonController,
-                      maxLines: 4,
-                      minLines: 1,
-                      textInputAction: TextInputAction.done,
-                      style: AppTypography.bodyMediumMedium.copyWith(
+                    const SizedBox(height: AppSpacing.s20),
+                    Text(
+                      "이 답변을 신고하시겠어요?",
+                      style: AppTypography.headingSmall.copyWith(
                         color: AppNeutralColors.grey900,
                       ),
-                      decoration: InputDecoration.collapsed(
-                        hintText: "신고사유",
-                        hintStyle: AppTypography.bodyMediumMedium.copyWith(
-                          color: AppNeutralColors.grey300,
-                        ),
+                    ),
+                    const SizedBox(height: AppSpacing.s8),
+                    Text(
+                      "아래 신고 사유를 간단하게 적어주세요.",
+                      style: AppTypography.bodyMediumRegular.copyWith(
+                        color: AppNeutralColors.grey500,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.s20),
-                  SizedBox(
-                    height: 56,
-                    child: Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () =>
-                                Navigator.of(sheetContext).pop(false),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppNeutralColors.grey100,
-                              foregroundColor: AppNeutralColors.grey600,
-                              textStyle: AppTypography.buttonLarge,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppSpacing.s8,
-                                ),
-                              ),
-                            ),
-                            child: const Text("취소"),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.s8),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () =>
-                                Navigator.of(sheetContext).pop(true),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: brand.c500,
-                              foregroundColor: AppNeutralColors.white,
-                              textStyle: AppTypography.buttonLarge,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppSpacing.s8,
-                                ),
-                              ),
-                            ),
-                            child: const Text("보내기"),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: AppSpacing.s20),
+                    AppEditableTextArea(
+                      controller: reasonController,
+                      focusNode: reasonFocusNode,
+                      hintText: "신고사유",
+                      height: 100,
+                      backgroundColor: AppNeutralColors.grey50,
+                      borderColor: Colors.transparent,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: AppSpacing.s20),
+                    SizedBox(
+                      height: buttonMetrics.height,
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () =>
+                                  Navigator.of(sheetContext).pop(false),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppNeutralColors.grey100,
+                                foregroundColor: AppNeutralColors.grey600,
+                                textStyle: buttonMetrics.textStyle,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppSpacing.s8,
+                                  ),
+                                ),
+                              ),
+                              child: const Text("취소"),
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.s8),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () =>
+                                  Navigator.of(sheetContext).pop(true),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: brand.c500,
+                                foregroundColor: AppNeutralColors.white,
+                                textStyle: buttonMetrics.textStyle,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    AppSpacing.s8,
+                                  ),
+                                ),
+                              ),
+                              child: const Text("보내기"),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -589,6 +580,7 @@ class _FullRecordCardState extends State<_FullRecordCard> {
     );
 
     if (!mounted) {
+      reasonFocusNode.dispose();
       reasonController.dispose();
       return;
     }
@@ -597,6 +589,7 @@ class _FullRecordCardState extends State<_FullRecordCard> {
       final String reason = reasonController.text.trim();
       if (reason.isEmpty) {
         _showToast("신고 사유를 입력해주세요.");
+        reasonFocusNode.dispose();
         reasonController.dispose();
         return;
       }
@@ -618,6 +611,7 @@ class _FullRecordCardState extends State<_FullRecordCard> {
         }
       }
     }
+    reasonFocusNode.dispose();
     reasonController.dispose();
   }
 
