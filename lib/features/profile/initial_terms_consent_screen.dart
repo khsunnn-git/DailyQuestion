@@ -177,7 +177,7 @@ class _InitialTermsConsentScreenState extends State<InitialTermsConsentScreen> {
               onChevronTap: _openTermsDetail,
             ),
             _AgreementRow(
-              label: "개인정보 수집 및 이용동의(필수)",
+              label: "개인정보 수집 및 이용 동의(필수)",
               checked: _agreedPrivacy,
               onTap: () {
                 setState(() {

@@ -34,22 +34,40 @@ class NicknameCompleteScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: AppSpacing.s64),
-            RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                style: const TextStyle(
-                  fontFamily: AppFontFamily.suit,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  height: 1.4,
-                  color: AppNeutralColors.grey900,
-                ),
-                children: <InlineSpan>[
-                  TextSpan(
-                    text: nickname,
-                    style: const TextStyle(color: Color(0xFF017AF7)),
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                children: <Widget>[
+                  RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      style: const TextStyle(
+                        fontFamily: AppFontFamily.suit,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        height: 1.4,
+                        color: AppNeutralColors.grey900,
+                      ),
+                      children: <InlineSpan>[
+                        TextSpan(
+                          text: nickname,
+                          style: const TextStyle(color: Color(0xFF017AF7)),
+                        ),
+                        const TextSpan(text: "님"),
+                      ],
+                    ),
                   ),
-                  const TextSpan(text: "님 어서오세요!"),
+                  const Text(
+                    "어서오세요!",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: AppFontFamily.suit,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      height: 1.4,
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
                 ],
               ),
             ),

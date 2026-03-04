@@ -561,57 +561,30 @@ class _FullRecordCardState extends State<_FullRecordCard> {
   }
 
   Future<void> _openHideBottomSheet() async {
-    final bool? confirmed = await showModalBottomSheet<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      barrierDismissible: true,
       barrierColor: AppPopupTokens.dimmed,
-      elevation: 0,
-      builder: (BuildContext sheetContext) {
+      builder: (BuildContext dialogContext) {
         final AppButtonMetrics buttonMetrics = AppButtonTokens.metrics(
           AppButtonSize.large,
         );
-        final double keyboardInset = MediaQuery.viewInsetsOf(
-          sheetContext,
-        ).bottom;
-        final double bottomInset = MediaQuery.viewPaddingOf(
-          sheetContext,
-        ).bottom;
-        final double safeBottomPadding =
-            (bottomInset + AppSpacing.s24) < AppSpacing.s48
-            ? AppSpacing.s48
-            : (bottomInset + AppSpacing.s24);
-        final BrandScale brand = sheetContext.appBrandScale;
+        final BrandScale brand = dialogContext.appBrandScale;
 
-        return DecoratedBox(
-          decoration: const BoxDecoration(
-            color: AppNeutralColors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            boxShadow: AppPopupTokens.bottomSheetShadow,
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.s24,
-              AppSpacing.s24,
-              AppSpacing.s24,
-              safeBottomPadding + keyboardInset,
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.s24),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppNeutralColors.white,
+              borderRadius: BorderRadius.circular(AppSpacing.s16),
             ),
+            padding: const EdgeInsets.all(AppSpacing.s24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Center(
-                  child: Container(
-                    width: 48,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppNeutralColors.grey300,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.s20),
                 Text(
                   "이 답변을 숨기시겠어요?",
                   style: AppTypography.headingSmall.copyWith(
@@ -632,8 +605,7 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                     children: <Widget>[
                       Expanded(
                         child: FilledButton(
-                          onPressed: () =>
-                              Navigator.of(sheetContext).pop(false),
+                          onPressed: () => Navigator.of(dialogContext).pop(false),
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
                             backgroundColor: AppNeutralColors.grey100,
@@ -655,7 +627,7 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                       const SizedBox(width: AppSpacing.s8),
                       Expanded(
                         child: FilledButton(
-                          onPressed: () => Navigator.of(sheetContext).pop(true),
+                          onPressed: () => Navigator.of(dialogContext).pop(true),
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
                             backgroundColor: brand.c500,
