@@ -1,4 +1,3 @@
-import "package:flutter/cupertino.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 import "package:permission_handler/permission_handler.dart";
@@ -245,89 +244,286 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   Future<void> _selectTodayQuestionTime() async {
-    final DateTime now = DateTime.now();
-    DateTime selectedDateTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      _todayQuestionTime.hour,
-      _todayQuestionTime.minute,
-    );
+    bool isAm = _todayQuestionTime.hour < 12;
+    int selectedHour12 = _todayQuestionTime.hourOfPeriod == 0
+        ? 12
+        : _todayQuestionTime.hourOfPeriod;
+    int selectedMinute = _todayQuestionTime.minute;
 
     final TimeOfDay? picked = await showModalBottomSheet<TimeOfDay>(
       context: context,
-      useSafeArea: true,
+      useSafeArea: false,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: AppPopupTokens.dimmed,
       builder: (BuildContext sheetContext) {
+        final BrandScale brand = sheetContext.appBrandScale;
+        final double bottomInset = MediaQuery.viewPaddingOf(
+          sheetContext,
+        ).bottom;
+        final double bottomPadding = bottomInset + AppSpacing.s20;
+        final double safeBottomPadding = bottomPadding < AppSpacing.s48
+            ? AppSpacing.s48
+            : bottomPadding;
+
+        Widget buildArrowButton({
+          required IconData icon,
+          required VoidCallback onTap,
+          required double width,
+        }) {
+          return SizedBox(
+            width: width,
+            height: 47,
+            child: IconButton(
+              onPressed: onTap,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.s16,
+                vertical: AppSpacing.s8,
+              ),
+              splashRadius: 24,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: AppNeutralColors.grey500,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              icon: Icon(
+                icon,
+                size: AppSpacing.s24,
+                color: AppNeutralColors.grey500,
+              ),
+            ),
+          );
+        }
+
+        Widget buildSelectedPill({
+          required String text,
+          required double width,
+        }) {
+          return Container(
+            width: width,
+            height: 47,
+            decoration: BoxDecoration(
+              color: brand.c100,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              text,
+              style: AppTypography.headingMediumExtraBold.copyWith(
+                color: AppNeutralColors.grey900,
+              ),
+            ),
+          );
+        }
+
         return DecoratedBox(
           decoration: const BoxDecoration(
             color: AppNeutralColors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             boxShadow: AppPopupTokens.bottomSheetShadow,
           ),
-          child: SizedBox(
-            height: 320,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.s20,
+              AppSpacing.s16,
+              AppSpacing.s20,
+              safeBottomPadding,
+            ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.s20,
-                    AppSpacing.s16,
-                    AppSpacing.s20,
-                    AppSpacing.s12,
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppNeutralColors.grey300,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
+                ),
+                const SizedBox(height: AppSpacing.s28),
+                StatefulBuilder(
+                  builder: (BuildContext context, StateSetter setModalState) {
+                    return Column(
+                      children: <Widget>[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            buildArrowButton(
+                              icon: Icons.keyboard_arrow_up,
+                              width: 71,
+                              onTap: () {
+                                setModalState(() {
+                                  isAm = !isAm;
+                                });
+                              },
+                            ),
+                            const SizedBox(width: AppSpacing.s32),
+                            Row(
+                              children: <Widget>[
+                                buildArrowButton(
+                                  icon: Icons.keyboard_arrow_up,
+                                  width: 55,
+                                  onTap: () {
+                                    setModalState(() {
+                                      selectedHour12 =
+                                          selectedHour12 == 12
+                                          ? 1
+                                          : selectedHour12 + 1;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(width: AppSpacing.s16),
+                                const SizedBox(width: 7),
+                                const SizedBox(width: AppSpacing.s16),
+                                buildArrowButton(
+                                  icon: Icons.keyboard_arrow_up,
+                                  width: 59,
+                                  onTap: () {
+                                    setModalState(() {
+                                      selectedMinute =
+                                          (selectedMinute + 1) % 60;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.s20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            buildSelectedPill(
+                              text: isAm ? "오전" : "오후",
+                              width: 71,
+                            ),
+                            const SizedBox(width: AppSpacing.s32),
+                            Row(
+                              children: <Widget>[
+                                buildSelectedPill(
+                                  text: selectedHour12.toString(),
+                                  width: 55,
+                                ),
+                                const SizedBox(width: AppSpacing.s16),
+                                Text(
+                                  ":",
+                                  style: AppTypography.headingMediumExtraBold
+                                      .copyWith(
+                                        color: AppNeutralColors.grey900,
+                                      ),
+                                ),
+                                const SizedBox(width: AppSpacing.s16),
+                                buildSelectedPill(
+                                  text: selectedMinute.toString().padLeft(2, "0"),
+                                  width: 59,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.s20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            buildArrowButton(
+                              icon: Icons.keyboard_arrow_down,
+                              width: 71,
+                              onTap: () {
+                                setModalState(() {
+                                  isAm = !isAm;
+                                });
+                              },
+                            ),
+                            const SizedBox(width: AppSpacing.s32),
+                            Row(
+                              children: <Widget>[
+                                buildArrowButton(
+                                  icon: Icons.keyboard_arrow_down,
+                                  width: 55,
+                                  onTap: () {
+                                    setModalState(() {
+                                      selectedHour12 =
+                                          selectedHour12 == 1
+                                          ? 12
+                                          : selectedHour12 - 1;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(width: AppSpacing.s16),
+                                const SizedBox(width: 7),
+                                const SizedBox(width: AppSpacing.s16),
+                                buildArrowButton(
+                                  icon: Icons.keyboard_arrow_down,
+                                  width: 59,
+                                  onTap: () {
+                                    setModalState(() {
+                                      selectedMinute =
+                                          (selectedMinute + 59) % 60;
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: AppSpacing.s28),
+                SizedBox(
+                  height: AppSpacing.s48,
                   child: Row(
                     children: <Widget>[
-                      TextButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(),
-                        child: Text(
-                          "취소",
-                          style: AppTypography.bodyMediumSemiBold.copyWith(
-                            color: AppNeutralColors.grey500,
-                          ),
-                        ),
-                      ),
                       Expanded(
-                        child: Text(
-                          "오늘의 질문 알림 시간",
-                          textAlign: TextAlign.center,
-                          style: AppTypography.bodyMediumSemiBold.copyWith(
-                            color: AppNeutralColors.grey900,
+                        child: FilledButton(
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppNeutralColors.grey100,
+                            foregroundColor: AppNeutralColors.grey600,
+                            textStyle: AppTypography.buttonMedium,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.s8,
+                              ),
+                            ),
+                            surfaceTintColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
                           ),
+                          child: const Text("취소"),
                         ),
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.of(sheetContext).pop(
-                          TimeOfDay(
-                            hour: selectedDateTime.hour,
-                            minute: selectedDateTime.minute,
+                      const SizedBox(width: AppSpacing.s8),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () {
+                            final int hour24 = isAm
+                                ? (selectedHour12 % 12)
+                                : (selectedHour12 % 12) + 12;
+                            Navigator.of(sheetContext).pop(
+                              TimeOfDay(hour: hour24, minute: selectedMinute),
+                            );
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: brand.c500,
+                            foregroundColor: AppNeutralColors.white,
+                            textStyle: AppTypography.buttonMedium,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.s8,
+                              ),
+                            ),
+                            surfaceTintColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
                           ),
-                        ),
-                        child: Text(
-                          "확인",
-                          style: AppTypography.bodyMediumSemiBold.copyWith(
-                            color: context.appBrandScale.c500,
-                          ),
+                          child: const Text("설정"),
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: AppNeutralColors.grey100,
-                ),
-                Expanded(
-                  child: CupertinoDatePicker(
-                    mode: CupertinoDatePickerMode.time,
-                    use24hFormat: false,
-                    initialDateTime: selectedDateTime,
-                    onDateTimeChanged: (DateTime value) {
-                      selectedDateTime = value;
-                    },
                   ),
                 ),
               ],

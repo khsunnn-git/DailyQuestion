@@ -170,7 +170,7 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
               context,
             ).viewInsets.bottom;
             final AppButtonMetrics buttonMetrics = AppButtonTokens.metrics(
-              AppButtonSize.medium,
+              AppButtonSize.large,
             );
             void showMissingColorToast() {
               setModalState(() {
