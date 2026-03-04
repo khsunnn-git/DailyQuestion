@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:url_launcher/url_launcher.dart";
 
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
@@ -33,6 +34,15 @@ class MoreSettingsScreen extends StatefulWidget {
 }
 
 class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
+  static const String _termsUrl = String.fromEnvironment(
+    "TERMS_URL",
+    defaultValue: "https://khsunnn-git.github.io/DailyQuestion/policy/terms/",
+  );
+  static const String _privacyUrl = String.fromEnvironment(
+    "PRIVACY_URL",
+    defaultValue: "https://khsunnn-git.github.io/DailyQuestion/policy/privacy/",
+  );
+
   int _profileRefreshSeed = 0;
 
   Future<void> _openNicknameEdit() async {
@@ -69,6 +79,40 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute<void>(builder: (_) => const FeedbackSendScreen()));
+  }
+
+  Future<void> _openTerms() async {
+    await _openExternalUrl(_termsUrl, "이용약관");
+  }
+
+  Future<void> _openPrivacyPolicy() async {
+    await _openExternalUrl(_privacyUrl, "개인정보처리방침");
+  }
+
+  Future<void> _openExternalUrl(String rawUrl, String label) async {
+    final Uri? uri = Uri.tryParse(rawUrl);
+    if (uri == null ||
+        !(uri.scheme == "http" || uri.scheme == "https") ||
+        uri.host.isEmpty) {
+      _showUrlError("$label URL이 올바르지 않아요.");
+      return;
+    }
+    final bool launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!launched) {
+      _showUrlError("$label 페이지를 열지 못했어요.");
+    }
+  }
+
+  void _showUrlError(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -112,12 +156,15 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.s16),
-                  const _SettingsSectionCard(
+                  _SettingsSectionCard(
                     title: "계정",
                     items: <_SettingsItem>[
                       _SettingsItem(title: "앱 버전", trailingText: "v.1.0 최신 버전"),
-                      _SettingsItem(title: "이용약관"),
-                      _SettingsItem(title: "개인정보처리방침"),
+                      _SettingsItem(title: "이용약관", onTap: _openTerms),
+                      _SettingsItem(
+                        title: "개인정보처리방침",
+                        onTap: _openPrivacyPolicy,
+                      ),
                     ],
                   ),
                 ],

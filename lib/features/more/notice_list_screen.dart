@@ -242,6 +242,13 @@ class _NoticeRepository {
   _NoticeRepository._();
 
   static final _NoticeRepository instance = _NoticeRepository._();
+  static const _NoticeItem _defaultCautionNotice = _NoticeItem(
+    id: "default_notice_20260304_caution",
+    title: "03.04(수) 데일리퀘스천 주의사항",
+    date: "2026.03.04",
+    description: "앱 삭제/기기 변경 시 기록이 사라질 수 있습니다.",
+    sortMillis: 1772559600000,
+  );
 
   Stream<List<_NoticeItem>> watchNotices() {
     return FirebaseFirestore.instance
@@ -252,9 +259,15 @@ class _NoticeRepository {
           final List<_NoticeItem> items = snapshot.docs
               .map(_toItem)
               .whereType<_NoticeItem>()
-              .toList(growable: false);
+              .toList(growable: true);
+          final bool hasSameTitle = items.any(
+            (_NoticeItem item) => item.title == _defaultCautionNotice.title,
+          );
+          if (!hasSameTitle) {
+            items.add(_defaultCautionNotice);
+          }
           items.sort((a, b) => b.sortMillis.compareTo(a.sortMillis));
-          return items;
+          return items.toList(growable: false);
         });
   }
 
