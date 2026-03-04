@@ -5,7 +5,6 @@ import "package:flutter/services.dart";
 
 import "../../design_system/design_system.dart";
 import "nickname_complete_screen.dart";
-import "nickname_firestore_service.dart";
 import "user_profile_prefs.dart";
 
 class NicknameSetupScreen extends StatefulWidget {
@@ -28,13 +27,10 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
   static const Color _main500 = Color(0xFF017AF7);
   static const Color _main600 = Color(0xFF0069D6);
   static const Color _main100 = Color(0xFFE9F6FF);
-  static const Duration _checkDebounce = Duration(milliseconds: 120);
 
   final TextEditingController _nicknameController = TextEditingController();
   final FocusNode _nicknameFocusNode = FocusNode();
 
-  Timer? _checkTimer;
-  int _checkSerial = 0;
   bool _isSaving = false;
   _NicknameValidationState _validationState = _NicknameValidationState.idle;
 
@@ -47,30 +43,23 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
       _isKoreanOnly &&
       _nicknameLength >= _minNicknameLength &&
       _nicknameLength <= _maxNicknameLength;
-  bool get _canSave =>
-      _isLocallyValid &&
-      !_isSaving &&
-      _validationState != _NicknameValidationState.taken;
+  bool get _canSave => _isLocallyValid && !_isSaving;
 
   String get _supportingMessage {
     return switch (_validationState) {
       _NicknameValidationState.idle => "한글만 사용할 수 있습니다.",
       _NicknameValidationState.invalidLength => "2자 이상 10자 이내로 작성해 주세요.",
       _NicknameValidationState.invalidCharacter => "한글만 사용할 수 있습니다.",
-      _NicknameValidationState.checking => "사용 가능한 닉네임인지 확인 중입니다.",
-      _NicknameValidationState.taken => "이미 사용 중인 닉네임입니다. 다른 이름을 입력해주세요.",
       _NicknameValidationState.available => "사용 가능한 닉네임입니다.",
-      _NicknameValidationState.unavailable => "닉네임 확인이 원활하지 않습니다. 다시 시도해주세요.",
+      _NicknameValidationState.unavailable => "닉네임 저장이 원활하지 않습니다. 다시 시도해주세요.",
     };
   }
 
   Color get _supportingColor {
     return switch (_validationState) {
       _NicknameValidationState.available => _main500,
-      _NicknameValidationState.checking => AppNeutralColors.grey500,
       _NicknameValidationState.invalidLength ||
       _NicknameValidationState.invalidCharacter ||
-      _NicknameValidationState.taken ||
       _NicknameValidationState.unavailable => AppSemanticColors.error500,
       _NicknameValidationState.idle => AppNeutralColors.grey500,
     };
@@ -79,14 +68,11 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
   Color get _fieldBorderColor {
     if (_validationState == _NicknameValidationState.available ||
         (_nicknameFocusNode.hasFocus &&
-            _validationState == _NicknameValidationState.idle) ||
-        (_nicknameFocusNode.hasFocus &&
-            _validationState == _NicknameValidationState.checking)) {
+            _validationState == _NicknameValidationState.idle)) {
       return _main500;
     }
     if (_validationState == _NicknameValidationState.invalidLength ||
         _validationState == _NicknameValidationState.invalidCharacter ||
-        _validationState == _NicknameValidationState.taken ||
         _validationState == _NicknameValidationState.unavailable) {
       return AppSemanticColors.error500;
     }
@@ -96,7 +82,6 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
   bool get _isErrorState {
     return _validationState == _NicknameValidationState.invalidLength ||
         _validationState == _NicknameValidationState.invalidCharacter ||
-        _validationState == _NicknameValidationState.taken ||
         _validationState == _NicknameValidationState.unavailable;
   }
 
@@ -109,7 +94,6 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
     super.initState();
     _nicknameController.addListener(_onNicknameChanged);
     _nicknameFocusNode.addListener(_onNicknameFocusChanged);
-    unawaited(NicknameFirestoreService.instance.warmUpAuth());
     if (widget.isEditMode) {
       unawaited(_loadInitialNickname());
     }
@@ -117,7 +101,6 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
 
   @override
   void dispose() {
-    _checkTimer?.cancel();
     _nicknameController
       ..removeListener(_onNicknameChanged)
       ..dispose();
@@ -128,22 +111,11 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
   }
 
   void _onNicknameFocusChanged() {
-    if (!_nicknameFocusNode.hasFocus && _isLocallyValid) {
-      _checkTimer?.cancel();
-      _checkSerial += 1;
-      final int serial = _checkSerial;
-      _checkAvailabilityNow(serial, _trimmedNickname);
-    }
     setState(() {});
   }
 
   void _onNicknameChanged() {
-    _checkTimer?.cancel();
-    _checkSerial += 1;
     _runLocalValidation();
-    if (_isLocallyValid) {
-      _scheduleRemoteCheck(_checkSerial);
-    }
     setState(() {});
   }
 
@@ -161,40 +133,7 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
       _validationState = _NicknameValidationState.invalidLength;
       return;
     }
-    _validationState = _NicknameValidationState.checking;
-  }
-
-  void _scheduleRemoteCheck(int serial) {
-    final String requestedNickname = _trimmedNickname;
-    _checkTimer = Timer(_checkDebounce, () async {
-      _checkAvailabilityNow(serial, requestedNickname);
-    });
-  }
-
-  Future<void> _checkAvailabilityNow(
-    int serial,
-    String requestedNickname,
-  ) async {
-    if (!mounted || !_isLocallyValid || requestedNickname != _trimmedNickname) {
-      return;
-    }
-    final NicknameCheckResult result = await NicknameFirestoreService.instance
-        .checkAvailability(requestedNickname);
-    if (!mounted ||
-        serial != _checkSerial ||
-        requestedNickname != _trimmedNickname ||
-        !_isLocallyValid) {
-      return;
-    }
-    setState(() {
-      _validationState = switch (result.state) {
-        NicknameCheckState.available => _NicknameValidationState.available,
-        NicknameCheckState.duplicate => _NicknameValidationState.taken,
-        // 사전 중복확인 실패는 일시적인 네트워크 문제일 수 있어
-        // 사용자에게 오류를 고정 노출하지 않고 저장 시점에서 재검증한다.
-        NicknameCheckState.unavailable => _NicknameValidationState.idle,
-      };
-    });
+    _validationState = _NicknameValidationState.available;
   }
 
   Future<void> _saveNickname() async {
@@ -206,31 +145,18 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
       _isSaving = true;
     });
 
-    final NicknameReservationResult reservation = await NicknameFirestoreService
-        .instance
-        .reserveAndSave(_trimmedNickname);
-
-    if (!mounted) {
-      return;
-    }
-
-    if (reservation.isDuplicate) {
-      setState(() {
-        _isSaving = false;
-        _validationState = _NicknameValidationState.taken;
-      });
-      return;
-    }
-
-    if (!reservation.success) {
+    try {
+      await UserProfilePrefs.setNickname(_trimmedNickname);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _isSaving = false;
         _validationState = _NicknameValidationState.unavailable;
       });
       return;
     }
-
-    await UserProfilePrefs.setNickname(_trimmedNickname);
     if (!mounted) {
       return;
     }
@@ -490,8 +416,6 @@ enum _NicknameValidationState {
   idle,
   invalidLength,
   invalidCharacter,
-  checking,
-  taken,
   available,
   unavailable,
 }
