@@ -31,7 +31,6 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
 
   bool get _canSubmit =>
       !_isSubmitting && _messageController.text.trim().isNotEmpty;
-  bool get _hasMessage => _messageController.text.trim().isNotEmpty;
   bool get _hasEmail => _emailController.text.trim().isNotEmpty;
 
   bool get _isEmailValid {
@@ -115,11 +114,9 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                   ),
                   const SizedBox(height: AppSpacing.s20),
                   ..._categoryOptions.map((String option) {
-                    return AppDropdownItem(
+                    return AppBottomSheetListItem(
                       label: option,
-                      state: option == _selectedCategory
-                          ? AppDropdownItemState.selected
-                          : AppDropdownItemState.defaultState,
+                      selected: option == _selectedCategory,
                       onTap: () => Navigator.of(sheetContext).pop(option),
                     );
                   }),
@@ -276,9 +273,37 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      AppSelectField(
-                        text: _selectedCategory,
+                      InkWell(
                         onTap: _openCategorySheet,
+                        borderRadius: BorderRadius.circular(AppSpacing.s8),
+                        child: Container(
+                          width: AppInputTokens.fieldWidth,
+                          height: AppSpacing.s56,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s20,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppNeutralColors.white,
+                            borderRadius: BorderRadius.circular(AppSpacing.s8),
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  _selectedCategory,
+                                  style: AppTypography.bodyMediumMedium.copyWith(
+                                    color: AppNeutralColors.grey900,
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.keyboard_arrow_up,
+                                size: AppSpacing.s24,
+                                color: AppNeutralColors.grey900,
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                       const SizedBox(height: AppSpacing.s8),
                       SizedBox(
@@ -288,12 +313,8 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                           focusNode: _messageFocusNode,
                           height: AppInputTokens.textAreaBottomSheetHeight,
                           hintText: "무엇이든 가볍게 적어보세요",
-                          backgroundColor: _hasMessage
-                              ? AppNeutralColors.white
-                              : AppNeutralColors.grey50,
-                          borderColor: _hasMessage
-                              ? AppNeutralColors.grey300
-                              : Colors.transparent,
+                          backgroundColor: AppNeutralColors.white,
+                          borderColor: Colors.transparent,
                         ),
                       ),
                     ],
@@ -321,9 +342,7 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                           border: Border.all(
                             color: _showEmailError
                                 ? AppSemanticColors.error500
-                                : (_hasEmail && _isEmailValid
-                                      ? brand.c500
-                                      : AppNeutralColors.grey300),
+                                : Colors.transparent,
                           ),
                         ),
                         alignment: Alignment.centerLeft,
@@ -343,7 +362,7 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                                 keyboardType: TextInputType.emailAddress,
                                 textInputAction: TextInputAction.done,
                                 cursorColor: AppNeutralColors.grey900,
-                                style: AppTypography.bodyMediumMedium.copyWith(
+                                style: AppTypography.bodySmallMedium.copyWith(
                                   color: AppNeutralColors.grey900,
                                   decoration: TextDecoration.none,
                                   decorationColor: Colors.transparent,
@@ -351,7 +370,7 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                                 decoration: InputDecoration(
                                   isCollapsed: true,
                                   hintText: "Daily@question.com",
-                                  hintStyle: AppTypography.bodyMediumMedium
+                                  hintStyle: AppTypography.bodySmallMedium
                                       .copyWith(
                                         color: AppNeutralColors.grey400,
                                       ),
@@ -364,12 +383,6 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                                 ),
                               ),
                             ),
-                            if (_hasEmail && _isEmailValid)
-                              Icon(
-                                Icons.check,
-                                size: AppSpacing.s24,
-                                color: brand.c500,
-                              ),
                           ],
                         ),
                       ),
@@ -383,27 +396,21 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                             Icon(
                               _showEmailError
                                   ? Icons.error_outline
-                                  : (_hasEmail && _isEmailValid
-                                        ? Icons.check
-                                        : Icons.error_outline),
+                                  : Icons.error_outline,
                               size: AppSpacing.s20,
                               color: _showEmailError
                                   ? AppSemanticColors.error500
-                                  : (_hasEmail && _isEmailValid
-                                        ? brand.c500
-                                        : AppNeutralColors.grey500),
+                                  : AppNeutralColors.grey500,
                             ),
                             const SizedBox(width: AppSpacing.s4),
                             Text(
                               _showEmailError
                                   ? "이메일 형식이 올바르지 않아요"
-                                  : "답변이 필요하시면 아래 이메일로 연락드릴게요",
+                                  : "답변이 필요하시면 입력해 주세요",
                               style: AppTypography.captionSmall.copyWith(
                                 color: _showEmailError
                                     ? AppSemanticColors.error500
-                                    : (_hasEmail && _isEmailValid
-                                          ? brand.c500
-                                          : AppNeutralColors.grey500),
+                                    : AppNeutralColors.grey500,
                               ),
                             ),
                           ],

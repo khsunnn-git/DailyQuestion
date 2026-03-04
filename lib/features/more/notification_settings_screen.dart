@@ -359,7 +359,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       backgroundColor: Colors.transparent,
       barrierColor: AppPopupTokens.dimmed,
       builder: (BuildContext sheetContext) {
-        final BrandScale brand = sheetContext.appBrandScale;
         final double bottomInset = MediaQuery.viewPaddingOf(
           sheetContext,
         ).bottom;
@@ -397,40 +396,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 ),
                 const SizedBox(height: AppSpacing.s20),
                 ...options.map((int value) {
-                  final bool isSelected = value == selectedValue;
-                  return Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => Navigator.of(sheetContext).pop(value),
-                      borderRadius: BorderRadius.circular(AppSpacing.s8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s8,
-                          vertical: AppSpacing.s12,
-                        ),
-                        child: Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: Text(
-                                "$value일 전",
-                                style: AppTypography.bodyMediumSemiBold
-                                    .copyWith(
-                                      color: isSelected
-                                          ? brand.c500
-                                          : AppNeutralColors.grey900,
-                                    ),
-                              ),
-                            ),
-                            if (isSelected)
-                              Icon(
-                                Icons.check,
-                                size: AppSpacing.s24,
-                                color: brand.c500,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  return AppBottomSheetListItem(
+                    label: "$value일 전",
+                    selected: value == selectedValue,
+                    onTap: () => Navigator.of(sheetContext).pop(value),
                   );
                 }),
               ],

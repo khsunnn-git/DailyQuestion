@@ -533,19 +533,11 @@ class _FullRecordCard extends StatefulWidget {
 
 class _FullRecordCardState extends State<_FullRecordCard> {
   final _UserReportRepository _reportRepository = _UserReportRepository();
-  bool _showMoreMenu = false;
   _RecordMenuAction? _selectedAction;
-
-  void _toggleMoreMenu() {
-    setState(() {
-      _showMoreMenu = !_showMoreMenu;
-    });
-  }
 
   Future<void> _selectAction(_RecordMenuAction action) async {
     setState(() {
       _selectedAction = action;
-      _showMoreMenu = false;
     });
     if (action == _RecordMenuAction.report) {
       await _openReportBottomSheet();
@@ -558,6 +550,90 @@ class _FullRecordCardState extends State<_FullRecordCard> {
     if (action == _RecordMenuAction.block) {
       await _openBlockBottomSheet();
     }
+  }
+
+  Future<void> _openActionListBottomSheet() async {
+    final _RecordMenuAction? action = await showModalBottomSheet<
+      _RecordMenuAction
+    >(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: AppPopupTokens.dimmed,
+      elevation: 0,
+      builder: (BuildContext sheetContext) {
+        final double keyboardInset = MediaQuery.viewInsetsOf(sheetContext)
+            .bottom;
+        final double bottomInset = MediaQuery.viewPaddingOf(sheetContext).bottom;
+        final double safeBottomPadding =
+            (bottomInset + AppSpacing.s24) < AppSpacing.s48
+            ? AppSpacing.s48
+            : (bottomInset + AppSpacing.s24);
+
+        return DecoratedBox(
+          decoration: const BoxDecoration(
+            color: AppNeutralColors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            boxShadow: AppPopupTokens.bottomSheetShadow,
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.s24,
+              AppSpacing.s20,
+              AppSpacing.s24,
+              safeBottomPadding + keyboardInset,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppNeutralColors.grey300,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s16),
+                Text(
+                  "작업 선택",
+                  style: AppTypography.headingXSmall.copyWith(
+                    color: AppNeutralColors.grey900,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s12),
+                AppBottomSheetListItem(
+                  label: "신고",
+                  selected: _selectedAction == _RecordMenuAction.report,
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_RecordMenuAction.report),
+                ),
+                AppBottomSheetListItem(
+                  label: "숨김",
+                  selected: _selectedAction == _RecordMenuAction.hide,
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_RecordMenuAction.hide),
+                ),
+                AppBottomSheetListItem(
+                  label: "차단",
+                  selected: _selectedAction == _RecordMenuAction.block,
+                  onTap: () =>
+                      Navigator.of(sheetContext).pop(_RecordMenuAction.block),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (action == null || !mounted) {
+      return;
+    }
+    await _selectAction(action);
   }
 
   Future<void> _openHideBottomSheet() async {
@@ -665,57 +741,30 @@ class _FullRecordCardState extends State<_FullRecordCard> {
   }
 
   Future<void> _openBlockBottomSheet() async {
-    final bool? confirmed = await showModalBottomSheet<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
-      useSafeArea: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      barrierDismissible: true,
       barrierColor: AppPopupTokens.dimmed,
-      elevation: 0,
-      builder: (BuildContext sheetContext) {
+      builder: (BuildContext dialogContext) {
         final AppButtonMetrics buttonMetrics = AppButtonTokens.metrics(
           AppButtonSize.large,
         );
-        final double keyboardInset = MediaQuery.viewInsetsOf(
-          sheetContext,
-        ).bottom;
-        final double bottomInset = MediaQuery.viewPaddingOf(
-          sheetContext,
-        ).bottom;
-        final double safeBottomPadding =
-            (bottomInset + AppSpacing.s24) < AppSpacing.s48
-            ? AppSpacing.s48
-            : (bottomInset + AppSpacing.s24);
-        final BrandScale brand = sheetContext.appBrandScale;
+        final BrandScale brand = dialogContext.appBrandScale;
 
-        return DecoratedBox(
-          decoration: const BoxDecoration(
-            color: AppNeutralColors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            boxShadow: AppPopupTokens.bottomSheetShadow,
-          ),
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.s24,
-              AppSpacing.s24,
-              AppSpacing.s24,
-              safeBottomPadding + keyboardInset,
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.s24),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppNeutralColors.white,
+              borderRadius: BorderRadius.circular(AppSpacing.s16),
             ),
+            padding: const EdgeInsets.all(AppSpacing.s24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Center(
-                  child: Container(
-                    width: 48,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: AppNeutralColors.grey300,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.s20),
                 Text(
                   "이 사용자를 차단하시겠어요?",
                   style: AppTypography.headingSmall.copyWith(
@@ -736,8 +785,7 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                     children: <Widget>[
                       Expanded(
                         child: FilledButton(
-                          onPressed: () =>
-                              Navigator.of(sheetContext).pop(false),
+                          onPressed: () => Navigator.of(dialogContext).pop(false),
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
                             backgroundColor: AppNeutralColors.grey100,
@@ -759,7 +807,7 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                       const SizedBox(width: AppSpacing.s8),
                       Expanded(
                         child: FilledButton(
-                          onPressed: () => Navigator.of(sheetContext).pop(true),
+                          onPressed: () => Navigator.of(dialogContext).pop(true),
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
                             backgroundColor: brand.c500,
@@ -993,120 +1041,69 @@ class _FullRecordCardState extends State<_FullRecordCard> {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return TapRegion(
-      onTapOutside: (_) {
-        if (_showMoreMenu) {
-          setState(() {
-            _showMoreMenu = false;
-          });
-        }
-      },
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: AppSpacing.s16),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.s32,
-          vertical: AppSpacing.s24,
-        ),
-        decoration: BoxDecoration(
-          color: AppNeutralColors.white,
-          borderRadius: AppRadius.br16,
-          boxShadow: AppElevation.level1,
-        ),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: AppSpacing.s16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s32,
+        vertical: AppSpacing.s24,
+      ),
+      decoration: BoxDecoration(
+        color: AppNeutralColors.white,
+        borderRadius: AppRadius.br16,
+        boxShadow: AppElevation.level1,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          SizedBox(
+            width: double.infinity,
+            child: Text(
+              widget.item.body,
+              textAlign: TextAlign.center,
+              style: AppTypography.bodyMediumMedium.copyWith(
+                color: AppNeutralColors.grey900,
+                height: 1.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s16),
+          SizedBox(
+            width: double.infinity,
+            child: Row(
               children: <Widget>[
-                SizedBox(
-                  width: double.infinity,
-                  child: Text(
-                    widget.item.body,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodyMediumMedium.copyWith(
-                      color: AppNeutralColors.grey900,
-                      height: 1.5,
+                Semantics(
+                  button: true,
+                  label: "더보기",
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (_) => _openActionListBottomSheet(),
+                    child: const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Icon(
+                        Icons.more_horiz,
+                        size: 24,
+                        color: AppNeutralColors.grey500,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.s16),
-                SizedBox(
-                  width: double.infinity,
-                  child: Row(
-                    children: <Widget>[
-                      Semantics(
-                        button: true,
-                        label: "더보기",
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapDown: (_) => _toggleMoreMenu(),
-                          child: const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: Icon(
-                              Icons.more_horiz,
-                              size: 24,
-                              color: AppNeutralColors.grey500,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          widget.item.author,
-                          textAlign: TextAlign.center,
-                          style: AppTypography.bodySmallSemiBold.copyWith(
-                            color: brand.c500,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                    ],
+                Expanded(
+                  child: Text(
+                    widget.item.author,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodySmallSemiBold.copyWith(
+                      color: brand.c500,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 24),
               ],
             ),
-            if (_showMoreMenu)
-              Positioned(
-                left: 12,
-                bottom: 0,
-                child: AppDropdownMenu(
-                  size: AppDropdownMenuSize.lg,
-                  items: <AppDropdownItem>[
-                    AppDropdownItem(
-                      label: "신고",
-                      state: _selectedAction == _RecordMenuAction.report
-                          ? AppDropdownItemState.selected
-                          : AppDropdownItemState.defaultState,
-                      onTap: () {
-                        _selectAction(_RecordMenuAction.report);
-                      },
-                    ),
-                    AppDropdownItem(
-                      label: "숨김",
-                      state: _selectedAction == _RecordMenuAction.hide
-                          ? AppDropdownItemState.selected
-                          : AppDropdownItemState.defaultState,
-                      onTap: () {
-                        _selectAction(_RecordMenuAction.hide);
-                      },
-                    ),
-                    AppDropdownItem(
-                      label: "차단",
-                      state: _selectedAction == _RecordMenuAction.block
-                          ? AppDropdownItemState.selected
-                          : AppDropdownItemState.defaultState,
-                      onTap: () {
-                        _selectAction(_RecordMenuAction.block);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
