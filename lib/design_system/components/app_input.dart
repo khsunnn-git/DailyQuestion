@@ -252,6 +252,10 @@ class AppEditableTextArea extends StatefulWidget {
     this.enableSuggestions = true,
     this.backgroundColor,
     this.borderColor,
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: AppSpacing.s16,
+      vertical: AppSpacing.s12,
+    ),
   });
 
   final TextEditingController controller;
@@ -263,6 +267,7 @@ class AppEditableTextArea extends StatefulWidget {
   final bool enableSuggestions;
   final Color? backgroundColor;
   final Color? borderColor;
+  final EdgeInsets contentPadding;
 
   @override
   State<AppEditableTextArea> createState() => _AppEditableTextAreaState();
@@ -304,10 +309,7 @@ class _AppEditableTextAreaState extends State<AppEditableTextArea> {
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOut,
         height: widget.height,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.s16,
-          vertical: AppSpacing.s12,
-        ),
+        padding: widget.contentPadding,
         decoration: BoxDecoration(
           color: widget.enabled
               ? (widget.backgroundColor ?? AppNeutralColors.white)

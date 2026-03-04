@@ -20,12 +20,15 @@ class AppDropdownItem extends StatefulWidget {
 
 class _AppDropdownItemState extends State<AppDropdownItem> {
   bool _isHovered = false;
+  bool _isPressed = false;
 
   AppDropdownItemState get _effectiveState {
     if (widget.state == AppDropdownItemState.selected) {
       return AppDropdownItemState.selected;
     }
-    if (_isHovered || widget.state == AppDropdownItemState.hovered) {
+    if (_isPressed ||
+        _isHovered ||
+        widget.state == AppDropdownItemState.hovered) {
       return AppDropdownItemState.hovered;
     }
     return AppDropdownItemState.defaultState;
@@ -45,9 +48,18 @@ class _AppDropdownItemState extends State<AppDropdownItem> {
       }),
       child: InkWell(
         onTap: widget.onTap,
-        hoverColor: Colors.transparent,
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
+        onTapDown: (_) => setState(() {
+          _isPressed = true;
+        }),
+        onTapCancel: () => setState(() {
+          _isPressed = false;
+        }),
+        onTapUp: (_) => setState(() {
+          _isPressed = false;
+        }),
+        hoverColor: AppDropdownTokens.hoveredBackground,
+        splashColor: AppDropdownTokens.hoveredBackground,
+        highlightColor: AppDropdownTokens.hoveredBackground,
         child: Container(
           height: AppDropdownTokens.itemHeight,
           padding: AppDropdownTokens.itemPadding,
