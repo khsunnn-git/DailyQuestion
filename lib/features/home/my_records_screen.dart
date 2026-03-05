@@ -3105,6 +3105,9 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
       return null;
     }
     value = value.toLowerCase();
+    if (value.startsWith("같")) {
+      return null;
+    }
     for (final String suffix in _josaSuffixes) {
       if (value.length > suffix.length + 1 && value.endsWith(suffix)) {
         value = value.substring(0, value.length - suffix.length);
