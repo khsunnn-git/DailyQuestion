@@ -1283,9 +1283,13 @@ class _TodayRecordSection extends StatefulWidget {
 }
 
 class _TodayRecordSectionState extends State<_TodayRecordSection> {
+  static const double _recordCardWidth = 350;
+  static const double _recordCardGap = 12;
   String _todayKey = kstDateKeyNow();
 
   Timer? _dateRefreshTimer;
+  PageController? _pageController;
+  double? _lastViewportFraction;
 
   @override
   void initState() {
@@ -1307,7 +1311,26 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
   @override
   void dispose() {
     _dateRefreshTimer?.cancel();
+    _pageController?.dispose();
     super.dispose();
+  }
+
+  PageController _resolveController(double viewportFraction) {
+    final bool shouldRecreate =
+        _pageController == null || _lastViewportFraction != viewportFraction;
+    if (!shouldRecreate) {
+      return _pageController!;
+    }
+    final int initialPage = _pageController?.hasClients == true
+        ? (_pageController!.page?.round() ?? _pageController!.initialPage)
+        : (_pageController?.initialPage ?? 0);
+    _pageController?.dispose();
+    _pageController = PageController(
+      initialPage: initialPage,
+      viewportFraction: viewportFraction,
+    );
+    _lastViewportFraction = viewportFraction;
+    return _pageController!;
   }
 
   @override
@@ -1380,14 +1403,17 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
                                   BuildContext context,
                                   BoxConstraints constraints,
                                 ) {
-                                  final double listWidth =
-                                      constraints.maxWidth + AppSpacing.s20;
+                                  final double listWidth = constraints.maxWidth;
+                                  final double viewportFraction =
+                                      ((_recordCardWidth + _recordCardGap) /
+                                              listWidth)
+                                          .clamp(0.0, 1.0);
+                                  final PageController controller =
+                                      _resolveController(viewportFraction);
                                   return SizedBox(
                                     height: 160,
-                                    child: OverflowBox(
-                                      alignment: Alignment.topLeft,
-                                      minWidth: listWidth,
-                                      maxWidth: listWidth,
+                                    child: SizedBox(
+                                      width: listWidth,
                                       child: SizedBox(
                                         width: listWidth,
                                         child: ScrollConfiguration(
@@ -1404,31 +1430,37 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
                                                               .trackpad,
                                                           PointerDeviceKind
                                                               .stylus,
-                                                          PointerDeviceKind
-                                                              .invertedStylus,
+                                                  PointerDeviceKind
+                                                      .invertedStylus,
                                                         },
                                                   ),
-                                          child: ListView.separated(
+                                          child: PageView.builder(
+                                            controller: controller,
                                             scrollDirection: Axis.horizontal,
                                             physics:
                                                 const ClampingScrollPhysics(),
-                                            padding: const EdgeInsets.symmetric(
-                                              vertical: 3,
-                                            ),
                                             clipBehavior: Clip.none,
-                                            itemBuilder: (context, index) =>
-                                                _TodayRecordCard(
-                                                  record: records[index],
-                                                  width: records.length == 1
-                                                      ? 350
-                                                      : 320,
-                                                ),
-                                            separatorBuilder:
-                                                (context, index) =>
-                                                    const SizedBox(
-                                                      width: AppSpacing.s8,
-                                                    ),
+                                            padEnds: true,
                                             itemCount: records.length,
+                                            itemBuilder:
+                                                (
+                                                  BuildContext context,
+                                                  int index,
+                                                ) => Padding(
+                                                  padding: EdgeInsets.only(
+                                                    top: 3,
+                                                    bottom: 3,
+                                                    right:
+                                                        index ==
+                                                            records.length - 1
+                                                        ? 0
+                                                        : _recordCardGap,
+                                                  ),
+                                                  child: _TodayRecordCard(
+                                                  record: records[index],
+                                                  width: _recordCardWidth,
+                                                ),
+                                              ),
                                           ),
                                         ),
                                       ),

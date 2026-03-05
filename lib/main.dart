@@ -11,7 +11,7 @@ import "features/splash/splash_screen.dart";
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initializeFirebaseSafely();
-  await initializeAppDependencies();
+  await _initializeAppDependenciesSafely();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -26,6 +26,17 @@ Future<void> main() async {
     ),
   );
   runApp(const DailyQuestionApp());
+}
+
+Future<void> _initializeAppDependenciesSafely() async {
+  try {
+    await initializeAppDependencies().timeout(const Duration(seconds: 4));
+  } catch (error, stackTrace) {
+    if (kDebugMode) {
+      debugPrint("[main] initializeAppDependencies failed: $error");
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
 }
 
 Future<void> _initializeFirebaseSafely() async {

@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:flutter_timezone/flutter_timezone.dart";
 import "package:isar/isar.dart";
@@ -103,16 +105,20 @@ Future<void> _ensureInitialized() async {
 
   await _notifications.initialize(initializationSettings);
 
-  await _notifications
-      .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin
-      >()
-      ?.requestNotificationsPermission();
-  await _notifications
-      .resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin
-      >()
-      ?.requestPermissions(alert: true, badge: true, sound: false);
+  unawaited(
+    _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestNotificationsPermission(),
+  );
+  unawaited(
+    _notifications
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >()
+        ?.requestPermissions(alert: true, badge: true, sound: false),
+  );
 
   _initialized = true;
 }
