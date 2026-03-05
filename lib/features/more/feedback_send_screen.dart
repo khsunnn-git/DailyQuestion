@@ -1,6 +1,7 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
+import "dart:math" as math;
 
 import "../../design_system/design_system.dart";
 
@@ -12,6 +13,7 @@ class FeedbackSendScreen extends StatefulWidget {
 }
 
 class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
+  static const double _screenWidth = 390;
   static const List<String> _categoryOptions = <String>[
     "기타",
     "버그 문제",
@@ -188,62 +190,69 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
       barrierDismissible: false,
       barrierColor: AppPopupTokens.dimmed,
       builder: (BuildContext dialogContext) {
-        return Center(
-          child: Container(
-            width: 300,
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.s20,
-              AppSpacing.s32,
-              AppSpacing.s20,
-              AppSpacing.s20,
-            ),
-            decoration: BoxDecoration(
-              color: AppNeutralColors.white,
-              borderRadius: BorderRadius.circular(AppSpacing.s24),
-              boxShadow: AppPopupTokens.shadow,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.s16,
-                  ),
-                  child: Text(
-                    "의견 보내기가\n완료되었습니다.",
-                    style: AppTypography.headingSmall.copyWith(
-                      color: AppNeutralColors.grey900,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.s28),
-                SizedBox(
-                  height: AppSpacing.s56,
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: brand.c500,
-                      foregroundColor: AppNeutralColors.white,
-                      disabledBackgroundColor: brand.c300,
-                      disabledForegroundColor: brand.c100,
-                      surfaceTintColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppSpacing.s8),
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 300),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.s20,
+                AppSpacing.s32,
+                AppSpacing.s20,
+                AppSpacing.s20,
+              ),
+              decoration: BoxDecoration(
+                color: AppNeutralColors.white,
+                borderRadius: BorderRadius.circular(AppSpacing.s24),
+                boxShadow: AppPopupTokens.shadow,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.s16,
                       ),
-                      textStyle: AppTypography.buttonLarge,
-                    ),
-                    child: Text(
-                      "확인",
-                      style: AppTypography.buttonLarge.copyWith(
-                        color: AppNeutralColors.white,
-                        decoration: TextDecoration.none,
+                      child: Text(
+                        "의견 보내기가\n완료되었습니다.",
+                        style: AppTypography.headingSmall.copyWith(
+                          color: AppNeutralColors.grey900,
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: AppSpacing.s28),
+                    SizedBox(
+                      height: AppSpacing.s56,
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: brand.c500,
+                          foregroundColor: AppNeutralColors.white,
+                          disabledBackgroundColor: brand.c300,
+                          disabledForegroundColor: brand.c100,
+                          surfaceTintColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.s8),
+                          ),
+                          textStyle: AppTypography.buttonLarge,
+                        ),
+                        child: Text(
+                          "확인",
+                          style: AppTypography.buttonLarge.copyWith(
+                            color: AppNeutralColors.white,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         );
@@ -255,253 +264,249 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
+    final double rawWidth = MediaQuery.sizeOf(context).width;
+    final double frameWidth = rawWidth <= 0 ? _screenWidth : math.min(_screenWidth, rawWidth);
     return Scaffold(
       backgroundColor: brand.bg,
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.s20,
-                146,
-                AppSpacing.s20,
-                180,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: frameWidth,
+            child: Column(
+              children: <Widget>[
+                const SizedBox(height: AppHeaderTokens.topInset),
+                Padding(
+                  padding: const EdgeInsets.all(AppSpacing.s20),
+                  child: Row(
                     children: <Widget>[
-                      InkWell(
-                        onTap: _openCategorySheet,
-                        borderRadius: BorderRadius.circular(AppSpacing.s8),
-                        child: Container(
-                          width: AppInputTokens.fieldWidth,
-                          height: AppSpacing.s56,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s20,
+                      SizedBox(
+                        width: AppSpacing.s24,
+                        height: AppSpacing.s24,
+                        child: IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: AppSpacing.s24,
+                            height: AppSpacing.s24,
                           ),
-                          decoration: BoxDecoration(
-                            color: AppNeutralColors.white,
-                            borderRadius: BorderRadius.circular(AppSpacing.s8),
-                          ),
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  _selectedCategory,
-                                  style: AppTypography.bodyMediumMedium.copyWith(
-                                    color: AppNeutralColors.grey900,
-                                  ),
-                                ),
-                              ),
-                              const Icon(
-                                Icons.keyboard_arrow_up,
-                                size: AppSpacing.s24,
-                                color: AppNeutralColors.grey900,
-                              ),
-                            ],
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            size: AppSpacing.s24,
+                            color: AppNeutralColors.grey900,
                           ),
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.s8),
-                      SizedBox(
-                        width: AppInputTokens.fieldWidth,
-                        child: AppEditableTextArea(
+                      Expanded(
+                        child: Text(
+                          "의견 보내기",
+                          textAlign: TextAlign.center,
+                          style: AppTypography.headingXSmall.copyWith(
+                            color: AppNeutralColors.grey900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s12),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.s20,
+                      AppSpacing.s0,
+                      AppSpacing.s20,
+                      180,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        InkWell(
+                          onTap: _openCategorySheet,
+                          borderRadius: BorderRadius.circular(AppSpacing.s8),
+                          child: Container(
+                            width: double.infinity,
+                            height: AppSpacing.s56,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s20,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppNeutralColors.white,
+                              borderRadius: BorderRadius.circular(AppSpacing.s8),
+                              border: Border.all(color: brand.c300),
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Text(
+                                    _selectedCategory,
+                                    style: AppTypography.bodyMediumMedium.copyWith(
+                                      color: AppNeutralColors.grey900,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.keyboard_arrow_up,
+                                  size: AppSpacing.s24,
+                                  color: AppNeutralColors.grey900,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.s8),
+                        AppEditableTextArea(
                           controller: _messageController,
                           focusNode: _messageFocusNode,
                           height: AppInputTokens.textAreaBottomSheetHeight,
                           hintText: "무엇이든 가볍게 적어보세요",
                           backgroundColor: AppNeutralColors.white,
-                          borderColor: Colors.transparent,
+                          borderColor: brand.c300,
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.s24),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        "이메일(선택)",
-                        style: AppTypography.captionMedium.copyWith(
-                          color: AppNeutralColors.grey900,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.s6),
-                      Container(
-                        width: AppInputTokens.fieldWidth,
-                        height: AppSpacing.s48,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppNeutralColors.white,
-                          borderRadius: BorderRadius.circular(AppSpacing.s8),
-                          border: Border.all(
-                            color: _showEmailError
-                                ? AppSemanticColors.error500
-                                : Colors.transparent,
+                        const SizedBox(height: AppSpacing.s24),
+                        Text(
+                          "이메일(선택)",
+                          style: AppTypography.captionMedium.copyWith(
+                            color: AppNeutralColors.grey900,
                           ),
                         ),
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: TextField(
-                                controller: _emailController,
-                                focusNode: _emailFocusNode,
-                                onTap: () {
-                                  if (!_emailDirty) {
-                                    setState(() {
-                                      _emailDirty = true;
-                                    });
-                                  }
-                                },
-                                keyboardType: TextInputType.emailAddress,
-                                textInputAction: TextInputAction.done,
-                                cursorColor: AppNeutralColors.grey900,
-                                style: AppTypography.bodySmallMedium.copyWith(
-                                  color: AppNeutralColors.grey900,
-                                  decoration: TextDecoration.none,
-                                  decorationColor: Colors.transparent,
-                                ),
-                                decoration: InputDecoration(
-                                  isCollapsed: true,
-                                  hintText: "Daily@question.com",
-                                  hintStyle: AppTypography.bodySmallMedium
-                                      .copyWith(
-                                        color: AppNeutralColors.grey400,
-                                      ),
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  errorBorder: InputBorder.none,
-                                  focusedErrorBorder: InputBorder.none,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.s4),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s12,
-                        ),
-                        child: Row(
-                          children: <Widget>[
-                            Icon(
-                              _showEmailError
-                                  ? Icons.error_outline
-                                  : Icons.error_outline,
-                              size: AppSpacing.s20,
+                        const SizedBox(height: AppSpacing.s6),
+                        Container(
+                          width: double.infinity,
+                          height: AppSpacing.s48,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s16,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppNeutralColors.white,
+                            borderRadius: BorderRadius.circular(AppSpacing.s8),
+                            border: Border.all(
                               color: _showEmailError
                                   ? AppSemanticColors.error500
-                                  : AppNeutralColors.grey500,
+                                  : brand.c300,
                             ),
-                            const SizedBox(width: AppSpacing.s4),
-                            Text(
-                              _showEmailError
-                                  ? "이메일 형식이 올바르지 않아요"
-                                  : "답변이 필요하시면 입력해 주세요",
-                              style: AppTypography.captionSmall.copyWith(
+                          ),
+                          alignment: Alignment.centerLeft,
+                          child: TextField(
+                            controller: _emailController,
+                            focusNode: _emailFocusNode,
+                            textAlignVertical: TextAlignVertical.center,
+                            onTap: () {
+                              if (!_emailDirty) {
+                                setState(() {
+                                  _emailDirty = true;
+                                });
+                              }
+                            },
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.done,
+                            cursorColor: AppNeutralColors.grey900,
+                            style: AppTypography.bodySmallMedium.copyWith(
+                              color: AppNeutralColors.grey900,
+                              decoration: TextDecoration.none,
+                              decorationColor: Colors.transparent,
+                            ),
+                            decoration: InputDecoration(
+                              isDense: true,
+                              isCollapsed: true,
+                              contentPadding: EdgeInsets.zero,
+                              hintText: "Daily@question.com",
+                              hintStyle: AppTypography.bodySmallMedium.copyWith(
+                                color: AppNeutralColors.grey300,
+                              ),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.s4),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s12,
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              Icon(
+                                Icons.error_outline,
+                                size: AppSpacing.s20,
                                 color: _showEmailError
                                     ? AppSemanticColors.error500
-                                    : AppNeutralColors.grey500,
+                                    : AppNeutralColors.grey300,
+                              ),
+                              const SizedBox(width: AppSpacing.s4),
+                              Text(
+                                _showEmailError
+                                    ? "이메일 형식이 올바르지 않아요"
+                                    : "답변이 필요하시면 입력해 주세요",
+                                style: AppTypography.captionSmall.copyWith(
+                                  color: _showEmailError
+                                      ? AppSemanticColors.error500
+                                      : AppNeutralColors.grey300,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SafeArea(
+                  minimum: const EdgeInsets.fromLTRB(
+                    AppSpacing.s20,
+                    0,
+                    AppSpacing.s20,
+                    AppSpacing.s20,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: AppSpacing.s56,
+                    child: FilledButton(
+                      onPressed: _canSubmit && _isEmailValid ? _submitFeedback : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: _canSubmit ? brand.c500 : brand.c300,
+                        foregroundColor: _canSubmit
+                            ? AppNeutralColors.white
+                            : brand.c100,
+                        disabledBackgroundColor: brand.c300,
+                        disabledForegroundColor: brand.c100,
+                        surfaceTintColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.s8),
+                        ),
+                        textStyle: AppTypography.buttonLarge,
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              width: AppSpacing.s20,
+                              height: AppSpacing.s20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppNeutralColors.white,
+                              ),
+                            )
+                          : Text(
+                              "의견 보내기",
+                              style: AppTypography.buttonLarge.copyWith(
+                                color: _canSubmit
+                                    ? AppNeutralColors.white
+                                    : brand.c100,
+                                decoration: TextDecoration.none,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: AppHeaderTokens.topInset,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.s20),
-              child: Row(
-                children: <Widget>[
-                  SizedBox(
-                    width: AppSpacing.s24,
-                    height: AppSpacing.s24,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: AppSpacing.s24,
-                        height: AppSpacing.s24,
-                      ),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        size: AppSpacing.s24,
-                        color: AppNeutralColors.grey900,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      "의견 보내기",
-                      textAlign: TextAlign.center,
-                      style: AppTypography.headingXSmall.copyWith(
-                        color: AppNeutralColors.grey900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(
-          AppSpacing.s20,
-          0,
-          AppSpacing.s20,
-          AppSpacing.s20,
-        ),
-        child: SizedBox(
-          height: AppSpacing.s56,
-          child: FilledButton(
-            onPressed: _canSubmit && _isEmailValid ? _submitFeedback : null,
-            style: FilledButton.styleFrom(
-              backgroundColor: _canSubmit ? brand.c500 : brand.c300,
-              foregroundColor: _canSubmit ? AppNeutralColors.white : brand.c100,
-              disabledBackgroundColor: brand.c300,
-              disabledForegroundColor: brand.c100,
-              surfaceTintColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.s8),
-              ),
-              textStyle: AppTypography.buttonLarge,
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    width: AppSpacing.s20,
-                    height: AppSpacing.s20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppNeutralColors.white,
-                    ),
-                  )
-                : Text(
-                    "의견 보내기",
-                    style: AppTypography.buttonLarge.copyWith(
-                      color: _canSubmit ? AppNeutralColors.white : brand.c100,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
           ),
         ),
       ),
