@@ -7,6 +7,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "matgim_keyword_api_client.dart";
 import "../profile/user_profile_prefs.dart";
 import "home_screen.dart";
 import "../more/more_settings_screen.dart";
@@ -1582,8 +1583,8 @@ class _StreakCard extends StatelessWidget {
     }
     if (missingDays == 1) {
       return const _StreakCardCopy(
-        title: "앗,😮\n어제 질문이 비어 있어요!",
-        body: "어제의 질문도 작성하면 연속 기록을\n이어갈 수 있어요!",
+        title: "오늘도 내 생각을 적어볼까요?",
+        body: "하루하루 당신의 생각을 기다리고 있어요! 🥰",
       );
     }
     if (missingDays >= 7) {
@@ -2878,6 +2879,11 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     Color(0xFFB6E2FF),
     Color(0xFFD3EEFF),
   ];
+  static final MatgimKeywordApiClient _keywordApiClient =
+      MatgimKeywordApiClient();
+  static final Map<String, Future<List<_KeywordSlice>>> _remoteSliceCache =
+      <String, Future<List<_KeywordSlice>>>{};
+  static const int _maxCacheEntries = 24;
 
   static const Set<String> _stopWords = <String>{
     "오늘",
@@ -3029,6 +3035,99 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "야",
   ];
 
+  Future<List<_KeywordSlice>> _buildKeywordSlicesWithApi(
+    List<TodayQuestionRecord> records,
+  ) async {
+    final List<_KeywordSlice> localSlices = _buildKeywordSlices(records);
+    if (!_keywordApiClient.isConfigured) {
+      return localSlices;
+    }
+
+    final List<TodayQuestionRecord> monthlyRecords = records
+        .where(
+          (TodayQuestionRecord item) =>
+              item.createdAt.year == selectedYear &&
+              item.createdAt.month == selectedMonth &&
+              (item.answer.trim().isNotEmpty ||
+                  item.bucketTags.any((String tag) => tag.trim().isNotEmpty) ||
+                  (item.bucketTag?.trim().isNotEmpty ?? false)),
+        )
+        .toList(growable: false);
+    if (monthlyRecords.isEmpty) {
+      return localSlices;
+    }
+
+    try {
+      final Map<String, int> remoteMap = await _keywordApiClient.extractFromRecords(
+        monthlyRecords,
+        keywordCount: _sliceColors.length,
+      );
+      if (remoteMap.isEmpty) {
+        return localSlices;
+      }
+      final List<MapEntry<String, int>> sorted = remoteMap.entries.toList()
+        ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
+          if (b.value != a.value) return b.value.compareTo(a.value);
+          return a.key.compareTo(b.key);
+        });
+
+      final Map<String, int> normalizedCounter = <String, int>{};
+      for (final MapEntry<String, int> entry in sorted) {
+        final String? noun = _normalizeNounToken(entry.key);
+        if (noun == null || _stopWords.contains(noun)) {
+          continue;
+        }
+        normalizedCounter[noun] = (normalizedCounter[noun] ?? 0) + entry.value;
+      }
+      if (normalizedCounter.isEmpty) {
+        return localSlices;
+      }
+      final List<MapEntry<String, int>> normalized = normalizedCounter.entries
+          .toList()
+        ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
+          if (b.value != a.value) return b.value.compareTo(a.value);
+          return a.key.compareTo(b.key);
+        });
+
+      final List<_KeywordSlice> remoteSlices = List<_KeywordSlice>.generate(
+        normalized.length > _sliceColors.length
+            ? _sliceColors.length
+            : normalized.length,
+        (int index) {
+          final MapEntry<String, int> item = normalized[index];
+          return _KeywordSlice(
+            label: item.key,
+            count: item.value,
+            color: _sliceColors[index % _sliceColors.length],
+          );
+        },
+      );
+      return remoteSlices.isEmpty ? localSlices : remoteSlices;
+    } catch (_) {
+      return localSlices;
+    }
+  }
+
+  String _signatureForMonthRecords(List<TodayQuestionRecord> records) {
+    final StringBuffer buffer = StringBuffer("$selectedYear-$selectedMonth|");
+    for (final TodayQuestionRecord item in records) {
+      if (item.createdAt.year != selectedYear ||
+          item.createdAt.month != selectedMonth) {
+        continue;
+      }
+      buffer
+        ..write(item.createdAt.millisecondsSinceEpoch)
+        ..write("|")
+        ..write(item.answer.trim())
+        ..write("|")
+        ..write(item.bucketTags.join(","))
+        ..write("|")
+        ..write(item.bucketTag?.trim() ?? "")
+        ..write(";");
+    }
+    return buffer.toString();
+  }
+
   List<_KeywordSlice> _buildKeywordSlices(List<TodayQuestionRecord> records) {
     final Iterable<TodayQuestionRecord> monthlyRecords = records.where(
       (TodayQuestionRecord item) =>
@@ -3145,111 +3244,137 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                   item.answer.trim().isNotEmpty,
             )
             .length;
-        final List<_KeywordSlice> slices = _buildKeywordSlices(records);
-        final bool showNoKeywordDonut =
-            monthlyRecordCount == 0 || slices.isEmpty;
-        final int total = math.max(
-          1,
-          slices.fold(0, (int acc, _KeywordSlice item) => acc + item.count),
-        );
+        final List<_KeywordSlice> localSlices = _buildKeywordSlices(records);
+        final String signature = _signatureForMonthRecords(records);
+        if (_remoteSliceCache.length > _maxCacheEntries &&
+            !_remoteSliceCache.containsKey(signature)) {
+          _remoteSliceCache.clear();
+        }
+        final Future<List<_KeywordSlice>> slicesFuture = _remoteSliceCache
+            .putIfAbsent(
+              signature,
+              () => _buildKeywordSlicesWithApi(records),
+            );
 
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.s24),
-          decoration: BoxDecoration(
-            color: AppNeutralColors.white,
-            borderRadius: AppRadius.br16,
-            boxShadow: AppElevation.level1,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                "$selectedMonth월 키워드",
-                style: AppTypography.headingXSmall.copyWith(
-                  color: AppNeutralColors.grey900,
-                ),
+        return FutureBuilder<List<_KeywordSlice>>(
+          future: slicesFuture,
+          initialData: localSlices,
+          builder: (
+            BuildContext context,
+            AsyncSnapshot<List<_KeywordSlice>> snapshot,
+          ) {
+            final List<_KeywordSlice> slices = snapshot.data ?? localSlices;
+            final bool showNoKeywordDonut =
+                monthlyRecordCount == 0 || slices.isEmpty;
+            final int total = math.max(
+              1,
+              slices.fold(0, (int acc, _KeywordSlice item) => acc + item.count),
+            );
+
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(AppSpacing.s24),
+              decoration: BoxDecoration(
+                color: AppNeutralColors.white,
+                borderRadius: AppRadius.br16,
+                boxShadow: AppElevation.level1,
               ),
-              const SizedBox(height: AppSpacing.s16),
-              if (showNoKeywordDonut)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s24),
-                  child: Column(
-                    children: <Widget>[
-                      Center(
-                        child: SizedBox(
-                          width: 180,
-                          height: 180,
-                          child: CustomPaint(
-                            size: const Size(180, 180),
-                            painter: const _KeywordNoDataDonutPainter(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.s12),
-                      Text(
-                        "아직 분석할 답변이 부족해요",
-                        style: AppTypography.bodyMediumRegular.copyWith(
-                          color: AppNeutralColors.grey500,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else ...<Widget>[
-                Center(
-                  child: SizedBox(
-                    width: 180,
-                    height: 180,
-                    child: CustomPaint(
-                      size: const Size(180, 180),
-                      painter: _KeywordPieChartPainter(slices: slices),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    "$selectedMonth월 키워드",
+                    style: AppTypography.headingXSmall.copyWith(
+                      color: AppNeutralColors.grey900,
                     ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.s16),
-                Column(
-                  children: slices
-                      .map((_KeywordSlice slice) {
-                        final String ratio = ((slice.count / total) * 100)
-                            .toStringAsFixed(0);
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.s4),
-                          child: Row(
-                            children: <Widget>[
-                              Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: slice.color,
-                                  shape: BoxShape.circle,
-                                ),
+                  const SizedBox(height: AppSpacing.s16),
+                  if (showNoKeywordDonut)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.s24,
+                      ),
+                      child: Column(
+                        children: <Widget>[
+                          Center(
+                            child: SizedBox(
+                              width: 180,
+                              height: 180,
+                              child: CustomPaint(
+                                size: const Size(180, 180),
+                                painter: const _KeywordNoDataDonutPainter(),
                               ),
-                              const SizedBox(width: AppSpacing.s4),
-                              Expanded(
-                                child: Text(
-                                  slice.label,
-                                  style: AppTypography.bodySmallRegular
-                                      .copyWith(
-                                        color: AppNeutralColors.grey900,
-                                      ),
-                                ),
-                              ),
-                              Text(
-                                "$ratio%(${slice.count}건)",
-                                style: AppTypography.bodySmallRegular.copyWith(
-                                  color: AppNeutralColors.grey900,
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        );
-                      })
-                      .toList(growable: false),
-                ),
-              ],
-            ],
-          ),
+                          const SizedBox(height: AppSpacing.s12),
+                          Text(
+                            "아직 분석할 답변이 부족해요",
+                            style: AppTypography.bodyMediumRegular.copyWith(
+                              color: AppNeutralColors.grey500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else ...<Widget>[
+                    Center(
+                      child: SizedBox(
+                        width: 180,
+                        height: 180,
+                        child: CustomPaint(
+                          size: const Size(180, 180),
+                          painter: _KeywordPieChartPainter(slices: slices),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s16),
+                    Column(
+                      children: slices
+                          .map((_KeywordSlice slice) {
+                            final String ratio = ((slice.count / total) * 100)
+                                .toStringAsFixed(0);
+                            return Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpacing.s4,
+                              ),
+                              child: Row(
+                                children: <Widget>[
+                                  Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: slice.color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.s4),
+                                  Expanded(
+                                    child: Text(
+                                      slice.label,
+                                      style: AppTypography.bodySmallRegular
+                                          .copyWith(
+                                            color: AppNeutralColors.grey900,
+                                          ),
+                                    ),
+                                  ),
+                                  Text(
+                                    "$ratio%(${slice.count}건)",
+                                    style: AppTypography.bodySmallRegular
+                                        .copyWith(
+                                          color: AppNeutralColors.grey900,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          })
+                          .toList(growable: false),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
         );
       },
     );

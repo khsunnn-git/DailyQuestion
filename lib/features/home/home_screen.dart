@@ -47,13 +47,13 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  static void openTodayRecords(
+  static Future<void> openTodayRecords(
     BuildContext context, {
     String? questionDateKey,
     String? questionText,
     List<PublicTodayRecord> initialRecords = const <PublicTodayRecord>[],
-  }) {
-    Navigator.of(context).push(
+  }) async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => TodayRecordsScreen(
           questionDateKey: questionDateKey,
@@ -1394,15 +1394,21 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
                       children: <Widget>[
                         InkWell(
                           onTap: hasRecords
-                              ? () => HomeScreen.openTodayRecords(
-                                  context,
-                                  questionDateKey: _todayKey,
-                                  questionText: TodayQuestionPromptStore
-                                      .instance
-                                      .value
-                                      .currentQuestionText,
-                                  initialRecords: fetchedRecords,
-                                )
+                              ? () async {
+                                  await HomeScreen.openTodayRecords(
+                                    context,
+                                    questionDateKey: _todayKey,
+                                    questionText: TodayQuestionPromptStore
+                                        .instance
+                                        .value
+                                        .currentQuestionText,
+                                    initialRecords: fetchedRecords,
+                                  );
+                                  if (!mounted) {
+                                    return;
+                                  }
+                                  setState(() {});
+                                }
                               : null,
                           borderRadius: BorderRadius.circular(8),
                           child: Row(
@@ -1648,18 +1654,32 @@ class _TodayMeSection extends StatefulWidget {
   State<_TodayMeSection> createState() => _TodayMeSectionState();
 }
 
-class _TodayMeSectionState extends State<_TodayMeSection> {
+class _TodayMeSectionState extends State<_TodayMeSection>
+    with WidgetsBindingObserver {
   static const double _cardWidth = 350;
   static const double _cardGap = 12;
   static const double _cardShadowInset = 8;
 
   PageController? _pageController;
   double? _lastViewportFraction;
+  Timer? _dateRefreshTimer;
+  String _lastKstDateKey = kstDateKeyNow();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     DailyCheckinStore.instance.initialize();
+    _dateRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _refreshCheckinByDateChange();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshCheckinByDateChange();
+    }
   }
 
   void _showSavedToast() {
@@ -1683,8 +1703,23 @@ class _TodayMeSectionState extends State<_TodayMeSection> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _dateRefreshTimer?.cancel();
     _pageController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshCheckinByDateChange() async {
+    final String currentKey = kstDateKeyNow();
+    if (currentKey == _lastKstDateKey) {
+      return;
+    }
+    _lastKstDateKey = currentKey;
+    await DailyCheckinStore.instance.reloadToday();
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
   }
 
   PageController _resolveController(double viewportFraction) {
