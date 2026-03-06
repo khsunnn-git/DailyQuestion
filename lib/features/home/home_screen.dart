@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
@@ -1285,6 +1286,9 @@ class _TodayRecordSection extends StatefulWidget {
 class _TodayRecordSectionState extends State<_TodayRecordSection> {
   static const double _recordCardWidth = 350;
   static const double _recordCardGap = 12;
+  static const String _hiddenRecordsPrefsKey =
+      "today_records_hidden_record_ids";
+  static const String _blockedAuthorsPrefsKey = "today_records_blocked_authors";
   String _todayKey = kstDateKeyNow();
 
   Timer? _dateRefreshTimer;
@@ -1333,6 +1337,32 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
     return _pageController!;
   }
 
+  Future<List<PublicTodayRecord>> _loadVisiblePublicRecords() async {
+    final List<PublicTodayRecord> fetchedRecords =
+        await PublicTodayRecordsRepository.instance.fetchByDateKey(_todayKey);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final Set<String> hiddenRecordIds =
+        (prefs.getStringList(_hiddenRecordsPrefsKey) ?? const <String>[])
+            .toSet();
+    final Set<String> blockedAuthors =
+        (prefs.getStringList(_blockedAuthorsPrefsKey) ?? const <String>[])
+            .toSet();
+
+    return fetchedRecords.where((PublicTodayRecord item) {
+      if (hiddenRecordIds.contains(_recordKey(item))) {
+        return false;
+      }
+      if (blockedAuthors.contains(item.author)) {
+        return false;
+      }
+      return true;
+    }).toList(growable: false);
+  }
+
+  String _recordKey(PublicTodayRecord item) {
+    return "${item.createdAt.millisecondsSinceEpoch}|${item.author}|${item.body}";
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<List<TodayQuestionRecord>>(
@@ -1340,9 +1370,7 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
       builder:
           (BuildContext context, List<TodayQuestionRecord> _, Widget? child) {
             return FutureBuilder<List<PublicTodayRecord>>(
-              future: PublicTodayRecordsRepository.instance.fetchByDateKey(
-                _todayKey,
-              ),
+              future: _loadVisiblePublicRecords(),
               builder:
                   (
                     BuildContext context,

@@ -1,4 +1,6 @@
+import "package:file_picker/file_picker.dart";
 import "package:flutter/material.dart";
+import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 
 import "../../design_system/design_system.dart";
@@ -7,6 +9,7 @@ import "../home/home_screen.dart";
 import "../home/my_records_screen.dart";
 import "more_profile_stats_store.dart";
 import "feedback_send_screen.dart";
+import "local_backup_service.dart";
 import "notice_list_screen.dart";
 import "notification_settings_screen.dart";
 import "../profile/nickname_setup_screen.dart";
@@ -83,6 +86,125 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
     ).push(MaterialPageRoute<void>(builder: (_) => const FeedbackSendScreen()));
   }
 
+  Future<void> _backupLocalData() async {
+    try {
+      final file = await LocalBackupService.instance.exportBackupFile();
+      final ShareResult result = await Share.shareXFiles(<XFile>[
+        XFile(file.path),
+      ], text: "Daily Question 백업 파일");
+      if (!mounted) {
+        return;
+      }
+      if (result.status == ShareResultStatus.success) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("백업 파일을 내보냈어요.")));
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("백업 파일 공유가 취소되었어요.")));
+    } on LocalBackupException catch (error) {
+      _showUrlError(error.message);
+    } catch (_) {
+      _showUrlError("백업에 실패했어요. 잠시 후 다시 시도해주세요.");
+    }
+  }
+
+  Future<void> _restoreLocalData() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: AppPopupTokens.dimmed,
+      builder: (BuildContext dialogContext) {
+        final BrandScale brand = dialogContext.appBrandScale;
+        return Center(
+          child: AppPopup(
+            width: AppPopupTokens.maxWidth,
+            title: "복원하기",
+            body: "복원하면 현재 기기 데이터가\n백업 파일 내용으로 교체돼요.",
+            actions: <Widget>[
+              SizedBox(
+                width: 100,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppNeutralColors.grey100,
+                    foregroundColor: AppNeutralColors.grey600,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonMedium,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: const Text("취소"),
+                ),
+              ),
+              SizedBox(
+                width: 170,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: brand.c500,
+                    foregroundColor: AppNeutralColors.white,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonMedium,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: const Text("복원하기"),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      final FilePickerResult? picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: <String>["json"],
+      );
+      if (picked == null || picked.files.isEmpty) {
+        return;
+      }
+      final PlatformFile file = picked.files.first;
+      if (file.path != null) {
+        await LocalBackupService.instance.restoreFromFilePath(file.path!);
+      } else if (file.bytes != null) {
+        await LocalBackupService.instance.restoreFromRawJson(
+          String.fromCharCodes(file.bytes!),
+        );
+      } else {
+        throw const LocalBackupException("복원 파일을 읽을 수 없어요.");
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _profileRefreshSeed += 1;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("복원이 완료됐어요. 앱을 다시 열면 최신 상태로 보여요.")),
+      );
+    } on LocalBackupException catch (error) {
+      _showUrlError(error.message);
+    } catch (_) {
+      _showUrlError("복원에 실패했어요. 백업 파일을 확인해주세요.");
+    }
+  }
+
   Future<void> _openTerms() async {
     await _openExternalUrl(_termsUrl, "이용약관");
   }
@@ -155,6 +277,8 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
                     items: <_SettingsItem>[
                       _SettingsItem(title: "공지사항", onTap: _openNoticeList),
                       _SettingsItem(title: "의견 보내기", onTap: _openFeedbackSend),
+                      _SettingsItem(title: "백업하기", onTap: _backupLocalData),
+                      _SettingsItem(title: "복원하기", onTap: _restoreLocalData),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.s16),
@@ -181,23 +305,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
               padding: const EdgeInsets.all(AppSpacing.s20),
               child: Row(
                 children: <Widget>[
-                  SizedBox(
-                    width: AppSpacing.s24,
-                    height: AppSpacing.s24,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: AppSpacing.s24,
-                        height: AppSpacing.s24,
-                      ),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        size: AppSpacing.s24,
-                        color: AppNeutralColors.grey900,
-                      ),
-                    ),
-                  ),
+                  const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
                   Expanded(
                     child: Text(
                       "설정",

@@ -475,11 +475,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   },
                 ),
                 const SizedBox(height: AppSpacing.s28),
-                SizedBox(
-                  height: AppSpacing.s48,
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: SizedBox(
+                        height: 48,
                         child: FilledButton(
                           onPressed: () => Navigator.of(sheetContext).pop(),
                           style: FilledButton.styleFrom(
@@ -497,8 +497,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                           child: const Text("취소"),
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.s8),
-                      Expanded(
+                    ),
+                    const SizedBox(width: AppSpacing.s8),
+                    Expanded(
+                      child: SizedBox(
+                        height: 48,
                         child: FilledButton(
                           onPressed: () {
                             final int hour24 = isAm
@@ -523,8 +526,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                           child: const Text("설정"),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -628,6 +631,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     if (enabled) {
       await _saveBucketDdayDaysBefore(_bucketDdayDaysBefore);
       await _openBucketDdaySettingBottomSheet();
+      await _syncNotificationSchedules();
       return;
     }
 

@@ -23,6 +23,15 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
     });
   }
 
+  void _collapseExpanded() {
+    if (_expandedNoticeId == null) {
+      return;
+    }
+    setState(() {
+      _expandedNoticeId = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
@@ -31,61 +40,63 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
       body: Stack(
         children: <Widget>[
           Positioned.fill(
-            child: StreamBuilder<List<_NoticeItem>>(
-              stream: _NoticeRepository.instance.watchNotices(),
-              builder:
-                  (
-                    BuildContext context,
-                    AsyncSnapshot<List<_NoticeItem>> snapshot,
-                  ) {
-                    if (snapshot.hasError) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s24,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _collapseExpanded,
+              child: StreamBuilder<List<_NoticeItem>>(
+                stream: _NoticeRepository.instance.watchNotices(),
+                builder:
+                    (
+                      BuildContext context,
+                      AsyncSnapshot<List<_NoticeItem>> snapshot,
+                    ) {
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s24,
+                            ),
+                            child: Text(
+                              "공지사항을 불러오는 중 문제가 발생했어요.\n잠시 후 다시 시도해 주세요.",
+                              textAlign: TextAlign.center,
+                              style: AppTypography.bodyMediumMedium.copyWith(
+                                color: AppNeutralColors.grey500,
+                              ),
+                            ),
                           ),
+                        );
+                      }
+                      if (!snapshot.hasData) {
+                        return const Center(child: AppLoadingIndicator());
+                      }
+                      final List<_NoticeItem> items = snapshot.data!;
+                      if (items.isEmpty) {
+                        return Center(
                           child: Text(
-                            "공지사항을 불러오는 중 문제가 발생했어요.\n잠시 후 다시 시도해 주세요.",
-                            textAlign: TextAlign.center,
+                            "등록된 공지사항이 없어요.",
                             style: AppTypography.bodyMediumMedium.copyWith(
                               color: AppNeutralColors.grey500,
                             ),
                           ),
-                        ),
-                      );
-                    }
-                    if (!snapshot.hasData) {
-                      return const Center(child: AppLoadingIndicator());
-                    }
-                    final List<_NoticeItem> items = snapshot.data!;
-                    if (items.isEmpty) {
-                      return Center(
-                        child: Text(
-                          "등록된 공지사항이 없어요.",
-                          style: AppTypography.bodyMediumMedium.copyWith(
-                            color: AppNeutralColors.grey500,
-                          ),
-                        ),
-                      );
-                    }
-                    final String expandedId =
-                        _expandedNoticeId ?? items.first.id;
-                    return ListView.builder(
-                      padding: const EdgeInsets.only(
-                        top: 114,
-                        bottom: AppSpacing.s24,
-                      ),
-                      itemCount: items.length,
-                      itemBuilder: (BuildContext context, int index) {
-                        final _NoticeItem item = items[index];
-                        return _NoticeRow(
-                          item: item,
-                          expanded: expandedId == item.id,
-                          onTap: () => _toggleExpanded(item.id),
                         );
-                      },
-                    );
-                  },
+                      }
+                      return ListView.builder(
+                        padding: const EdgeInsets.only(
+                          top: 114,
+                          bottom: AppSpacing.s24,
+                        ),
+                        itemCount: items.length,
+                        itemBuilder: (BuildContext context, int index) {
+                          final _NoticeItem item = items[index];
+                          return _NoticeRow(
+                            item: item,
+                            expanded: _expandedNoticeId == item.id,
+                            onTap: () => _toggleExpanded(item.id),
+                          );
+                        },
+                      );
+                    },
+              ),
             ),
           ),
           Positioned(
@@ -211,27 +222,31 @@ class _NoticeRow extends StatelessWidget {
             ),
           ),
         ),
-        AnimatedCrossFade(
-          firstChild: const SizedBox.shrink(),
-          secondChild: Container(
-            width: double.infinity,
-            color: brand.c50,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.s40,
-              vertical: AppSpacing.s20,
-            ),
-            child: Text(
-              item.description ?? "",
-              style: AppTypography.bodySmallMedium.copyWith(
-                color: AppNeutralColors.grey900,
-                height: 1.5,
+        ClipRect(
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: Align(
+              alignment: Alignment.topCenter,
+              heightFactor: expanded ? 1 : 0,
+              child: Container(
+                width: double.infinity,
+                color: brand.c50,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.s40,
+                  vertical: AppSpacing.s20,
+                ),
+                child: Text(
+                  item.description ?? "",
+                  style: AppTypography.bodySmallMedium.copyWith(
+                    color: AppNeutralColors.grey900,
+                    height: 1.5,
+                  ),
+                ),
               ),
             ),
           ),
-          crossFadeState: expanded
-              ? CrossFadeState.showSecond
-              : CrossFadeState.showFirst,
-          duration: const Duration(milliseconds: 180),
         ),
       ],
     );

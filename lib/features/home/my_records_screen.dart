@@ -508,16 +508,7 @@ class _TopMainPanel extends StatelessWidget {
               height: AppHeaderTokens.height,
               child: Row(
                 children: <Widget>[
-                  SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 24),
-                      color: AppNeutralColors.grey900,
-                    ),
-                  ),
+                  const SizedBox(width: 24, height: 24),
                   Expanded(
                     child: Text(
                       "나의 기록",

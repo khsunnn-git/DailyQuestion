@@ -13,6 +13,7 @@ import "../../data/local_db/local_database.dart";
 import "../more/notification_prefs_keys.dart";
 
 const int _dailyQuestionNotificationId = 10001;
+const int _dailyQuestionCatchupNotificationId = 10002;
 const int _bucketDdayNotificationBaseId = 200000;
 const String _bucketDdayNotificationIdsKey = "bucket_dday_notification_ids";
 
@@ -21,6 +22,7 @@ const AndroidNotificationDetails _androidNotificationDetails =
       "daily_question_channel_v2",
       "오늘의 질문 알림",
       channelDescription: "오늘의 질문 알림을 매일 지정된 시간에 전송합니다.",
+      icon: "ic_noti_question",
       importance: Importance.high,
       priority: Priority.high,
       playSound: false,
@@ -55,8 +57,9 @@ Future<void> updateDailyQuestionNotificationSchedule({
   required int minute,
 }) async {
   await _ensureInitialized();
+  await _notifications.cancel(_dailyQuestionNotificationId);
+  await _notifications.cancel(_dailyQuestionCatchupNotificationId);
   if (!enabled) {
-    await _notifications.cancel(_dailyQuestionNotificationId);
     return;
   }
   await _scheduleDaily(hour: hour, minute: minute);
@@ -65,6 +68,7 @@ Future<void> updateDailyQuestionNotificationSchedule({
 Future<void> cancelDailyQuestionNotificationSchedule() async {
   await _ensureInitialized();
   await _notifications.cancel(_dailyQuestionNotificationId);
+  await _notifications.cancel(_dailyQuestionCatchupNotificationId);
 }
 
 Future<void> syncBucketDdayNotificationSchedule({
@@ -154,6 +158,7 @@ Future<void> _restoreSchedulesFromPrefs() async {
 
   if (!todayQuestionEnabled) {
     await _notifications.cancel(_dailyQuestionNotificationId);
+    await _notifications.cancel(_dailyQuestionCatchupNotificationId);
   } else {
     await _scheduleDaily(hour: hour, minute: minute);
   }
@@ -165,7 +170,7 @@ Future<void> _restoreSchedulesFromPrefs() async {
 
 Future<void> _scheduleDaily({required int hour, required int minute}) async {
   final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-  tz.TZDateTime scheduled = tz.TZDateTime(
+  final tz.TZDateTime todayAtSelectedTime = tz.TZDateTime(
     tz.local,
     now.year,
     now.month,
@@ -173,21 +178,39 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
     hour,
     minute,
   );
-  if (!scheduled.isAfter(now)) {
-    scheduled = scheduled.add(const Duration(days: 1));
-  }
+  final bool isSameMinuteSelection =
+      now.hour == hour && now.minute == minute;
+  final tz.TZDateTime repeatingSchedule = todayAtSelectedTime.isAfter(now)
+      ? todayAtSelectedTime
+      : todayAtSelectedTime.add(const Duration(days: 1));
 
   await _notifications.zonedSchedule(
     _dailyQuestionNotificationId,
     "오늘의 질문이 도착했어요!",
     "내일의 나를 만날 수 있는 소중한 질문 시간!",
-    scheduled,
+    repeatingSchedule,
     _notificationDetails,
     androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     uiLocalNotificationDateInterpretation:
         UILocalNotificationDateInterpretation.absoluteTime,
     matchDateTimeComponents: DateTimeComponents.time,
   );
+
+  // If the user saved the exact current minute, send a one-time catch-up
+  // notification shortly after save so today's alert is not skipped.
+  if (isSameMinuteSelection && !todayAtSelectedTime.isAfter(now)) {
+    final tz.TZDateTime catchupTime = now.add(const Duration(seconds: 5));
+    await _notifications.zonedSchedule(
+      _dailyQuestionCatchupNotificationId,
+      "오늘의 질문이 도착했어요!",
+      "내일의 나를 만날 수 있는 소중한 질문 시간!",
+      catchupTime,
+      _notificationDetails,
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
 }
 
 Future<void> _resyncBucketDdayNotifications({

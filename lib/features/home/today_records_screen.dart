@@ -1085,21 +1085,23 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                       child: Icon(
                         Icons.more_horiz,
                         size: 24,
-                        color: AppNeutralColors.grey500,
+                        color: AppNeutralColors.grey200,
                       ),
                     ),
                   ),
                 ),
                 Expanded(
-                  child: Text(
-                    widget.item.author,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodySmallSemiBold.copyWith(
-                      color: brand.c500,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.s20),
+                    child: Text(
+                      widget.item.author,
+                      textAlign: TextAlign.center,
+                      style: AppTypography.bodySmallSemiBold.copyWith(
+                        color: brand.c500,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 24),
               ],
             ),
           ),
