@@ -7,7 +7,6 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
-import "matgim_keyword_api_client.dart";
 import "../profile/user_profile_prefs.dart";
 import "home_screen.dart";
 import "../more/more_settings_screen.dart";
@@ -2879,11 +2878,6 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     Color(0xFFB6E2FF),
     Color(0xFFD3EEFF),
   ];
-  static final MatgimKeywordApiClient _keywordApiClient =
-      MatgimKeywordApiClient();
-  static final Map<String, Future<List<_KeywordSlice>>> _remoteSliceCache =
-      <String, Future<List<_KeywordSlice>>>{};
-  static const int _maxCacheEntries = 24;
 
   static const Set<String> _stopWords = <String>{
     "오늘",
@@ -2924,6 +2918,51 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "우리",
     "요즘",
     "지금",
+  };
+  static const Set<String> _lowInfoWords = <String>{
+    "사람",
+    "하루",
+    "기분",
+    "마음",
+    "생각",
+    "시간",
+    "요즘",
+    "오늘",
+    "이번",
+    "상태",
+  };
+  static const Set<String> _domainBoostWords = <String>{
+    "행복",
+    "기쁨",
+    "설렘",
+    "불안",
+    "우울",
+    "외로움",
+    "스트레스",
+    "안정",
+    "가족",
+    "친구",
+    "연인",
+    "엄마",
+    "아빠",
+    "동생",
+    "고양이",
+    "강아지",
+    "운동",
+    "공부",
+    "산책",
+    "여행",
+    "취업",
+    "이직",
+    "퇴사",
+    "건강",
+    "독서",
+    "기록",
+    "집",
+    "회사",
+    "학교",
+    "카페",
+    "병원",
   };
 
   static const Set<String> _nonNounSuffixes = <String>{
@@ -3035,99 +3074,6 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "야",
   ];
 
-  Future<List<_KeywordSlice>> _buildKeywordSlicesWithApi(
-    List<TodayQuestionRecord> records,
-  ) async {
-    final List<_KeywordSlice> localSlices = _buildKeywordSlices(records);
-    if (!_keywordApiClient.isConfigured) {
-      return localSlices;
-    }
-
-    final List<TodayQuestionRecord> monthlyRecords = records
-        .where(
-          (TodayQuestionRecord item) =>
-              item.createdAt.year == selectedYear &&
-              item.createdAt.month == selectedMonth &&
-              (item.answer.trim().isNotEmpty ||
-                  item.bucketTags.any((String tag) => tag.trim().isNotEmpty) ||
-                  (item.bucketTag?.trim().isNotEmpty ?? false)),
-        )
-        .toList(growable: false);
-    if (monthlyRecords.isEmpty) {
-      return localSlices;
-    }
-
-    try {
-      final Map<String, int> remoteMap = await _keywordApiClient.extractFromRecords(
-        monthlyRecords,
-        keywordCount: _sliceColors.length,
-      );
-      if (remoteMap.isEmpty) {
-        return localSlices;
-      }
-      final List<MapEntry<String, int>> sorted = remoteMap.entries.toList()
-        ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
-          if (b.value != a.value) return b.value.compareTo(a.value);
-          return a.key.compareTo(b.key);
-        });
-
-      final Map<String, int> normalizedCounter = <String, int>{};
-      for (final MapEntry<String, int> entry in sorted) {
-        final String? noun = _normalizeNounToken(entry.key);
-        if (noun == null || _stopWords.contains(noun)) {
-          continue;
-        }
-        normalizedCounter[noun] = (normalizedCounter[noun] ?? 0) + entry.value;
-      }
-      if (normalizedCounter.isEmpty) {
-        return localSlices;
-      }
-      final List<MapEntry<String, int>> normalized = normalizedCounter.entries
-          .toList()
-        ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
-          if (b.value != a.value) return b.value.compareTo(a.value);
-          return a.key.compareTo(b.key);
-        });
-
-      final List<_KeywordSlice> remoteSlices = List<_KeywordSlice>.generate(
-        normalized.length > _sliceColors.length
-            ? _sliceColors.length
-            : normalized.length,
-        (int index) {
-          final MapEntry<String, int> item = normalized[index];
-          return _KeywordSlice(
-            label: item.key,
-            count: item.value,
-            color: _sliceColors[index % _sliceColors.length],
-          );
-        },
-      );
-      return remoteSlices.isEmpty ? localSlices : remoteSlices;
-    } catch (_) {
-      return localSlices;
-    }
-  }
-
-  String _signatureForMonthRecords(List<TodayQuestionRecord> records) {
-    final StringBuffer buffer = StringBuffer("$selectedYear-$selectedMonth|");
-    for (final TodayQuestionRecord item in records) {
-      if (item.createdAt.year != selectedYear ||
-          item.createdAt.month != selectedMonth) {
-        continue;
-      }
-      buffer
-        ..write(item.createdAt.millisecondsSinceEpoch)
-        ..write("|")
-        ..write(item.answer.trim())
-        ..write("|")
-        ..write(item.bucketTags.join(","))
-        ..write("|")
-        ..write(item.bucketTag?.trim() ?? "")
-        ..write(";");
-    }
-    return buffer.toString();
-  }
-
   List<_KeywordSlice> _buildKeywordSlices(List<TodayQuestionRecord> records) {
     final Iterable<TodayQuestionRecord> monthlyRecords = records.where(
       (TodayQuestionRecord item) =>
@@ -3144,34 +3090,54 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
           : <String>[record.bucketTag!.trim()];
 
       for (final String keyword in bucketKeywords) {
-        final Iterable<String> tokens = RegExp(
-          r"[가-힣A-Za-z0-9]{2,}",
-        ).allMatches(keyword).map((Match m) => m.group(0) ?? "");
-        for (final String token in tokens) {
-          final String? noun = _normalizeNounToken(token);
-          if (noun == null || _stopWords.contains(noun)) {
-            continue;
+        final List<String> nouns = _extractNouns(keyword);
+        for (final String noun in nouns) {
+          int score = 2;
+          if (_domainBoostWords.contains(noun)) {
+            score += 1;
           }
-          counter[noun] = (counter[noun] ?? 0) + 2;
+          if (_lowInfoWords.contains(noun)) {
+            score -= 1;
+          }
+          _addScore(counter, noun, score);
+        }
+        for (final _CompoundToken compound in _buildCompoundNouns(nouns)) {
+          int score = compound.size >= 3 ? 4 : 3;
+          if (_domainBoostWords.contains(compound.text)) {
+            score += 1;
+          }
+          _addScore(counter, compound.text, score);
         }
       }
 
-      final Iterable<String> tokens = RegExp(
-        r"[가-힣A-Za-z0-9]{2,}",
-      ).allMatches(record.answer).map((Match m) => m.group(0) ?? "");
-
-      for (final String token in tokens) {
-        final String? noun = _normalizeNounToken(token);
-        if (noun == null || _stopWords.contains(noun)) {
-          continue;
+      final List<String> nouns = _extractNouns(record.answer);
+      for (final String noun in nouns) {
+        int score = 1;
+        if (_domainBoostWords.contains(noun)) {
+          score += 1;
         }
-        counter[noun] = (counter[noun] ?? 0) + 1;
+        if (_lowInfoWords.contains(noun)) {
+          score -= 1;
+        }
+        _addScore(counter, noun, score);
+      }
+      for (final _CompoundToken compound in _buildCompoundNouns(nouns)) {
+        int score = compound.size >= 3 ? 3 : 2;
+        if (_domainBoostWords.contains(compound.text)) {
+          score += 1;
+        }
+        _addScore(counter, compound.text, score);
       }
     }
 
-    final List<MapEntry<String, int>> top = counter.entries.toList()
+    final List<MapEntry<String, int>> top = _removeSubTokens(counter).entries
+        .where((MapEntry<String, int> e) => e.value > 0)
+        .toList()
       ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
         if (b.value != a.value) return b.value.compareTo(a.value);
+        final int aWordCount = _wordCount(a.key);
+        final int bWordCount = _wordCount(b.key);
+        if (bWordCount != aWordCount) return bWordCount.compareTo(aWordCount);
         return a.key.compareTo(b.key);
       });
 
@@ -3187,6 +3153,70 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
       },
     );
     return result;
+  }
+
+  List<String> _extractNouns(String text) {
+    final List<String> result = <String>[];
+    final Iterable<String> tokens = RegExp(
+      r"[가-힣A-Za-z0-9]{2,}",
+    ).allMatches(text).map((Match m) => m.group(0) ?? "");
+    for (final String token in tokens) {
+      final String? noun = _normalizeNounToken(token);
+      if (noun == null || _stopWords.contains(noun)) {
+        continue;
+      }
+      result.add(noun);
+    }
+    return result;
+  }
+
+  List<_CompoundToken> _buildCompoundNouns(List<String> nouns) {
+    if (nouns.length < 2) {
+      return const <_CompoundToken>[];
+    }
+    final Set<String> dedupe = <String>{};
+    final List<_CompoundToken> result = <_CompoundToken>[];
+    for (int size = 2; size <= 3; size++) {
+      if (nouns.length < size) {
+        break;
+      }
+      for (int i = 0; i <= nouns.length - size; i++) {
+        final String text = nouns.sublist(i, i + size).join(" ");
+        if (dedupe.add(text)) {
+          result.add(_CompoundToken(text: text, size: size));
+        }
+      }
+    }
+    return result;
+  }
+
+  Map<String, int> _removeSubTokens(Map<String, int> source) {
+    final List<MapEntry<String, int>> all = source.entries.toList();
+    final Map<String, int> result = <String, int>{};
+    for (final MapEntry<String, int> item in all) {
+      final bool remove = all.any((MapEntry<String, int> other) {
+        if (identical(item, other) || item.key == other.key) {
+          return false;
+        }
+        final bool contained =
+            other.key.length > item.key.length && other.key.contains(item.key);
+        final bool stronger = other.value >= item.value && _wordCount(other.key) > 1;
+        return contained && stronger;
+      });
+      if (!remove) {
+        result[item.key] = item.value;
+      }
+    }
+    return result;
+  }
+
+  int _wordCount(String text) => text.split(" ").where((String w) => w.isNotEmpty).length;
+
+  void _addScore(Map<String, int> counter, String token, int amount) {
+    if (amount == 0) {
+      return;
+    }
+    counter[token] = (counter[token] ?? 0) + amount;
   }
 
   String? _normalizeNounToken(String token) {
@@ -3244,137 +3274,110 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                   item.answer.trim().isNotEmpty,
             )
             .length;
-        final List<_KeywordSlice> localSlices = _buildKeywordSlices(records);
-        final String signature = _signatureForMonthRecords(records);
-        if (_remoteSliceCache.length > _maxCacheEntries &&
-            !_remoteSliceCache.containsKey(signature)) {
-          _remoteSliceCache.clear();
-        }
-        final Future<List<_KeywordSlice>> slicesFuture = _remoteSliceCache
-            .putIfAbsent(
-              signature,
-              () => _buildKeywordSlicesWithApi(records),
-            );
+        final List<_KeywordSlice> slices = _buildKeywordSlices(records);
+        final bool showNoKeywordDonut =
+            monthlyRecordCount == 0 || slices.isEmpty;
+        final int total = math.max(
+          1,
+          slices.fold(0, (int acc, _KeywordSlice item) => acc + item.count),
+        );
 
-        return FutureBuilder<List<_KeywordSlice>>(
-          future: slicesFuture,
-          initialData: localSlices,
-          builder: (
-            BuildContext context,
-            AsyncSnapshot<List<_KeywordSlice>> snapshot,
-          ) {
-            final List<_KeywordSlice> slices = snapshot.data ?? localSlices;
-            final bool showNoKeywordDonut =
-                monthlyRecordCount == 0 || slices.isEmpty;
-            final int total = math.max(
-              1,
-              slices.fold(0, (int acc, _KeywordSlice item) => acc + item.count),
-            );
-
-            return Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.s24),
-              decoration: BoxDecoration(
-                color: AppNeutralColors.white,
-                borderRadius: AppRadius.br16,
-                boxShadow: AppElevation.level1,
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.s24),
+          decoration: BoxDecoration(
+            color: AppNeutralColors.white,
+            borderRadius: AppRadius.br16,
+            boxShadow: AppElevation.level1,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(
+                "$selectedMonth월 키워드",
+                style: AppTypography.headingXSmall.copyWith(
+                  color: AppNeutralColors.grey900,
+                ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    "$selectedMonth월 키워드",
-                    style: AppTypography.headingXSmall.copyWith(
-                      color: AppNeutralColors.grey900,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.s16),
-                  if (showNoKeywordDonut)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.s24,
-                      ),
-                      child: Column(
-                        children: <Widget>[
-                          Center(
-                            child: SizedBox(
-                              width: 180,
-                              height: 180,
-                              child: CustomPaint(
-                                size: const Size(180, 180),
-                                painter: const _KeywordNoDataDonutPainter(),
-                              ),
-                            ),
+              const SizedBox(height: AppSpacing.s16),
+              if (showNoKeywordDonut)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s24),
+                  child: Column(
+                    children: <Widget>[
+                      Center(
+                        child: SizedBox(
+                          width: 180,
+                          height: 180,
+                          child: CustomPaint(
+                            size: const Size(180, 180),
+                            painter: const _KeywordNoDataDonutPainter(),
                           ),
-                          const SizedBox(height: AppSpacing.s12),
-                          Text(
-                            "아직 분석할 답변이 부족해요",
-                            style: AppTypography.bodyMediumRegular.copyWith(
-                              color: AppNeutralColors.grey500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else ...<Widget>[
-                    Center(
-                      child: SizedBox(
-                        width: 180,
-                        height: 180,
-                        child: CustomPaint(
-                          size: const Size(180, 180),
-                          painter: _KeywordPieChartPainter(slices: slices),
                         ),
                       ),
+                      const SizedBox(height: AppSpacing.s12),
+                      Text(
+                        "아직 분석할 답변이 부족해요",
+                        style: AppTypography.bodyMediumRegular.copyWith(
+                          color: AppNeutralColors.grey500,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else ...<Widget>[
+                Center(
+                  child: SizedBox(
+                    width: 180,
+                    height: 180,
+                    child: CustomPaint(
+                      size: const Size(180, 180),
+                      painter: _KeywordPieChartPainter(slices: slices),
                     ),
-                    const SizedBox(height: AppSpacing.s16),
-                    Column(
-                      children: slices
-                          .map((_KeywordSlice slice) {
-                            final String ratio = ((slice.count / total) * 100)
-                                .toStringAsFixed(0);
-                            return Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpacing.s4,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s16),
+                Column(
+                  children: slices
+                      .map((_KeywordSlice slice) {
+                        final String ratio = ((slice.count / total) * 100)
+                            .toStringAsFixed(0);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.s4),
+                          child: Row(
+                            children: <Widget>[
+                              Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: slice.color,
+                                  shape: BoxShape.circle,
+                                ),
                               ),
-                              child: Row(
-                                children: <Widget>[
-                                  Container(
-                                    width: 14,
-                                    height: 14,
-                                    decoration: BoxDecoration(
-                                      color: slice.color,
-                                      shape: BoxShape.circle,
-                                    ),
+                              const SizedBox(width: AppSpacing.s4),
+                              Expanded(
+                                child: Text(
+                                  slice.label,
+                                  style: AppTypography.bodySmallRegular.copyWith(
+                                    color: AppNeutralColors.grey900,
                                   ),
-                                  const SizedBox(width: AppSpacing.s4),
-                                  Expanded(
-                                    child: Text(
-                                      slice.label,
-                                      style: AppTypography.bodySmallRegular
-                                          .copyWith(
-                                            color: AppNeutralColors.grey900,
-                                          ),
-                                    ),
-                                  ),
-                                  Text(
-                                    "$ratio%(${slice.count}건)",
-                                    style: AppTypography.bodySmallRegular
-                                        .copyWith(
-                                          color: AppNeutralColors.grey900,
-                                        ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            );
-                          })
-                          .toList(growable: false),
-                    ),
-                  ],
-                ],
-              ),
-            );
-          },
+                              Text(
+                                "$ratio%(${slice.count}건)",
+                                style: AppTypography.bodySmallRegular.copyWith(
+                                  color: AppNeutralColors.grey900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      })
+                      .toList(growable: false),
+                ),
+              ],
+            ],
+          ),
         );
       },
     );
@@ -3391,6 +3394,13 @@ class _KeywordSlice {
   final String label;
   final int count;
   final Color color;
+}
+
+class _CompoundToken {
+  const _CompoundToken({required this.text, required this.size});
+
+  final String text;
+  final int size;
 }
 
 class _KeywordPieChartPainter extends CustomPainter {

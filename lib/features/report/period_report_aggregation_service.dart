@@ -50,6 +50,51 @@ class PeriodReportAggregationService {
     "있다",
     "없다",
   };
+  static const Set<String> _lowInfoWords = <String>{
+    "사람",
+    "하루",
+    "기분",
+    "마음",
+    "생각",
+    "시간",
+    "요즘",
+    "오늘",
+    "이번",
+    "상태",
+  };
+  static const Set<String> _domainBoostWords = <String>{
+    "행복",
+    "기쁨",
+    "설렘",
+    "불안",
+    "우울",
+    "외로움",
+    "스트레스",
+    "안정",
+    "가족",
+    "친구",
+    "연인",
+    "엄마",
+    "아빠",
+    "동생",
+    "고양이",
+    "강아지",
+    "운동",
+    "공부",
+    "산책",
+    "여행",
+    "취업",
+    "이직",
+    "퇴사",
+    "건강",
+    "독서",
+    "기록",
+    "집",
+    "회사",
+    "학교",
+    "카페",
+    "병원",
+  };
 
   static const Set<String> _nonNounSuffixes = <String>{
     "하다",
@@ -302,32 +347,54 @@ class PeriodReportAggregationService {
   }) {
     final Map<String, int> counter = <String, int>{};
     for (final TodayQuestionRecord record in records) {
-      final Iterable<String> tokens = RegExp(
-        r"[가-힣A-Za-z0-9]{2,}",
-      ).allMatches(record.answer).map((Match m) => m.group(0) ?? "");
-      for (final String token in tokens) {
-        final String? noun = _normalizeNounToken(token);
-        if (noun == null || _stopWords.contains(noun)) {
-          continue;
+      final List<String> answerNouns = _extractNouns(record.answer);
+      for (final String noun in answerNouns) {
+        int score = 1;
+        if (_domainBoostWords.contains(noun)) {
+          score += 1;
         }
-        counter[noun] = (counter[noun] ?? 0) + 1;
+        if (_lowInfoWords.contains(noun)) {
+          score -= 1;
+        }
+        _addScore(counter, noun, score);
       }
+      for (final _CompoundToken compound in _buildCompoundNouns(answerNouns)) {
+        int score = compound.size >= 3 ? 3 : 2;
+        if (_domainBoostWords.contains(compound.text)) {
+          score += 1;
+        }
+        _addScore(counter, compound.text, score);
+      }
+
       for (final String tag in record.bucketTags) {
-        final Iterable<String> tagTokens = RegExp(
-          r"[가-힣A-Za-z0-9]{2,}",
-        ).allMatches(tag).map((Match m) => m.group(0) ?? "");
-        for (final String token in tagTokens) {
-          final String? noun = _normalizeNounToken(token);
-          if (noun == null || _stopWords.contains(noun)) {
-            continue;
+        final List<String> tagNouns = _extractNouns(tag);
+        for (final String noun in tagNouns) {
+          int score = 2;
+          if (_domainBoostWords.contains(noun)) {
+            score += 1;
           }
-          counter[noun] = (counter[noun] ?? 0) + 1;
+          if (_lowInfoWords.contains(noun)) {
+            score -= 1;
+          }
+          _addScore(counter, noun, score);
+        }
+        for (final _CompoundToken compound in _buildCompoundNouns(tagNouns)) {
+          int score = compound.size >= 3 ? 4 : 3;
+          if (_domainBoostWords.contains(compound.text)) {
+            score += 1;
+          }
+          _addScore(counter, compound.text, score);
         }
       }
     }
-    final List<MapEntry<String, int>> sorted = counter.entries.toList()
+    final List<MapEntry<String, int>> sorted = _removeSubTokens(counter).entries
+        .where((MapEntry<String, int> e) => e.value > 0)
+        .toList()
       ..sort((a, b) {
         if (b.value != a.value) return b.value.compareTo(a.value);
+        final int aWordCount = _wordCount(a.key);
+        final int bWordCount = _wordCount(b.key);
+        if (bWordCount != aWordCount) return bWordCount.compareTo(aWordCount);
         return a.key.compareTo(b.key);
       });
     return sorted.take(topN).map((e) => e.key).toList(growable: false);
@@ -342,26 +409,118 @@ class PeriodReportAggregationService {
     }
     final Map<String, int> counter = <String, int>{};
     for (final String tag in record.bucketTags) {
-      final String normalized = tag.trim();
-      if (normalized.isEmpty) continue;
-      counter[normalized] = (counter[normalized] ?? 0) + 2;
+      final List<String> tagNouns = _extractNouns(tag);
+      for (final String noun in tagNouns) {
+        int score = 2;
+        if (_domainBoostWords.contains(noun)) {
+          score += 1;
+        }
+        if (_lowInfoWords.contains(noun)) {
+          score -= 1;
+        }
+        _addScore(counter, noun, score);
+      }
+      for (final _CompoundToken compound in _buildCompoundNouns(tagNouns)) {
+        int score = compound.size >= 3 ? 4 : 3;
+        if (_domainBoostWords.contains(compound.text)) {
+          score += 1;
+        }
+        _addScore(counter, compound.text, score);
+      }
     }
+
+    final List<String> answerNouns = _extractNouns(record.answer);
+    for (final String noun in answerNouns) {
+      int score = 1;
+      if (_domainBoostWords.contains(noun)) {
+        score += 1;
+      }
+      if (_lowInfoWords.contains(noun)) {
+        score -= 1;
+      }
+      _addScore(counter, noun, score);
+    }
+    for (final _CompoundToken compound in _buildCompoundNouns(answerNouns)) {
+      int score = compound.size >= 3 ? 3 : 2;
+      if (_domainBoostWords.contains(compound.text)) {
+        score += 1;
+      }
+      _addScore(counter, compound.text, score);
+    }
+
+    final List<MapEntry<String, int>> sorted = _removeSubTokens(counter).entries
+        .where((MapEntry<String, int> e) => e.value > 0)
+        .toList()
+      ..sort((a, b) {
+        if (b.value != a.value) return b.value.compareTo(a.value);
+        final int aWordCount = _wordCount(a.key);
+        final int bWordCount = _wordCount(b.key);
+        if (bWordCount != aWordCount) return bWordCount.compareTo(aWordCount);
+        return a.key.compareTo(b.key);
+      });
+    return sorted.take(topN).map((e) => e.key).toList(growable: false);
+  }
+
+  List<String> _extractNouns(String text) {
+    final List<String> result = <String>[];
     final Iterable<String> tokens = RegExp(
       r"[가-힣A-Za-z0-9]{2,}",
-    ).allMatches(record.answer).map((Match m) => m.group(0) ?? "");
+    ).allMatches(text).map((Match m) => m.group(0) ?? "");
     for (final String token in tokens) {
       final String? noun = _normalizeNounToken(token);
       if (noun == null || _stopWords.contains(noun)) {
         continue;
       }
-      counter[noun] = (counter[noun] ?? 0) + 1;
+      result.add(noun);
     }
-    final List<MapEntry<String, int>> sorted = counter.entries.toList()
-      ..sort((a, b) {
-        if (b.value != a.value) return b.value.compareTo(a.value);
-        return a.key.compareTo(b.key);
+    return result;
+  }
+
+  List<_CompoundToken> _buildCompoundNouns(List<String> nouns) {
+    if (nouns.length < 2) {
+      return const <_CompoundToken>[];
+    }
+    final Set<String> dedupe = <String>{};
+    final List<_CompoundToken> result = <_CompoundToken>[];
+    for (int size = 2; size <= 3; size++) {
+      if (nouns.length < size) {
+        break;
+      }
+      for (int i = 0; i <= nouns.length - size; i++) {
+        final String text = nouns.sublist(i, i + size).join(" ");
+        if (dedupe.add(text)) {
+          result.add(_CompoundToken(text: text, size: size));
+        }
+      }
+    }
+    return result;
+  }
+
+  Map<String, int> _removeSubTokens(Map<String, int> source) {
+    final List<MapEntry<String, int>> all = source.entries.toList();
+    final Map<String, int> result = <String, int>{};
+    for (final MapEntry<String, int> item in all) {
+      final bool remove = all.any((MapEntry<String, int> other) {
+        if (identical(item, other) || item.key == other.key) {
+          return false;
+        }
+        final bool contained =
+            other.key.length > item.key.length && other.key.contains(item.key);
+        final bool stronger = other.value >= item.value && _wordCount(other.key) > 1;
+        return contained && stronger;
       });
-    return sorted.take(topN).map((e) => e.key).toList(growable: false);
+      if (!remove) {
+        result[item.key] = item.value;
+      }
+    }
+    return result;
+  }
+
+  int _wordCount(String text) => text.split(" ").where((String w) => w.isNotEmpty).length;
+
+  void _addScore(Map<String, int> counter, String token, int amount) {
+    if (amount == 0) return;
+    counter[token] = (counter[token] ?? 0) + amount;
   }
 
   bool _isLikelyNoun(String token) {
@@ -434,4 +593,11 @@ class PeriodReportAggregationService {
     final String dd = dateTime.day.toString().padLeft(2, "0");
     return "${dateTime.year}$mm$dd";
   }
+}
+
+class _CompoundToken {
+  const _CompoundToken({required this.text, required this.size});
+
+  final String text;
+  final int size;
 }
