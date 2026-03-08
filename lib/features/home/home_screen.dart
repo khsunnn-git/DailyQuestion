@@ -6,8 +6,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
-import "../bucket/bucket_list_screen.dart";
-import "../more/more_settings_screen.dart";
+import "../navigation/main_tab_shell.dart";
 import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
 import "my_records_screen.dart";
@@ -19,7 +18,9 @@ import "daily_checkin_store.dart";
 import "today_records_screen.dart";
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.showNavigationBar = true});
+
+  final bool showNavigationBar;
 
   static const String _heroFishAsset =
       "assets/images/home/home_character_fish_blue.png";
@@ -107,57 +108,40 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: AppNavigationBar(
-                currentIndex: 0,
-                onTap: (int index) {
-                  if (index == 0) {
-                    goHome(context);
-                    return;
-                  }
-                  if (index == 1) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const BucketListScreen(),
-                      ),
-                    );
-                    return;
-                  }
-                  if (index == 2) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const MyRecordsScreen(),
-                      ),
-                    );
-                    return;
-                  }
-                  if (index == 3) {
-                    MoreSettingsScreen.open(context, replace: true);
-                  }
-                },
-                items: const <AppNavigationBarItemData>[
-                  AppNavigationBarItemData(
-                    label: "오늘의 질문",
-                    icon: Icons.home_outlined,
-                  ),
-                  AppNavigationBarItemData(
-                    label: "버킷리스트",
-                    icon: Icons.format_list_bulleted,
-                  ),
-                  AppNavigationBarItemData(
-                    label: "나의기록",
-                    icon: Icons.assignment_outlined,
-                  ),
-                  AppNavigationBarItemData(
-                    label: "더보기",
-                    icon: Icons.more_horiz,
-                  ),
-                ],
+            if (showNavigationBar)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AppNavigationBar(
+                  currentIndex: 0,
+                  onTap: (int index) {
+                    if (index == 0) {
+                      goHome(context);
+                      return;
+                    }
+                    MainTabShell.replace(context, index: index);
+                  },
+                  items: const <AppNavigationBarItemData>[
+                    AppNavigationBarItemData(
+                      label: "오늘의 질문",
+                      icon: Icons.home_outlined,
+                    ),
+                    AppNavigationBarItemData(
+                      label: "버킷리스트",
+                      icon: Icons.format_list_bulleted,
+                    ),
+                    AppNavigationBarItemData(
+                      label: "나의기록",
+                      icon: Icons.assignment_outlined,
+                    ),
+                    AppNavigationBarItemData(
+                      label: "더보기",
+                      icon: Icons.more_horiz,
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -1348,15 +1332,17 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
         (prefs.getStringList(_blockedAuthorsPrefsKey) ?? const <String>[])
             .toSet();
 
-    return fetchedRecords.where((PublicTodayRecord item) {
-      if (hiddenRecordIds.contains(_recordKey(item))) {
-        return false;
-      }
-      if (blockedAuthors.contains(item.author)) {
-        return false;
-      }
-      return true;
-    }).toList(growable: false);
+    return fetchedRecords
+        .where((PublicTodayRecord item) {
+          if (hiddenRecordIds.contains(_recordKey(item))) {
+            return false;
+          }
+          if (blockedAuthors.contains(item.author)) {
+            return false;
+          }
+          return true;
+        })
+        .toList(growable: false);
   }
 
   String _recordKey(PublicTodayRecord item) {
@@ -1464,8 +1450,8 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
                                                               .trackpad,
                                                           PointerDeviceKind
                                                               .stylus,
-                                                  PointerDeviceKind
-                                                      .invertedStylus,
+                                                          PointerDeviceKind
+                                                              .invertedStylus,
                                                         },
                                                   ),
                                           child: PageView.builder(
@@ -1491,10 +1477,10 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
                                                         : _recordCardGap,
                                                   ),
                                                   child: _TodayRecordCard(
-                                                  record: records[index],
-                                                  width: _recordCardWidth,
+                                                    record: records[index],
+                                                    width: _recordCardWidth,
+                                                  ),
                                                 ),
-                                              ),
                                           ),
                                         ),
                                       ),

@@ -1,7 +1,7 @@
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
-import "../home/home_screen.dart";
+import "../navigation/main_tab_shell.dart";
 import "nickname_setup_screen.dart";
 
 class NicknameCompleteScreen extends StatelessWidget {
@@ -108,9 +108,7 @@ class NicknameCompleteScreen extends StatelessWidget {
                     onStart!();
                     return;
                   }
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
-                  );
+                  Navigator.of(context).pushReplacement(MainTabShell.route());
                 },
                 style: ElevatedButton.styleFrom(
                   elevation: 0,

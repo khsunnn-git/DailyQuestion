@@ -7,12 +7,10 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
-import "../bucket/bucket_list_screen.dart";
 import "home_screen.dart";
-import "../more/more_settings_screen.dart";
+import "../navigation/main_tab_shell.dart";
 import "../question/today_question_prompt_store.dart";
 import "../question/today_question_store.dart";
-import "my_records_screen.dart";
 import "public_today_records_repository.dart";
 
 class TodayRecordsScreen extends StatefulWidget {
@@ -455,25 +453,7 @@ class _RecordsListView extends StatelessWidget {
                 goHome();
                 return;
               }
-              if (index == 1) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const BucketListScreen(),
-                  ),
-                );
-                return;
-              }
-              if (index == 2) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const MyRecordsScreen(),
-                  ),
-                );
-                return;
-              }
-              if (index == 3) {
-                MoreSettingsScreen.open(context, replace: true);
-              }
+              MainTabShell.replace(context, index: index);
             },
             items: const <AppNavigationBarItemData>[
               AppNavigationBarItemData(
@@ -553,9 +533,8 @@ class _FullRecordCardState extends State<_FullRecordCard> {
   }
 
   Future<void> _openActionListBottomSheet() async {
-    final _RecordMenuAction? action = await showModalBottomSheet<
-      _RecordMenuAction
-    >(
+    final _RecordMenuAction?
+    action = await showModalBottomSheet<_RecordMenuAction>(
       context: context,
       useSafeArea: true,
       isScrollControlled: true,
@@ -563,9 +542,12 @@ class _FullRecordCardState extends State<_FullRecordCard> {
       barrierColor: AppPopupTokens.dimmed,
       elevation: 0,
       builder: (BuildContext sheetContext) {
-        final double keyboardInset = MediaQuery.viewInsetsOf(sheetContext)
-            .bottom;
-        final double bottomInset = MediaQuery.viewPaddingOf(sheetContext).bottom;
+        final double keyboardInset = MediaQuery.viewInsetsOf(
+          sheetContext,
+        ).bottom;
+        final double bottomInset = MediaQuery.viewPaddingOf(
+          sheetContext,
+        ).bottom;
         final double safeBottomPadding =
             (bottomInset + AppSpacing.s24) < AppSpacing.s48
             ? AppSpacing.s48
@@ -681,7 +663,8 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                     children: <Widget>[
                       Expanded(
                         child: FilledButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(false),
+                          onPressed: () =>
+                              Navigator.of(dialogContext).pop(false),
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
                             backgroundColor: AppNeutralColors.grey100,
@@ -703,7 +686,8 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                       const SizedBox(width: AppSpacing.s8),
                       Expanded(
                         child: FilledButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(true),
+                          onPressed: () =>
+                              Navigator.of(dialogContext).pop(true),
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
                             backgroundColor: brand.c500,
@@ -785,7 +769,8 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                     children: <Widget>[
                       Expanded(
                         child: FilledButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(false),
+                          onPressed: () =>
+                              Navigator.of(dialogContext).pop(false),
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
                             backgroundColor: AppNeutralColors.grey100,
@@ -807,7 +792,8 @@ class _FullRecordCardState extends State<_FullRecordCard> {
                       const SizedBox(width: AppSpacing.s8),
                       Expanded(
                         child: FilledButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(true),
+                          onPressed: () =>
+                              Navigator.of(dialogContext).pop(true),
                           style: FilledButton.styleFrom(
                             minimumSize: const Size.fromHeight(56),
                             backgroundColor: brand.c500,

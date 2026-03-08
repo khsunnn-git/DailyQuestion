@@ -2,7 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_svg/flutter_svg.dart";
 
 import "../../design_system/design_system.dart";
-import "../home/home_screen.dart";
+import "../navigation/main_tab_shell.dart";
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -97,9 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (widget.onLoginSuccess != null) {
         widget.onLoginSuccess!();
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
-        );
+        Navigator.of(context).pushReplacement(MainTabShell.route());
       }
       return;
     }
@@ -156,198 +154,193 @@ class _LoginScreenState extends State<LoginScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     children: <Widget>[
-                          const SizedBox(height: 130),
-                          Text(
-                            "Daily Question",
-                            style: AppTypography.headingLarge.copyWith(
-                              color: AppNeutralColors.grey900,
-                            ),
-                          ),
-                          const SizedBox(height: 40),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: <Widget>[
-                              const _FieldLabel(text: "이메일"),
-                              const SizedBox(height: 6),
-                              _LoginTextField(
-                                controller: _emailController,
-                                focusNode: _emailFocusNode,
-                                hintText: "이메일 형식으로 입력해주세요.",
-                                focused: _emailFocused,
-                                keyboardType: TextInputType.emailAddress,
-                                textInputAction: TextInputAction.next,
-                                state: _emailHasFormatError
-                                    ? AppInputFieldState.error
-                                    : (_isEmailValid
-                                          ? AppInputFieldState.success
-                                          : (_emailFocused
-                                                ? AppInputFieldState.focus
-                                                : AppInputFieldState
-                                                      .defaultState)),
-                                onChanged: (_) => setState(() {
-                                  _showCredentialError = false;
-                                }),
-                                onSubmitted: (_) =>
-                                    _passwordFocusNode.requestFocus(),
-                                trailing: !_hasEmailText
-                                    ? null
-                                    : _emailHasFormatError
-                                    ? const Padding(
-                                        padding: EdgeInsets.only(right: 12),
-                                        child: Icon(
-                                          Icons.error_outline,
-                                          size: 20,
-                                          color: AppSemanticColors.error500,
-                                        ),
-                                      )
-                                    : _isEmailValid
-                                    ? Padding(
-                                        padding: EdgeInsets.only(right: 12),
-                                        child: Icon(
-                                          Icons.check,
-                                          size: 20,
-                                          color: brand.c500,
-                                        ),
-                                      )
-                                    : Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: <Widget>[
-                                          _InputIconAction(
-                                            icon: Icons.close,
-                                            onTap: _clearEmail,
-                                            color: _emailFocused
-                                                ? brand.c500
-                                                : AppNeutralColors.grey500,
-                                          ),
-                                          const SizedBox(
-                                            width: AppInputTokens.supportingGap,
-                                          ),
-                                        ],
-                                      ),
-                              ),
-                              if (_emailHasFormatError) ...<Widget>[
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: <Widget>[
-                                    const Icon(
+                      const SizedBox(height: 130),
+                      Text(
+                        "Daily Question",
+                        style: AppTypography.headingLarge.copyWith(
+                          color: AppNeutralColors.grey900,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          const _FieldLabel(text: "이메일"),
+                          const SizedBox(height: 6),
+                          _LoginTextField(
+                            controller: _emailController,
+                            focusNode: _emailFocusNode,
+                            hintText: "이메일 형식으로 입력해주세요.",
+                            focused: _emailFocused,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            state: _emailHasFormatError
+                                ? AppInputFieldState.error
+                                : (_isEmailValid
+                                      ? AppInputFieldState.success
+                                      : (_emailFocused
+                                            ? AppInputFieldState.focus
+                                            : AppInputFieldState.defaultState)),
+                            onChanged: (_) => setState(() {
+                              _showCredentialError = false;
+                            }),
+                            onSubmitted: (_) =>
+                                _passwordFocusNode.requestFocus(),
+                            trailing: !_hasEmailText
+                                ? null
+                                : _emailHasFormatError
+                                ? const Padding(
+                                    padding: EdgeInsets.only(right: 12),
+                                    child: Icon(
                                       Icons.error_outline,
-                                      size: 18,
+                                      size: 20,
                                       color: AppSemanticColors.error500,
                                     ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      "올바른 이메일 형식이 아닙니다",
-                                      style: AppTypography.captionMedium
-                                          .copyWith(
-                                            color: AppSemanticColors.error500,
-                                          ),
+                                  )
+                                : _isEmailValid
+                                ? Padding(
+                                    padding: EdgeInsets.only(right: 12),
+                                    child: Icon(
+                                      Icons.check,
+                                      size: 20,
+                                      color: brand.c500,
                                     ),
-                                  ],
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      _InputIconAction(
+                                        icon: Icons.close,
+                                        onTap: _clearEmail,
+                                        color: _emailFocused
+                                            ? brand.c500
+                                            : AppNeutralColors.grey500,
+                                      ),
+                                      const SizedBox(
+                                        width: AppInputTokens.supportingGap,
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                          if (_emailHasFormatError) ...<Widget>[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: <Widget>[
+                                const Icon(
+                                  Icons.error_outline,
+                                  size: 18,
+                                  color: AppSemanticColors.error500,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  "올바른 이메일 형식이 아닙니다",
+                                  style: AppTypography.captionMedium.copyWith(
+                                    color: AppSemanticColors.error500,
+                                  ),
                                 ),
                               ],
-                              const SizedBox(height: 24),
-                              const _FieldLabel(text: "비밀번호"),
-                              const SizedBox(height: 6),
-                              _LoginTextField(
-                                controller: _passwordController,
-                                focusNode: _passwordFocusNode,
-                                hintText: "비밀번호를 입력하세요.",
-                                focused: _passwordFocused,
-                                obscureText: !_isPasswordVisible,
-                                keyboardType: TextInputType.visiblePassword,
-                                textInputAction: TextInputAction.go,
-                                state: _showCredentialError
-                                    ? AppInputFieldState.error
-                                    : (_passwordFocused
-                                          ? AppInputFieldState.focus
-                                          : AppInputFieldState.defaultState),
-                                onChanged: (_) => setState(() {
-                                  _showCredentialError = false;
-                                }),
-                                onSubmitted: (_) => _attemptLogin(),
-                                trailing: !_hasPasswordText
-                                    ? null
-                                    : Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: <Widget>[
-                                          _InputIconAction(
-                                            icon: Icons.close,
-                                            onTap: _clearPassword,
-                                            color: _showCredentialError
-                                                ? AppSemanticColors.error500
-                                                : (_passwordFocused
-                                                      ? brand.c500
-                                                      : AppNeutralColors
-                                                            .grey500),
-                                          ),
-                                          const SizedBox(
-                                            width: AppInputTokens.supportingGap,
-                                          ),
-                                          _InputIconAction(
-                                            icon: _isPasswordVisible
-                                                ? Icons.visibility_off_outlined
-                                                : Icons.visibility_outlined,
-                                            onTap: () {
-                                              setState(() {
-                                                _isPasswordVisible =
-                                                    !_isPasswordVisible;
-                                              });
-                                            },
-                                            color: _showCredentialError
-                                                ? AppSemanticColors.error500
-                                                : (_passwordFocused ||
-                                                          _isPasswordVisible
-                                                      ? brand.c500
-                                                      : AppNeutralColors
-                                                            .grey600),
-                                          ),
-                                        ],
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          const _FieldLabel(text: "비밀번호"),
+                          const SizedBox(height: 6),
+                          _LoginTextField(
+                            controller: _passwordController,
+                            focusNode: _passwordFocusNode,
+                            hintText: "비밀번호를 입력하세요.",
+                            focused: _passwordFocused,
+                            obscureText: !_isPasswordVisible,
+                            keyboardType: TextInputType.visiblePassword,
+                            textInputAction: TextInputAction.go,
+                            state: _showCredentialError
+                                ? AppInputFieldState.error
+                                : (_passwordFocused
+                                      ? AppInputFieldState.focus
+                                      : AppInputFieldState.defaultState),
+                            onChanged: (_) => setState(() {
+                              _showCredentialError = false;
+                            }),
+                            onSubmitted: (_) => _attemptLogin(),
+                            trailing: !_hasPasswordText
+                                ? null
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      _InputIconAction(
+                                        icon: Icons.close,
+                                        onTap: _clearPassword,
+                                        color: _showCredentialError
+                                            ? AppSemanticColors.error500
+                                            : (_passwordFocused
+                                                  ? brand.c500
+                                                  : AppNeutralColors.grey500),
                                       ),
-                              ),
-                              const SizedBox(height: 24),
-                              SizedBox(
-                                height: 56,
-                                child: ElevatedButton(
-                                  onPressed: _canSubmit ? _attemptLogin : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: brand.c500,
-                                    disabledBackgroundColor: brand.c300,
-                                    foregroundColor: AppNeutralColors.white,
-                                    disabledForegroundColor: brand.c100,
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: AppRadius.br8,
-                                    ),
+                                      const SizedBox(
+                                        width: AppInputTokens.supportingGap,
+                                      ),
+                                      _InputIconAction(
+                                        icon: _isPasswordVisible
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        onTap: () {
+                                          setState(() {
+                                            _isPasswordVisible =
+                                                !_isPasswordVisible;
+                                          });
+                                        },
+                                        color: _showCredentialError
+                                            ? AppSemanticColors.error500
+                                            : (_passwordFocused ||
+                                                      _isPasswordVisible
+                                                  ? brand.c500
+                                                  : AppNeutralColors.grey600),
+                                      ),
+                                    ],
                                   ),
-                                  child: Text(
-                                    "로그인",
-                                    style: AppTypography.buttonLarge.copyWith(
-                                      color: AppNeutralColors.white,
-                                    ),
-                                  ),
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: _canSubmit ? _attemptLogin : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: brand.c500,
+                                disabledBackgroundColor: brand.c300,
+                                foregroundColor: AppNeutralColors.white,
+                                disabledForegroundColor: brand.c100,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: AppRadius.br8,
                                 ),
                               ),
-                              const SizedBox(height: 24),
-                              _LoginLinkRow(
-                                onFindId: widget.onFindId,
-                                onFindPassword: widget.onFindPassword,
-                                onSignUp: widget.onSignUp,
+                              child: Text(
+                                "로그인",
+                                style: AppTypography.buttonLarge.copyWith(
+                                  color: AppNeutralColors.white,
+                                ),
                               ),
-                            ],
+                            ),
                           ),
-                          const SizedBox(height: 56),
-                          _SocialLoginSection(
-                            recentLoginProviders: widget.hasRecentSocialLogin
-                                ? (widget.recentSocialLoginProviders ??
-                                      <String>[
-                                        widget.recentSocialLoginProvider ??
-                                            "kakao",
-                                      ])
-                                : const <String>[],
-                            onSocialLogin: widget.onSocialLogin,
+                          const SizedBox(height: 24),
+                          _LoginLinkRow(
+                            onFindId: widget.onFindId,
+                            onFindPassword: widget.onFindPassword,
+                            onSignUp: widget.onSignUp,
                           ),
                         ],
                       ),
+                      const SizedBox(height: 56),
+                      _SocialLoginSection(
+                        recentLoginProviders: widget.hasRecentSocialLogin
+                            ? (widget.recentSocialLoginProviders ??
+                                  <String>[
+                                    widget.recentSocialLoginProvider ?? "kakao",
+                                  ])
+                            : const <String>[],
+                        onSocialLogin: widget.onSocialLogin,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

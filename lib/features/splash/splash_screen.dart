@@ -5,7 +5,7 @@ import "package:flutter_svg/flutter_svg.dart";
 
 import "../../design_system/design_system.dart";
 import "../auth/login_screen.dart";
-import "../home/home_screen.dart";
+import "../navigation/main_tab_shell.dart";
 import "../profile/initial_terms_consent_screen.dart";
 import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_prefs.dart";
@@ -82,9 +82,7 @@ class _SplashScreenState extends State<SplashScreen> {
         widget.onRouteHome!();
         return;
       }
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
-      );
+      Navigator.of(context).pushReplacement(MainTabShell.route());
       return;
     }
 

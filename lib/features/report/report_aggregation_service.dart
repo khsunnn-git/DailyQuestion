@@ -30,6 +30,11 @@ class ReportAggregationService {
     "덜",
     "자꾸",
     "바로",
+    "새로",
+    "가득",
+    "이런",
+    "그런",
+    "저런",
     "돼요",
     "되요",
     "되고",
@@ -57,6 +62,8 @@ class ReportAggregationService {
     "마음",
     "생각",
     "시간",
+    "생활",
+    "정상",
     "요즘",
     "오늘",
     "이번",
@@ -125,10 +132,174 @@ class ReportAggregationService {
     "보기",
     "먹기",
     "듣기",
+    "아서",
+    "어서",
+    "여서",
+    "워서",
+    "고서",
+    "면서",
     "고",
     "어",
     "나",
   };
+
+  static const List<String> _verbLikeFragments = <String>[
+    "하도록",
+    "되도록",
+    "하려고",
+    "하려",
+    "한다",
+    "된다",
+    "했다",
+    "되고",
+    "되는",
+    "되게",
+    "하기로",
+    "되기로",
+    "하려면",
+    "한다면",
+    "된다면",
+    "할수록",
+    "될수록",
+    "해보자",
+    "해보기",
+    "하며",
+    "하면",
+    "가서",
+    "와서",
+    "해서",
+    "이사가서",
+    "했으면",
+    "겠다",
+    "으면",
+    "들으면",
+    "아서",
+    "어서",
+    "여서",
+    "워서",
+    "고서",
+    "면서",
+  ];
+
+  static const Set<String> _singleCharAllowedNouns = <String>{
+    "비",
+    "밥",
+    "술",
+    "잠",
+    "집",
+    "일",
+    "물",
+    "눈",
+    "돈",
+    "말",
+    "밤",
+    "낮",
+    "길",
+    "차",
+    "책",
+    "꽃",
+    "몸",
+    "힘",
+    "맛",
+    "꿈",
+    "옷",
+    "손",
+    "발",
+    "산",
+    "달",
+    "별",
+    "빵",
+  };
+
+  static const List<String> _inlineJosaSuffixes = <String>[
+    "이라서",
+    "라서",
+    "에서",
+    "에게",
+    "으로",
+    "이며",
+    "이고",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "에",
+    "도",
+    "와",
+    "과",
+    "랑",
+    "야",
+  ];
+
+  static const List<String> _clauseTailEndings = <String>[
+    "라면",
+    "다면",
+    "으면",
+    "면서",
+    "려고",
+    "려면",
+    "해야",
+    "해요",
+    "네요",
+    "아요",
+    "어요",
+    "했어",
+    "하면",
+    "한다",
+    "된다",
+    "하다",
+    "되다",
+    "가요",
+    "와요",
+    "오면",
+    "가면",
+    "면",
+    "다",
+    "고",
+    "서",
+    "요",
+    "자",
+    "네",
+    "까",
+    "게",
+    "지",
+    "며",
+  ];
+
+  static const List<String> _predicateTailStarters = <String>[
+    "하",
+    "되",
+    "가",
+    "오",
+    "보",
+    "먹",
+    "듣",
+    "읽",
+    "쓰",
+    "누",
+    "마시",
+    "걷",
+    "놀",
+    "쉬",
+    "좋",
+    "싫",
+    "있",
+    "없",
+    "많",
+    "적",
+    "크",
+    "작",
+    "같",
+    "남",
+    "살",
+    "웃",
+    "울",
+    "떠",
+    "타",
+    "입",
+  ];
 
   static const List<String> _josaSuffixes = <String>[
     "으로부터",
@@ -149,6 +320,7 @@ class ReportAggregationService {
     "거나",
     "라도",
     "만의",
+    "의",
     "은",
     "는",
     "이",
@@ -452,25 +624,7 @@ class ReportAggregationService {
   }) {
     final Map<String, int> counter = <String, int>{};
     for (final TodayQuestionRecord record in records) {
-      final List<String> answerNouns = _extractNouns(record.answer);
-      for (final String noun in answerNouns) {
-        int score = 1;
-        if (_domainBoostWords.contains(noun)) {
-          score += 1;
-        }
-        if (_lowInfoWords.contains(noun)) {
-          score -= 1;
-        }
-        _addScore(counter, noun, score);
-      }
-      for (final _CompoundToken compound in _buildCompoundNouns(answerNouns)) {
-        int score = compound.size >= 3 ? 3 : 2;
-        if (_domainBoostWords.contains(compound.text)) {
-          score += 1;
-        }
-        _addScore(counter, compound.text, score);
-      }
-
+      final Map<String, int> perRecord = <String, int>{};
       for (final String tag in record.bucketTags) {
         final List<String> tagNouns = _extractNouns(tag);
         for (final String noun in tagNouns) {
@@ -481,32 +635,49 @@ class ReportAggregationService {
           if (_lowInfoWords.contains(noun)) {
             score -= 1;
           }
-          _addScore(counter, noun, score);
-        }
-        for (final _CompoundToken compound in _buildCompoundNouns(tagNouns)) {
-          int score = compound.size >= 3 ? 4 : 3;
-          if (_domainBoostWords.contains(compound.text)) {
-            score += 1;
-          }
-          _addScore(counter, compound.text, score);
+          _setMaxScore(perRecord, noun, score);
         }
       }
+      final List<String> answerNouns = _extractNouns(record.answer);
+      for (final String noun in answerNouns) {
+        int score = 1;
+        if (_domainBoostWords.contains(noun)) {
+          score += 1;
+        }
+        if (_lowInfoWords.contains(noun)) {
+          score -= 1;
+        }
+        _setMaxScore(perRecord, noun, score);
+      }
+      for (final MapEntry<String, int> entry in perRecord.entries) {
+        _addScore(counter, entry.key, entry.value);
+      }
     }
-    final List<MapEntry<String, int>> sorted = _removeSubTokens(counter).entries
-        .where((MapEntry<String, int> e) => e.value > 0)
-        .toList()
-      ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
-        if (b.value != a.value) {
-          return b.value.compareTo(a.value);
-        }
-        final int aWordCount = _wordCount(a.key);
-        final int bWordCount = _wordCount(b.key);
-        if (bWordCount != aWordCount) {
-          return bWordCount.compareTo(aWordCount);
-        }
-        return a.key.compareTo(b.key);
-      });
-    return sorted.take(topN).map((MapEntry<String, int> e) => e.key).toList();
+    final List<MapEntry<String, int>> sorted =
+        _removeSubTokens(
+            counter,
+          ).entries.where((MapEntry<String, int> e) => e.value > 0).toList()
+          ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
+            if (b.value != a.value) {
+              return b.value.compareTo(a.value);
+            }
+            final int aWordCount = _wordCount(a.key);
+            final int bWordCount = _wordCount(b.key);
+            if (bWordCount != aWordCount) {
+              return bWordCount.compareTo(aWordCount);
+            }
+            return a.key.compareTo(b.key);
+          });
+    final List<MapEntry<String, int>> repeated = sorted
+        .where((MapEntry<String, int> e) => e.value >= 2)
+        .toList();
+    final List<MapEntry<String, int>> effective = repeated.isNotEmpty
+        ? repeated
+        : sorted;
+    return effective
+        .take(topN)
+        .map((MapEntry<String, int> e) => e.key)
+        .toList();
   }
 
   List<String> _keywordsFromRecord(
@@ -529,13 +700,6 @@ class ReportAggregationService {
         }
         _addScore(counter, noun, score);
       }
-      for (final _CompoundToken compound in _buildCompoundNouns(tagNouns)) {
-        int score = compound.size >= 3 ? 4 : 3;
-        if (_domainBoostWords.contains(compound.text)) {
-          score += 1;
-        }
-        _addScore(counter, compound.text, score);
-      }
     }
 
     final List<String> answerNouns = _extractNouns(record.answer);
@@ -549,35 +713,29 @@ class ReportAggregationService {
       }
       _addScore(counter, noun, score);
     }
-    for (final _CompoundToken compound in _buildCompoundNouns(answerNouns)) {
-      int score = compound.size >= 3 ? 3 : 2;
-      if (_domainBoostWords.contains(compound.text)) {
-        score += 1;
-      }
-      _addScore(counter, compound.text, score);
-    }
 
-    final List<MapEntry<String, int>> sorted = _removeSubTokens(counter).entries
-        .where((MapEntry<String, int> e) => e.value > 0)
-        .toList()
-      ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
-        if (b.value != a.value) {
-          return b.value.compareTo(a.value);
-        }
-        final int aWordCount = _wordCount(a.key);
-        final int bWordCount = _wordCount(b.key);
-        if (bWordCount != aWordCount) {
-          return bWordCount.compareTo(aWordCount);
-        }
-        return a.key.compareTo(b.key);
-      });
+    final List<MapEntry<String, int>> sorted =
+        _removeSubTokens(
+            counter,
+          ).entries.where((MapEntry<String, int> e) => e.value > 0).toList()
+          ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
+            if (b.value != a.value) {
+              return b.value.compareTo(a.value);
+            }
+            final int aWordCount = _wordCount(a.key);
+            final int bWordCount = _wordCount(b.key);
+            if (bWordCount != aWordCount) {
+              return bWordCount.compareTo(aWordCount);
+            }
+            return a.key.compareTo(b.key);
+          });
     return sorted.take(topN).map((MapEntry<String, int> e) => e.key).toList();
   }
 
   List<String> _extractNouns(String text) {
     final List<String> result = <String>[];
     final Iterable<String> tokens = RegExp(
-      r"[가-힣A-Za-z0-9]{2,}",
+      r"[가-힣A-Za-z0-9]{1,}",
     ).allMatches(text).map((Match m) => m.group(0) ?? "");
     for (final String token in tokens) {
       final String? noun = _normalizeNounToken(token);
@@ -585,26 +743,6 @@ class ReportAggregationService {
         continue;
       }
       result.add(noun);
-    }
-    return result;
-  }
-
-  List<_CompoundToken> _buildCompoundNouns(List<String> nouns) {
-    if (nouns.length < 2) {
-      return const <_CompoundToken>[];
-    }
-    final Set<String> dedupe = <String>{};
-    final List<_CompoundToken> result = <_CompoundToken>[];
-    for (int size = 2; size <= 3; size++) {
-      if (nouns.length < size) {
-        break;
-      }
-      for (int i = 0; i <= nouns.length - size; i++) {
-        final String text = nouns.sublist(i, i + size).join(" ");
-        if (dedupe.add(text)) {
-          result.add(_CompoundToken(text: text, size: size));
-        }
-      }
     }
     return result;
   }
@@ -619,7 +757,8 @@ class ReportAggregationService {
         }
         final bool contained =
             other.key.length > item.key.length && other.key.contains(item.key);
-        final bool stronger = other.value >= item.value && _wordCount(other.key) > 1;
+        final bool stronger =
+            other.value >= item.value && _wordCount(other.key) > 1;
         return contained && stronger;
       });
       if (!remove) {
@@ -629,13 +768,24 @@ class ReportAggregationService {
     return result;
   }
 
-  int _wordCount(String text) => text.split(" ").where((String w) => w.isNotEmpty).length;
+  int _wordCount(String text) =>
+      text.split(" ").where((String w) => w.isNotEmpty).length;
 
   void _addScore(Map<String, int> counter, String token, int amount) {
     if (amount == 0) {
       return;
     }
     counter[token] = (counter[token] ?? 0) + amount;
+  }
+
+  void _setMaxScore(Map<String, int> counter, String token, int amount) {
+    if (amount == 0) {
+      return;
+    }
+    final int existing = counter[token] ?? 0;
+    if (amount > existing) {
+      counter[token] = amount;
+    }
   }
 
   DateTime _kstDateOnlyFromRecord(TodayQuestionRecord record) {
@@ -747,8 +897,11 @@ class ReportAggregationService {
   }
 
   bool _isLikelyNoun(String token) {
-    if (token.isEmpty || token.length < 2) {
+    if (token.isEmpty) {
       return false;
+    }
+    if (token.length < 2) {
+      return _singleCharAllowedNouns.contains(token);
     }
     for (final String suffix in _nonNounSuffixes) {
       if (token.endsWith(suffix)) {
@@ -764,14 +917,18 @@ class ReportAggregationService {
 
   String? _normalizeNounToken(String token) {
     String value = token.trim().toLowerCase();
-    if (value.length < 2) {
+    if (value.isEmpty) {
       return null;
+    }
+    value = _extractLeadingNounCandidate(value);
+    if (value.startsWith("이사가")) {
+      value = "이사";
     }
     if (value.startsWith("같")) {
       return null;
     }
     for (final String suffix in _josaSuffixes) {
-      if (value.length > suffix.length + 1 && value.endsWith(suffix)) {
+      if (value.length > suffix.length && value.endsWith(suffix)) {
         value = value.substring(0, value.length - suffix.length);
         break;
       }
@@ -779,12 +936,61 @@ class ReportAggregationService {
     if (!_isLikelyNoun(value)) {
       return null;
     }
+    for (final String fragment in _verbLikeFragments) {
+      if (value == fragment ||
+          value.endsWith(fragment) ||
+          value.contains(fragment)) {
+        return null;
+      }
+    }
     for (final String noise in <String>["계속", "많이", "말고", "돼요", "되요", "되고"]) {
       if (value.contains(noise)) {
         return null;
       }
     }
     return value;
+  }
+
+  String _extractLeadingNounCandidate(String value) {
+    for (final String suffix in _inlineJosaSuffixes) {
+      final int index = value.indexOf(suffix, 1);
+      if (index <= 0) {
+        continue;
+      }
+      final String noun = value.substring(0, index);
+      final String tail = value.substring(index + suffix.length);
+      if (noun.isEmpty || tail.isEmpty) {
+        continue;
+      }
+      if (_looksLikeClauseTail(tail)) {
+        return noun;
+      }
+    }
+    return value;
+  }
+
+  bool _looksLikeClauseTail(String tail) {
+    if (tail.isEmpty) {
+      return false;
+    }
+    for (final String ending in _clauseTailEndings) {
+      if (tail.length > ending.length && tail.endsWith(ending)) {
+        return true;
+      }
+    }
+    for (final String fragment in _verbLikeFragments) {
+      if (tail == fragment ||
+          tail.endsWith(fragment) ||
+          tail.contains(fragment)) {
+        return true;
+      }
+    }
+    for (final String starter in _predicateTailStarters) {
+      if (tail.startsWith(starter)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   int? _scoreFromIndex(int? index) {
@@ -826,11 +1032,4 @@ class _DayScoreEvidence {
   final int score;
   final String dateLabel;
   final String answerSnippet;
-}
-
-class _CompoundToken {
-  const _CompoundToken({required this.text, required this.size});
-
-  final String text;
-  final int size;
 }

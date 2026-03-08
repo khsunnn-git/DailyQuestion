@@ -1,9 +1,7 @@
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
-import "../bucket/bucket_list_screen.dart";
-import "../more/more_settings_screen.dart";
-import "home_screen.dart";
+import "../navigation/main_tab_shell.dart";
 
 class AnnualRecordScreen extends StatelessWidget {
   const AnnualRecordScreen({
@@ -117,24 +115,11 @@ class AnnualRecordScreen extends StatelessWidget {
             child: AppNavigationBar(
               currentIndex: 2,
               onTap: (int index) {
-                if (index == 0) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
-                    (Route<dynamic> route) => false,
-                  );
+                if (index == 2) {
+                  MainTabShell.replace(context, index: 2);
                   return;
                 }
-                if (index == 1) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const BucketListScreen(),
-                    ),
-                  );
-                  return;
-                }
-                if (index == 3) {
-                  MoreSettingsScreen.open(context, replace: true);
-                }
+                MainTabShell.replace(context, index: index);
               },
               items: const <AppNavigationBarItemData>[
                 AppNavigationBarItemData(

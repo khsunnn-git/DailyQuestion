@@ -5,8 +5,10 @@ import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
+import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "../navigation/main_tab_shell.dart";
 import "../profile/user_profile_prefs.dart";
 import "home_screen.dart";
 import "../more/more_settings_screen.dart";
@@ -15,8 +17,24 @@ import "../question/today_question_store.dart";
 import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
 
+DateTime _recordDisplayDate(TodayQuestionRecord record) {
+  final String? key = record.questionDateKey?.trim();
+  if (key != null && key.length == 8) {
+    final int? year = int.tryParse(key.substring(0, 4));
+    final int? month = int.tryParse(key.substring(4, 6));
+    final int? day = int.tryParse(key.substring(6, 8));
+    if (year != null && month != null && day != null) {
+      return DateTime(year, month, day);
+    }
+  }
+  final DateTime kst = toKst(record.createdAt);
+  return DateTime(kst.year, kst.month, kst.day);
+}
+
 class MyRecordsScreen extends StatefulWidget {
-  const MyRecordsScreen({super.key});
+  const MyRecordsScreen({super.key, this.showNavigationBar = true});
+
+  final bool showNavigationBar;
 
   static const String _recordHeroDecoAsset =
       "assets/images/record/my_record_hero_deco.png";
@@ -303,54 +321,39 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                 ),
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: AppNavigationBar(
-                currentIndex: 2,
-                onTap: (int index) {
-                  if (index == 0) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const HomeScreen(),
-                      ),
-                      (Route<dynamic> route) => false,
-                    );
-                    return;
-                  }
-                  if (index == 1) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const BucketListScreen(),
-                      ),
-                    );
-                    return;
-                  }
-                  if (index == 3) {
-                    MoreSettingsScreen.open(context, replace: true);
-                  }
-                },
-                items: const <AppNavigationBarItemData>[
-                  AppNavigationBarItemData(
-                    label: "오늘의 질문",
-                    icon: Icons.home_outlined,
-                  ),
-                  AppNavigationBarItemData(
-                    label: "버킷리스트",
-                    icon: Icons.format_list_bulleted,
-                  ),
-                  AppNavigationBarItemData(
-                    label: "나의기록",
-                    icon: Icons.assignment_outlined,
-                  ),
-                  AppNavigationBarItemData(
-                    label: "더보기",
-                    icon: Icons.more_horiz,
-                  ),
-                ],
+            if (widget.showNavigationBar)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: AppNavigationBar(
+                  currentIndex: 2,
+                  onTap: (int index) {
+                    if (index == 2) {
+                      return;
+                    }
+                    MainTabShell.replace(context, index: index);
+                  },
+                  items: const <AppNavigationBarItemData>[
+                    AppNavigationBarItemData(
+                      label: "오늘의 질문",
+                      icon: Icons.home_outlined,
+                    ),
+                    AppNavigationBarItemData(
+                      label: "버킷리스트",
+                      icon: Icons.format_list_bulleted,
+                    ),
+                    AppNavigationBarItemData(
+                      label: "나의기록",
+                      icon: Icons.assignment_outlined,
+                    ),
+                    AppNavigationBarItemData(
+                      label: "더보기",
+                      icon: Icons.more_horiz,
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -701,17 +704,17 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
       builder:
           (BuildContext context, List<TodayQuestionRecord> records, Widget? _) {
             final List<TodayQuestionRecord> monthRecords = records
-                .where(
-                  (TodayQuestionRecord item) =>
-                      item.createdAt.year == widget.selectedYear &&
-                      item.createdAt.month == widget.selectedMonth,
-                )
+                .where((TodayQuestionRecord item) {
+                  final DateTime displayDate = _recordDisplayDate(item);
+                  return displayDate.year == widget.selectedYear &&
+                      displayDate.month == widget.selectedMonth;
+                })
                 .toList(growable: false);
 
             final Map<int, TodayQuestionRecord> recordByDay =
                 <int, TodayQuestionRecord>{};
             for (final TodayQuestionRecord item in monthRecords) {
-              recordByDay[item.createdAt.day] = item;
+              recordByDay[_recordDisplayDate(item).day] = item;
             }
             final TodayQuestionRecord? debugMock =
                 MyRecordsScreen.debugMockRecordForMonth(
@@ -1113,25 +1116,26 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
     }
 
     final List<TodayQuestionRecord> sameDay = TodayQuestionStore.instance.value
-        .where(
-          (TodayQuestionRecord record) =>
-              record.createdAt.month == baseDate.month &&
-              record.createdAt.day == baseDate.day &&
-              record.createdAt.year <= baseDate.year,
-        )
+        .where((TodayQuestionRecord record) {
+          final DateTime displayDate = _recordDisplayDate(record);
+          return displayDate.month == baseDate.month &&
+              displayDate.day == baseDate.day &&
+              displayDate.year <= baseDate.year;
+        })
         .toList(growable: false);
     final List<TodayQuestionRecord> mergedSameDay = <TodayQuestionRecord>[
       ...sameDay,
       ...MyRecordsScreen.debugAnnualMockRecords(baseDate: baseDate),
     ];
     for (final TodayQuestionRecord record in mergedSameDay) {
-      byYear.putIfAbsent(record.createdAt.year, () {
+      final DateTime displayDate = _recordDisplayDate(record);
+      byYear.putIfAbsent(displayDate.year, () {
         final String dateLabel =
-            "${record.createdAt.year.toString().padLeft(4, "0")}."
-            "${record.createdAt.month.toString().padLeft(2, "0")}."
-            "${record.createdAt.day.toString().padLeft(2, "0")} 기록";
+            "${displayDate.year.toString().padLeft(4, "0")}."
+            "${displayDate.month.toString().padLeft(2, "0")}."
+            "${displayDate.day.toString().padLeft(2, "0")} 기록";
         return AnnualRecordEntry(
-          year: record.createdAt.year,
+          year: displayDate.year,
           answer: record.answer,
           dateLabel: dateLabel,
         );
@@ -2181,11 +2185,12 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                   final Map<int, TodayQuestionRecord> recordByDay =
                       <int, TodayQuestionRecord>{};
                   for (final TodayQuestionRecord record in records) {
-                    if (record.createdAt.year != widget.selectedYear ||
-                        record.createdAt.month != widget.selectedMonth) {
+                    final DateTime displayDate = _recordDisplayDate(record);
+                    if (displayDate.year != widget.selectedYear ||
+                        displayDate.month != widget.selectedMonth) {
                       continue;
                     }
-                    recordByDay.putIfAbsent(record.createdAt.day, () => record);
+                    recordByDay.putIfAbsent(displayDate.day, () => record);
                   }
                   final TodayQuestionRecord? debugMock =
                       MyRecordsScreen.debugMockRecordForMonth(
@@ -2477,11 +2482,12 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                 final Map<int, TodayQuestionRecord> recordByDay =
                     <int, TodayQuestionRecord>{};
                 for (final TodayQuestionRecord record in records) {
-                  if (record.createdAt.year != _selectedYear ||
-                      record.createdAt.month != _selectedMonth) {
+                  final DateTime displayDate = _recordDisplayDate(record);
+                  if (displayDate.year != _selectedYear ||
+                      displayDate.month != _selectedMonth) {
                     continue;
                   }
-                  recordByDay.putIfAbsent(record.createdAt.day, () => record);
+                  recordByDay.putIfAbsent(displayDate.day, () => record);
                 }
                 final TodayQuestionRecord? debugMock =
                     MyRecordsScreen.debugMockRecordForMonth(
@@ -2899,6 +2905,11 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "덜",
     "자꾸",
     "바로",
+    "새로",
+    "가득",
+    "이런",
+    "그런",
+    "저런",
     "돼요",
     "되요",
     "되고",
@@ -2926,6 +2937,8 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "마음",
     "생각",
     "시간",
+    "생활",
+    "정상",
     "요즘",
     "오늘",
     "이번",
@@ -3011,6 +3024,12 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "될수록",
     "해보자",
     "해보기",
+    "아서",
+    "어서",
+    "여서",
+    "워서",
+    "고서",
+    "면서",
     "고",
     "어",
     "나",
@@ -3038,6 +3057,140 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "해보기",
     "하며",
     "하면",
+    "가서",
+    "와서",
+    "해서",
+    "이사가서",
+    "했으면",
+    "겠다",
+    "으면",
+    "들으면",
+    "아서",
+    "어서",
+    "여서",
+    "워서",
+    "고서",
+    "면서",
+  ];
+
+  static const Set<String> _singleCharAllowedNouns = <String>{
+    "비",
+    "밥",
+    "술",
+    "잠",
+    "집",
+    "일",
+    "물",
+    "눈",
+    "돈",
+    "말",
+    "밤",
+    "낮",
+    "길",
+    "차",
+    "책",
+    "꽃",
+    "몸",
+    "힘",
+    "맛",
+    "꿈",
+    "옷",
+    "손",
+    "발",
+    "산",
+    "달",
+    "별",
+    "빵",
+  };
+
+  static const List<String> _inlineJosaSuffixes = <String>[
+    "이라서",
+    "라서",
+    "에서",
+    "에게",
+    "으로",
+    "이며",
+    "이고",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "에",
+    "도",
+    "와",
+    "과",
+    "랑",
+    "야",
+  ];
+
+  static const List<String> _clauseTailEndings = <String>[
+    "라면",
+    "다면",
+    "으면",
+    "면서",
+    "려고",
+    "려면",
+    "해야",
+    "해요",
+    "네요",
+    "아요",
+    "어요",
+    "했어",
+    "하면",
+    "한다",
+    "된다",
+    "하다",
+    "되다",
+    "가요",
+    "와요",
+    "오면",
+    "가면",
+    "면",
+    "다",
+    "고",
+    "서",
+    "요",
+    "자",
+    "네",
+    "까",
+    "게",
+    "지",
+    "며",
+  ];
+
+  static const List<String> _predicateTailStarters = <String>[
+    "하",
+    "되",
+    "가",
+    "오",
+    "보",
+    "먹",
+    "듣",
+    "읽",
+    "쓰",
+    "누",
+    "마시",
+    "걷",
+    "놀",
+    "쉬",
+    "좋",
+    "싫",
+    "있",
+    "없",
+    "많",
+    "적",
+    "크",
+    "작",
+    "같",
+    "남",
+    "살",
+    "웃",
+    "울",
+    "떠",
+    "타",
+    "입",
   ];
 
   static const List<String> _josaSuffixes = <String>[
@@ -3059,6 +3212,7 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "거나",
     "라도",
     "만의",
+    "의",
     "은",
     "는",
     "이",
@@ -3075,14 +3229,18 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
   ];
 
   List<_KeywordSlice> _buildKeywordSlices(List<TodayQuestionRecord> records) {
-    final Iterable<TodayQuestionRecord> monthlyRecords = records.where(
-      (TodayQuestionRecord item) =>
-          item.createdAt.year == selectedYear &&
-          item.createdAt.month == selectedMonth,
-    );
+    final Iterable<TodayQuestionRecord> monthlyRecords = records.where((
+      TodayQuestionRecord item,
+    ) {
+      final DateTime displayDate = _recordDisplayDate(item);
+      return displayDate.year == selectedYear &&
+          displayDate.month == selectedMonth;
+    });
 
-    final Map<String, int> counter = <String, int>{};
+    final Map<String, int> priorityScores = <String, int>{};
+    final Map<String, int> occurrences = <String, int>{};
     for (final TodayQuestionRecord record in monthlyRecords) {
+      final Map<String, int> perRecord = <String, int>{};
       final List<String> bucketKeywords = record.bucketTags.isNotEmpty
           ? record.bucketTags
           : (record.bucketTag == null || record.bucketTag!.trim().isEmpty)
@@ -3099,14 +3257,7 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
           if (_lowInfoWords.contains(noun)) {
             score -= 1;
           }
-          _addScore(counter, noun, score);
-        }
-        for (final _CompoundToken compound in _buildCompoundNouns(nouns)) {
-          int score = compound.size >= 3 ? 4 : 3;
-          if (_domainBoostWords.contains(compound.text)) {
-            score += 1;
-          }
-          _addScore(counter, compound.text, score);
+          _setMaxScore(perRecord, noun, score);
         }
       }
 
@@ -3119,32 +3270,46 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
         if (_lowInfoWords.contains(noun)) {
           score -= 1;
         }
-        _addScore(counter, noun, score);
+        _setMaxScore(perRecord, noun, score);
       }
-      for (final _CompoundToken compound in _buildCompoundNouns(nouns)) {
-        int score = compound.size >= 3 ? 3 : 2;
-        if (_domainBoostWords.contains(compound.text)) {
-          score += 1;
-        }
-        _addScore(counter, compound.text, score);
+      for (final MapEntry<String, int> entry in perRecord.entries) {
+        _addScore(priorityScores, entry.key, entry.value);
+        _addScore(occurrences, entry.key, 1);
       }
     }
 
-    final List<MapEntry<String, int>> top = _removeSubTokens(counter).entries
-        .where((MapEntry<String, int> e) => e.value > 0)
-        .toList()
-      ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
-        if (b.value != a.value) return b.value.compareTo(a.value);
-        final int aWordCount = _wordCount(a.key);
-        final int bWordCount = _wordCount(b.key);
-        if (bWordCount != aWordCount) return bWordCount.compareTo(aWordCount);
-        return a.key.compareTo(b.key);
-      });
+    final Map<String, int> filteredOccurrences = _removeSubTokens(occurrences);
+    final List<MapEntry<String, int>> sorted =
+        filteredOccurrences.entries
+            .where((MapEntry<String, int> e) => e.value > 0)
+            .toList()
+          ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
+            if (b.value != a.value) {
+              return b.value.compareTo(a.value);
+            }
+            final int aPriority = priorityScores[a.key] ?? 0;
+            final int bPriority = priorityScores[b.key] ?? 0;
+            if (bPriority != aPriority) {
+              return bPriority.compareTo(aPriority);
+            }
+            return a.key.compareTo(b.key);
+          });
+    final List<MapEntry<String, int>> repeated = sorted
+        .where((MapEntry<String, int> e) => e.value >= 2)
+        .toList();
+    final List<MapEntry<String, int>> effective = repeated.isNotEmpty
+        ? repeated
+        : sorted.take(3).toList();
+    if (effective.isEmpty) {
+      return const <_KeywordSlice>[];
+    }
 
     final List<_KeywordSlice> result = List<_KeywordSlice>.generate(
-      top.length > _sliceColors.length ? _sliceColors.length : top.length,
+      effective.length > _sliceColors.length
+          ? _sliceColors.length
+          : effective.length,
       (int index) {
-        final MapEntry<String, int> item = top[index];
+        final MapEntry<String, int> item = effective[index];
         return _KeywordSlice(
           label: item.key,
           count: item.value,
@@ -3158,7 +3323,7 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
   List<String> _extractNouns(String text) {
     final List<String> result = <String>[];
     final Iterable<String> tokens = RegExp(
-      r"[가-힣A-Za-z0-9]{2,}",
+      r"[가-힣A-Za-z0-9]{1,}",
     ).allMatches(text).map((Match m) => m.group(0) ?? "");
     for (final String token in tokens) {
       final String? noun = _normalizeNounToken(token);
@@ -3166,26 +3331,6 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
         continue;
       }
       result.add(noun);
-    }
-    return result;
-  }
-
-  List<_CompoundToken> _buildCompoundNouns(List<String> nouns) {
-    if (nouns.length < 2) {
-      return const <_CompoundToken>[];
-    }
-    final Set<String> dedupe = <String>{};
-    final List<_CompoundToken> result = <_CompoundToken>[];
-    for (int size = 2; size <= 3; size++) {
-      if (nouns.length < size) {
-        break;
-      }
-      for (int i = 0; i <= nouns.length - size; i++) {
-        final String text = nouns.sublist(i, i + size).join(" ");
-        if (dedupe.add(text)) {
-          result.add(_CompoundToken(text: text, size: size));
-        }
-      }
     }
     return result;
   }
@@ -3200,7 +3345,8 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
         }
         final bool contained =
             other.key.length > item.key.length && other.key.contains(item.key);
-        final bool stronger = other.value >= item.value && _wordCount(other.key) > 1;
+        final bool stronger =
+            other.value >= item.value && _wordCount(other.key) > 1;
         return contained && stronger;
       });
       if (!remove) {
@@ -3210,7 +3356,8 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     return result;
   }
 
-  int _wordCount(String text) => text.split(" ").where((String w) => w.isNotEmpty).length;
+  int _wordCount(String text) =>
+      text.split(" ").where((String w) => w.isNotEmpty).length;
 
   void _addScore(Map<String, int> counter, String token, int amount) {
     if (amount == 0) {
@@ -3219,17 +3366,31 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     counter[token] = (counter[token] ?? 0) + amount;
   }
 
+  void _setMaxScore(Map<String, int> counter, String token, int amount) {
+    if (amount == 0) {
+      return;
+    }
+    final int existing = counter[token] ?? 0;
+    if (amount > existing) {
+      counter[token] = amount;
+    }
+  }
+
   String? _normalizeNounToken(String token) {
     String value = token.trim();
-    if (value.length < 2) {
+    if (value.isEmpty) {
       return null;
     }
     value = value.toLowerCase();
+    value = _extractLeadingNounCandidate(value);
+    if (value.startsWith("이사가")) {
+      value = "이사";
+    }
     if (value.startsWith("같")) {
       return null;
     }
     for (final String suffix in _josaSuffixes) {
-      if (value.length > suffix.length + 1 && value.endsWith(suffix)) {
+      if (value.length > suffix.length && value.endsWith(suffix)) {
         value = value.substring(0, value.length - suffix.length);
         break;
       }
@@ -3253,7 +3414,8 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
   }
 
   bool _isLikelyNoun(String token) {
-    if (token.length < 2) return false;
+    if (token.isEmpty) return false;
+    if (token.length < 2) return _singleCharAllowedNouns.contains(token);
     for (final String suffix in _nonNounSuffixes) {
       if (token.endsWith(suffix)) return false;
     }
@@ -3261,19 +3423,61 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     return true;
   }
 
+  String _extractLeadingNounCandidate(String value) {
+    for (final String suffix in _inlineJosaSuffixes) {
+      final int index = value.indexOf(suffix, 1);
+      if (index <= 0) {
+        continue;
+      }
+      final String noun = value.substring(0, index);
+      final String tail = value.substring(index + suffix.length);
+      if (noun.isEmpty || tail.isEmpty) {
+        continue;
+      }
+      if (_looksLikeClauseTail(tail)) {
+        return noun;
+      }
+    }
+    return value;
+  }
+
+  bool _looksLikeClauseTail(String tail) {
+    if (tail.isEmpty) {
+      return false;
+    }
+    for (final String ending in _clauseTailEndings) {
+      if (tail.length > ending.length && tail.endsWith(ending)) {
+        return true;
+      }
+    }
+    for (final String fragment in _verbLikeFragments) {
+      if (tail == fragment ||
+          tail.endsWith(fragment) ||
+          tail.contains(fragment)) {
+        return true;
+      }
+    }
+    for (final String starter in _predicateTailStarters) {
+      if (tail.startsWith(starter)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<List<TodayQuestionRecord>>(
       valueListenable: TodayQuestionStore.instance,
       builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
-        final int monthlyRecordCount = records
-            .where(
-              (TodayQuestionRecord item) =>
-                  item.createdAt.year == selectedYear &&
-                  item.createdAt.month == selectedMonth &&
-                  item.answer.trim().isNotEmpty,
-            )
-            .length;
+        final int monthlyRecordCount = records.where((
+          TodayQuestionRecord item,
+        ) {
+          final DateTime displayDate = _recordDisplayDate(item);
+          return displayDate.year == selectedYear &&
+              displayDate.month == selectedMonth &&
+              item.answer.trim().isNotEmpty;
+        }).length;
         final List<_KeywordSlice> slices = _buildKeywordSlices(records);
         final bool showNoKeywordDonut =
             monthlyRecordCount == 0 || slices.isEmpty;
@@ -3358,9 +3562,10 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   slice.label,
-                                  style: AppTypography.bodySmallRegular.copyWith(
-                                    color: AppNeutralColors.grey900,
-                                  ),
+                                  style: AppTypography.bodySmallRegular
+                                      .copyWith(
+                                        color: AppNeutralColors.grey900,
+                                      ),
                                 ),
                               ),
                               Text(
@@ -3394,13 +3599,6 @@ class _KeywordSlice {
   final String label;
   final int count;
   final Color color;
-}
-
-class _CompoundToken {
-  const _CompoundToken({required this.text, required this.size});
-
-  final String text;
-  final int size;
 }
 
 class _KeywordPieChartPainter extends CustomPainter {

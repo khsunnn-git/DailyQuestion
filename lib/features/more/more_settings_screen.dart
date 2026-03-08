@@ -4,9 +4,7 @@ import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 
 import "../../design_system/design_system.dart";
-import "../bucket/bucket_list_screen.dart";
-import "../home/home_screen.dart";
-import "../home/my_records_screen.dart";
+import "../navigation/main_tab_shell.dart";
 import "more_profile_stats_store.dart";
 import "feedback_send_screen.dart";
 import "local_backup_service.dart";
@@ -16,7 +14,9 @@ import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_store.dart";
 
 class MoreSettingsScreen extends StatefulWidget {
-  const MoreSettingsScreen({super.key});
+  const MoreSettingsScreen({super.key, this.showNavigationBar = true});
+
+  final bool showNavigationBar;
 
   static const String _profileAsset =
       "assets/images/signup/signup_nickname_profile_fish.png";
@@ -320,54 +320,39 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: AppNavigationBar(
-              currentIndex: 3,
-              onTap: (int index) {
-                if (index == 0) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute<void>(builder: (_) => const HomeScreen()),
-                    (Route<dynamic> route) => false,
-                  );
-                  return;
-                }
-                if (index == 1) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const BucketListScreen(),
-                    ),
-                  );
-                  return;
-                }
-                if (index == 2) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const MyRecordsScreen(),
-                    ),
-                  );
-                  return;
-                }
-              },
-              items: const <AppNavigationBarItemData>[
-                AppNavigationBarItemData(
-                  label: "오늘의 질문",
-                  icon: Icons.home_outlined,
-                ),
-                AppNavigationBarItemData(
-                  label: "버킷리스트",
-                  icon: Icons.format_list_bulleted,
-                ),
-                AppNavigationBarItemData(
-                  label: "나의기록",
-                  icon: Icons.assignment_outlined,
-                ),
-                AppNavigationBarItemData(label: "더보기", icon: Icons.more_horiz),
-              ],
+          if (widget.showNavigationBar)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AppNavigationBar(
+                currentIndex: 3,
+                onTap: (int index) {
+                  if (index == 3) {
+                    return;
+                  }
+                  MainTabShell.replace(context, index: index);
+                },
+                items: const <AppNavigationBarItemData>[
+                  AppNavigationBarItemData(
+                    label: "오늘의 질문",
+                    icon: Icons.home_outlined,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "버킷리스트",
+                    icon: Icons.format_list_bulleted,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "나의기록",
+                    icon: Icons.assignment_outlined,
+                  ),
+                  AppNavigationBarItemData(
+                    label: "더보기",
+                    icon: Icons.more_horiz,
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );

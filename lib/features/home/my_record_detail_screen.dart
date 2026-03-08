@@ -2,12 +2,10 @@ import "package:flutter/material.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
-import "../bucket/bucket_list_screen.dart";
 import "home_screen.dart";
-import "../more/more_settings_screen.dart";
+import "../navigation/main_tab_shell.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
-import "my_records_screen.dart";
 
 class MyRecordDetailScreen extends StatefulWidget {
   const MyRecordDetailScreen({super.key, required this.record});
@@ -527,34 +525,11 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
               child: AppNavigationBar(
                 currentIndex: 2,
                 onTap: (int index) {
-                  if (index == 0) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const HomeScreen(),
-                      ),
-                      (Route<dynamic> route) => false,
-                    );
-                    return;
-                  }
-                  if (index == 1) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const BucketListScreen(),
-                      ),
-                    );
-                    return;
-                  }
                   if (index == 2) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const MyRecordsScreen(),
-                      ),
-                    );
+                    MainTabShell.replace(context, index: 2);
                     return;
                   }
-                  if (index == 3) {
-                    MoreSettingsScreen.open(context, replace: true);
-                  }
+                  MainTabShell.replace(context, index: index);
                 },
                 items: const <AppNavigationBarItemData>[
                   AppNavigationBarItemData(
