@@ -4,6 +4,8 @@ import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 
 import "../../design_system/design_system.dart";
+import "../auth/auth_service.dart";
+import "../auth/login_screen.dart";
 import "../navigation/main_tab_shell.dart";
 import "more_profile_stats_store.dart";
 import "feedback_send_screen.dart";
@@ -213,6 +215,94 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
     await _openExternalUrl(_privacyUrl, "개인정보처리방침");
   }
 
+  Future<void> _logout() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: AppPopupTokens.dimmed,
+      builder: (BuildContext dialogContext) {
+        final BrandScale brand = dialogContext.appBrandScale;
+        return Center(
+          child: AppPopup(
+            width: AppPopupTokens.maxWidth,
+            title: "로그아웃",
+            body: "현재 연결된 계정에서 로그아웃할까요?",
+            actions: <Widget>[
+              SizedBox(
+                width: 100,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppNeutralColors.grey100,
+                    foregroundColor: AppNeutralColors.grey600,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonMedium,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: const Text("취소"),
+                ),
+              ),
+              SizedBox(
+                width: 170,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: brand.c500,
+                    foregroundColor: AppNeutralColors.white,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonMedium,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: const Text("로그아웃"),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (confirmed != true) {
+      return;
+    }
+    try {
+      await AuthService.instance.signOut();
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        (Route<dynamic> route) => false,
+      );
+    } on AuthActionException catch (error) {
+      _showUrlError(error.userMessage);
+    } catch (_) {
+      _showUrlError("로그아웃에 실패했어요. 잠시 후 다시 시도해주세요.");
+    }
+  }
+
+  List<_SettingsItem> _buildAccountItems() {
+    return <_SettingsItem>[
+      _SettingsItem(
+        title: "연결된 계정",
+        trailingText: AuthService.instance.currentProviderLabel,
+      ),
+      _SettingsItem(title: "로그아웃", onTap: _logout),
+      const _SettingsItem(title: "앱 버전", trailingText: "v.1.0 최신 버전"),
+      _SettingsItem(title: "이용약관", onTap: _openTerms),
+      _SettingsItem(title: "개인정보처리방침", onTap: _openPrivacyPolicy),
+    ];
+  }
+
   Future<void> _openExternalUrl(String rawUrl, String label) async {
     final Uri? uri = Uri.tryParse(rawUrl);
     if (uri == null ||
@@ -284,14 +374,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
                   const SizedBox(height: AppSpacing.s16),
                   _SettingsSectionCard(
                     title: "계정",
-                    items: <_SettingsItem>[
-                      _SettingsItem(title: "앱 버전", trailingText: "v.1.0 최신 버전"),
-                      _SettingsItem(title: "이용약관", onTap: _openTerms),
-                      _SettingsItem(
-                        title: "개인정보처리방침",
-                        onTap: _openPrivacyPolicy,
-                      ),
-                    ],
+                    items: _buildAccountItems(),
                   ),
                 ],
               ),
