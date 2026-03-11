@@ -4,7 +4,6 @@ import "package:flutter/material.dart";
 import "package:flutter_svg/flutter_svg.dart";
 
 import "../../design_system/design_system.dart";
-import "../auth/login_screen.dart";
 import "../navigation/main_tab_shell.dart";
 import "../profile/initial_terms_consent_screen.dart";
 import "../profile/nickname_setup_screen.dart";
@@ -13,11 +12,9 @@ import "../profile/user_profile_prefs.dart";
 class SplashScreen extends StatefulWidget {
   SplashScreen({
     super.key,
-    required this.isLoggedIn,
     this.firstDuration = const Duration(milliseconds: 1400),
     this.secondDuration = const Duration(milliseconds: 1400),
     this.onRouteHome,
-    this.onRouteLogin,
   }) : assert(!firstDuration.isNegative),
        assert(firstDuration > Duration.zero),
        assert(!secondDuration.isNegative),
@@ -27,11 +24,9 @@ class SplashScreen extends StatefulWidget {
          "Total splash duration must be 5s or less.",
        );
 
-  final bool isLoggedIn;
   final Duration firstDuration;
   final Duration secondDuration;
   final VoidCallback? onRouteHome;
-  final VoidCallback? onRouteLogin;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -56,43 +51,32 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _routeNext() async {
     if (!mounted) return;
 
-    if (widget.isLoggedIn) {
-      final bool hasInitialConsent =
-          await UserProfilePrefs.hasInitialConsentAccepted();
-      final bool hasNickname = await UserProfilePrefs.hasNickname();
-      if (!mounted) return;
+    final bool hasInitialConsent =
+        await UserProfilePrefs.hasInitialConsentAccepted();
+    final bool hasNickname = await UserProfilePrefs.hasNickname();
+    if (!mounted) return;
 
-      if (!hasInitialConsent) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => const InitialTermsConsentScreen(),
-          ),
-        );
-        return;
-      }
-
-      if (!hasNickname) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const NicknameSetupScreen()),
-        );
-        return;
-      }
-
-      if (widget.onRouteHome != null) {
-        widget.onRouteHome!();
-        return;
-      }
-      Navigator.of(context).pushReplacement(MainTabShell.route());
+    if (!hasInitialConsent) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => const InitialTermsConsentScreen(),
+        ),
+      );
       return;
     }
 
-    if (widget.onRouteLogin != null) {
-      widget.onRouteLogin!();
+    if (!hasNickname) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(builder: (_) => const NicknameSetupScreen()),
+      );
       return;
     }
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
-    );
+
+    if (widget.onRouteHome != null) {
+      widget.onRouteHome!();
+      return;
+    }
+    Navigator.of(context).pushReplacement(MainTabShell.route());
   }
 
   void _startFirstPhase() {

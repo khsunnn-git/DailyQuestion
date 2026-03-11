@@ -16,6 +16,10 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val isReleaseBuildRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.contains("Release", ignoreCase = true)
+}
+
 fun requireKeystoreProperty(name: String): String {
     val value = keystoreProperties.getProperty(name)?.trim()
     if (value.isNullOrEmpty()) {
@@ -66,13 +70,15 @@ android {
 
     buildTypes {
         release {
-            if (!keystorePropertiesFile.exists()) {
+            if (isReleaseBuildRequested && !keystorePropertiesFile.exists()) {
                 throw GradleException(
                     "Missing android/key.properties for release signing. " +
                         "Create it with storeFile, storePassword, keyAlias, keyPassword."
                 )
             }
-            signingConfig = signingConfigs.getByName("release")
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }

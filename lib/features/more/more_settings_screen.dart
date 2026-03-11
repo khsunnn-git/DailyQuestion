@@ -3,10 +3,12 @@ import "package:flutter/material.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 
+import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../auth/auth_service.dart";
 import "../auth/login_screen.dart";
 import "../navigation/main_tab_shell.dart";
+import "../question/today_question_store.dart";
 import "more_profile_stats_store.dart";
 import "feedback_send_screen.dart";
 import "local_backup_service.dart";
@@ -39,6 +41,7 @@ class MoreSettingsScreen extends StatefulWidget {
 }
 
 class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
+  static const int _accountConnectPromptThreshold = 3;
   static const String _termsUrl = String.fromEnvironment(
     "TERMS_URL",
     defaultValue:
@@ -51,6 +54,51 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
   );
 
   int _profileRefreshSeed = 0;
+  int _answeredQuestionCount = 0;
+
+  bool get _shouldShowAccountConnectPrompt =>
+      !AuthService.instance.hasConnectedProvider &&
+      _answeredQuestionCount >= _accountConnectPromptThreshold;
+
+  @override
+  void initState() {
+    super.initState();
+    TodayQuestionStore.instance.addListener(_handleQuestionRecordsChanged);
+    _initializeQuestionRecords();
+  }
+
+  @override
+  void dispose() {
+    TodayQuestionStore.instance.removeListener(_handleQuestionRecordsChanged);
+    super.dispose();
+  }
+
+  Future<void> _initializeQuestionRecords() async {
+    await TodayQuestionStore.instance.initialize();
+    if (!mounted) {
+      return;
+    }
+    _handleQuestionRecordsChanged();
+  }
+
+  void _handleQuestionRecordsChanged() {
+    final Set<String> answeredDateKeys = <String>{};
+    for (final TodayQuestionRecord record
+        in TodayQuestionStore.instance.value) {
+      final String dateKey =
+          (record.questionDateKey?.trim().isNotEmpty ?? false)
+          ? record.questionDateKey!.trim()
+          : kstDateKeyFromDateTime(record.createdAt);
+      answeredDateKeys.add(dateKey);
+    }
+    if (!mounted) {
+      _answeredQuestionCount = answeredDateKeys.length;
+      return;
+    }
+    setState(() {
+      _answeredQuestionCount = answeredDateKeys.length;
+    });
+  }
 
   Future<void> _openNicknameEdit() async {
     await Navigator.of(context).push(
@@ -215,6 +263,19 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
     await _openExternalUrl(_privacyUrl, "개인정보처리방침");
   }
 
+  Future<void> _openAccountConnect() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            LoginScreen(onLoginSuccess: () => Navigator.of(context).pop()),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
   Future<void> _logout() async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
@@ -279,10 +340,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
       if (!mounted) {
         return;
       }
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
-        (Route<dynamic> route) => false,
-      );
+      setState(() {});
     } on AuthActionException catch (error) {
       _showUrlError(error.userMessage);
     } catch (_) {
@@ -291,13 +349,27 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
   }
 
   List<_SettingsItem> _buildAccountItems() {
+    final bool hasConnectedProvider = AuthService.instance.hasConnectedProvider;
+    final _SettingsItem versionItem = const _SettingsItem(
+      title: "앱 버전",
+      trailingText: "v.1.0 최신 버전",
+    );
+
+    if (hasConnectedProvider) {
+      return <_SettingsItem>[
+        _SettingsItem(
+          title: "계정연결",
+          trailingText: AuthService.instance.currentProviderConnectionLabel,
+        ),
+        versionItem,
+        _SettingsItem(title: "이용약관", onTap: _openTerms),
+        _SettingsItem(title: "개인정보처리방침", onTap: _openPrivacyPolicy),
+      ];
+    }
+
     return <_SettingsItem>[
-      _SettingsItem(
-        title: "연결된 계정",
-        trailingText: AuthService.instance.currentProviderLabel,
-      ),
-      _SettingsItem(title: "로그아웃", onTap: _logout),
-      const _SettingsItem(title: "앱 버전", trailingText: "v.1.0 최신 버전"),
+      versionItem,
+      _SettingsItem(title: "계정 연결", onTap: _openAccountConnect),
       _SettingsItem(title: "이용약관", onTap: _openTerms),
       _SettingsItem(title: "개인정보처리방침", onTap: _openPrivacyPolicy),
     ];
@@ -332,6 +404,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
+    final bool hasConnectedProvider = AuthService.instance.hasConnectedProvider;
     return Scaffold(
       backgroundColor: brand.bg,
       body: Stack(
@@ -340,13 +413,35 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
             child: SingleChildScrollView(
               padding: EdgeInsets.fromLTRB(
                 AppSpacing.s20,
-                146,
+                AppHeaderTokens.topInset + AppSpacing.s20,
                 AppSpacing.s20,
                 AppNavigationBar.totalHeight(context) + AppSpacing.s24,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      const SizedBox(
+                        width: AppSpacing.s24,
+                        height: AppSpacing.s24,
+                      ),
+                      Expanded(
+                        child: Text(
+                          "설정",
+                          textAlign: TextAlign.center,
+                          style: AppTypography.headingXSmall.copyWith(
+                            color: AppNeutralColors.grey900,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(
+                        width: AppSpacing.s24,
+                        height: AppSpacing.s24,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.s32),
                   _ProfileSection(
                     refreshSeed: _profileRefreshSeed,
                     onEditPressed: _openNicknameEdit,
@@ -376,33 +471,42 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
                     title: "계정",
                     items: _buildAccountItems(),
                   ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: AppHeaderTokens.topInset,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.s20),
-              child: Row(
-                children: <Widget>[
-                  const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
-                  Expanded(
-                    child: Text(
-                      "설정",
-                      textAlign: TextAlign.center,
-                      style: AppTypography.headingXSmall.copyWith(
-                        color: AppNeutralColors.grey900,
+                  if (hasConnectedProvider) ...<Widget>[
+                    const SizedBox(height: AppSpacing.s24),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: _logout,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.s4),
+                          child: Text(
+                            "로그아웃",
+                            style: AppTypography.buttonSmall.copyWith(
+                              color: AppNeutralColors.grey500,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
+                  ],
                 ],
               ),
             ),
           ),
+          if (_shouldShowAccountConnectPrompt && widget.showNavigationBar)
+            Positioned(
+              right: AppSpacing.s20,
+              bottom: AppNavigationBar.totalHeight(context) - AppSpacing.s8,
+              child: GestureDetector(
+                onTap: _openAccountConnect,
+                behavior: HitTestBehavior.opaque,
+                child: const AppSpeechBubble(
+                  text: "계정연동하기",
+                  direction: AppBubbleDirection.down,
+                ),
+              ),
+            ),
           if (widget.showNavigationBar)
             Positioned(
               left: 0,

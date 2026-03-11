@@ -1,7 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter/foundation.dart";
-import "package:firebase_auth/firebase_auth.dart";
 import "package:firebase_core/firebase_core.dart";
 
 import "app_bootstrap.dart";
@@ -83,7 +82,6 @@ class DailyQuestionApp extends StatelessWidget {
       home: _forceNicknameSetupPreview
           ? const NicknameSetupScreen()
           : SplashScreen(
-              isLoggedIn: FirebaseAuth.instance.currentUser != null,
               firstDuration: Duration(milliseconds: 1400),
               secondDuration: Duration(milliseconds: 1400),
             ),

@@ -21,6 +21,19 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  Future<User> ensureSignedInUser() async {
+    final User? user = currentUser;
+    if (user != null) {
+      return user;
+    }
+    final UserCredential credential = await _auth.signInAnonymously();
+    final User? signedInUser = credential.user;
+    if (signedInUser == null) {
+      throw const AuthActionException("사용자 정보를 준비하지 못했어요. 다시 시도해주세요.");
+    }
+    return signedInUser;
+  }
+
   SocialAuthProvider? get currentProvider {
     final User? user = currentUser;
     if (user == null || user.isAnonymous) {
@@ -36,8 +49,40 @@ class AuthService {
     return null;
   }
 
-  String get currentProviderLabel =>
-      currentProvider?.label ?? (currentUser == null ? "연결 안 됨" : "이메일");
+  bool get hasConnectedProvider {
+    final User? user = currentUser;
+    return user != null && !user.isAnonymous;
+  }
+
+  String get currentProviderLabel {
+    final SocialAuthProvider? provider = currentProvider;
+    if (provider != null) {
+      return provider.label;
+    }
+    final User? user = currentUser;
+    if (user == null || user.isAnonymous) {
+      return "연결 안 됨";
+    }
+    if ((user.email ?? "").trim().isNotEmpty) {
+      return "이메일";
+    }
+    return "연결됨";
+  }
+
+  String? get currentProviderConnectionLabel {
+    final SocialAuthProvider? provider = currentProvider;
+    if (provider != null) {
+      return provider.connectionLabel;
+    }
+    final User? user = currentUser;
+    if (user == null || user.isAnonymous) {
+      return null;
+    }
+    if ((user.email ?? "").trim().isNotEmpty) {
+      return "이메일 연동";
+    }
+    return "연동됨";
+  }
 
   Future<UserCredential> signInWithProvider(SocialAuthProvider provider) async {
     switch (provider) {

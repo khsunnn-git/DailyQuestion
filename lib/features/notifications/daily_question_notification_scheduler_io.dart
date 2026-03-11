@@ -1,5 +1,6 @@
 import "dart:async";
 
+import "package:flutter/foundation.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:flutter_timezone/flutter_timezone.dart";
 import "package:isar/isar.dart";
@@ -19,21 +20,21 @@ const String _bucketDdayNotificationIdsKey = "bucket_dday_notification_ids";
 
 const AndroidNotificationDetails _androidNotificationDetails =
     AndroidNotificationDetails(
-      "daily_question_channel_v2",
+      "daily_question_channel_v3",
       "오늘의 질문 알림",
       channelDescription: "오늘의 질문 알림을 매일 지정된 시간에 전송합니다.",
       icon: "ic_noti_question",
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
-      playSound: false,
-      enableVibration: false,
+      playSound: true,
+      enableVibration: true,
     );
 
 const DarwinNotificationDetails _darwinNotificationDetails =
     DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
-      presentSound: false,
+      presentSound: true,
     );
 
 const NotificationDetails _notificationDetails = NotificationDetails(
@@ -46,7 +47,14 @@ final FlutterLocalNotificationsPlugin _notifications =
 
 bool _initialized = false;
 
+void _logNotification(String message) {
+  if (kDebugMode) {
+    debugPrint("[notifications] $message");
+  }
+}
+
 Future<void> initializeDailyQuestionNotificationScheduler() async {
+  _logNotification("initialize scheduler");
   await _ensureInitialized();
   await _restoreSchedulesFromPrefs();
 }
@@ -56,16 +64,21 @@ Future<void> updateDailyQuestionNotificationSchedule({
   required int hour,
   required int minute,
 }) async {
+  _logNotification(
+    "update daily schedule enabled=$enabled time=${hour.toString().padLeft(2, "0")}:${minute.toString().padLeft(2, "0")}",
+  );
   await _ensureInitialized();
   await _notifications.cancel(_dailyQuestionNotificationId);
   await _notifications.cancel(_dailyQuestionCatchupNotificationId);
   if (!enabled) {
+    _logNotification("daily schedule canceled because enabled=false");
     return;
   }
   await _scheduleDaily(hour: hour, minute: minute);
 }
 
 Future<void> cancelDailyQuestionNotificationSchedule() async {
+  _logNotification("cancel daily schedule");
   await _ensureInitialized();
   await _notifications.cancel(_dailyQuestionNotificationId);
   await _notifications.cancel(_dailyQuestionCatchupNotificationId);
@@ -81,6 +94,9 @@ Future<void> syncBucketDdayNotificationSchedule({
   final bool hasPermission =
       permissionStatus == PermissionStatus.granted ||
       permissionStatus == PermissionStatus.provisional;
+  _logNotification(
+    "sync bucket dday enabled=$enabled daysBefore=$daysBefore permission=$permissionStatus effective=${enabled && hasPermission}",
+  );
   await _resyncBucketDdayNotifications(
     enabled: enabled && hasPermission,
     daysBefore: daysBefore,
@@ -125,17 +141,21 @@ Future<void> _ensureInitialized() async {
   );
 
   _initialized = true;
+  _logNotification("plugin initialized");
 }
 
 Future<void> _configureLocalTimeZone() async {
   try {
     final String timezoneName = await FlutterTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(timezoneName));
+    _logNotification("timezone set to $timezoneName");
   } catch (_) {
     try {
       tz.setLocalLocation(tz.getLocation("Asia/Seoul"));
+      _logNotification("timezone fallback to Asia/Seoul");
     } catch (_) {
       tz.setLocalLocation(tz.getLocation("UTC"));
+      _logNotification("timezone fallback to UTC");
     }
   }
 }
@@ -143,7 +163,8 @@ Future<void> _configureLocalTimeZone() async {
 Future<void> _restoreSchedulesFromPrefs() async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   final bool todayQuestionEnabled =
-      prefs.getBool(NotificationPrefsKeys.todayQuestionEnabled) ?? false;
+      prefs.getBool(NotificationPrefsKeys.todayQuestionEnabled) ??
+      NotificationPrefsKeys.defaultTodayQuestionEnabled;
   final int hour =
       prefs.getInt(NotificationPrefsKeys.todayQuestionHour) ??
       NotificationPrefsKeys.defaultTodayQuestionHour;
@@ -155,10 +176,14 @@ Future<void> _restoreSchedulesFromPrefs() async {
   final int bucketDdayDaysBefore =
       prefs.getInt(NotificationPrefsKeys.bucketDdayDaysBefore) ??
       NotificationPrefsKeys.defaultBucketDdayDaysBefore;
+  _logNotification(
+    "restore prefs todayEnabled=$todayQuestionEnabled time=${hour.toString().padLeft(2, "0")}:${minute.toString().padLeft(2, "0")} bucketEnabled=$bucketDdayEnabled bucketDaysBefore=$bucketDdayDaysBefore",
+  );
 
   if (!todayQuestionEnabled) {
     await _notifications.cancel(_dailyQuestionNotificationId);
     await _notifications.cancel(_dailyQuestionCatchupNotificationId);
+    _logNotification("daily schedule not restored because todayEnabled=false");
   } else {
     await _scheduleDaily(hour: hour, minute: minute);
   }
@@ -178,11 +203,13 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
     hour,
     minute,
   );
-  final bool isSameMinuteSelection =
-      now.hour == hour && now.minute == minute;
+  final bool isSameMinuteSelection = now.hour == hour && now.minute == minute;
   final tz.TZDateTime repeatingSchedule = todayAtSelectedTime.isAfter(now)
       ? todayAtSelectedTime
       : todayAtSelectedTime.add(const Duration(days: 1));
+  _logNotification(
+    "schedule daily now=$now selected=$todayAtSelectedTime next=$repeatingSchedule sameMinute=$isSameMinuteSelection",
+  );
 
   await _notifications.zonedSchedule(
     _dailyQuestionNotificationId,
@@ -200,6 +227,7 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
   // notification shortly after save so today's alert is not skipped.
   if (isSameMinuteSelection && !todayAtSelectedTime.isAfter(now)) {
     final tz.TZDateTime catchupTime = now.add(const Duration(seconds: 5));
+    _logNotification("schedule catch-up notification for $catchupTime");
     await _notifications.zonedSchedule(
       _dailyQuestionCatchupNotificationId,
       "오늘의 질문이 도착했어요!",
@@ -227,8 +255,14 @@ Future<void> _resyncBucketDdayNotifications({
     }
   }
   await prefs.remove(_bucketDdayNotificationIdsKey);
+  _logNotification(
+    "resync bucket notifications enabled=$enabled daysBefore=$daysBefore cleared=${previousIdsRaw.length}",
+  );
 
   if (!enabled || daysBefore <= 0) {
+    _logNotification(
+      "skip bucket resync because enabled=$enabled daysBefore=$daysBefore",
+    );
     return;
   }
 
@@ -259,6 +293,9 @@ Future<void> _resyncBucketDdayNotifications({
 
     final int notificationId =
         _bucketDdayNotificationBaseId + (item.id % 100000000).toInt();
+    _logNotification(
+      "schedule bucket notification id=$notificationId title=${item.title} at=$scheduled",
+    );
     await _notifications.zonedSchedule(
       notificationId,
       "${item.title} 완료 D-$daysBefore일 전이에요!",
@@ -275,4 +312,5 @@ Future<void> _resyncBucketDdayNotifications({
   if (nextIdsRaw.isNotEmpty) {
     await prefs.setStringList(_bucketDdayNotificationIdsKey, nextIdsRaw);
   }
+  _logNotification("bucket resync completed scheduled=${nextIdsRaw.length}");
 }

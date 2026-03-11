@@ -25,6 +25,10 @@ extension SocialAuthProviderX on SocialAuthProvider {
 
   String get loginLabel => "$label로 로그인";
 
+  String get startLabel => "$label로 시작하기";
+
+  String get connectionLabel => "$label 연동";
+
   String get firebaseProviderId {
     switch (this) {
       case SocialAuthProvider.google:
