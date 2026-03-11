@@ -1376,6 +1376,23 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
                         ],
                       ),
                     ),
+                  if (!isEmptyState)
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          item.body,
+                          textAlign: TextAlign.left,
+                          style: AppTypography.bodyLargeRegular.copyWith(
+                            color: AppNeutralColors.grey800,
+                          ),
+                          maxLines: 6,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  if (!isEmptyState && item.tags.isNotEmpty)
+                    const SizedBox(height: AppSpacing.s16),
                   if (!isEmptyState && item.tags.isNotEmpty)
                     SizedBox(
                       width: double.infinity,
@@ -1410,23 +1427,6 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
                                 ),
                               )
                               .toList(growable: false),
-                        ),
-                      ),
-                    ),
-                  if (!isEmptyState && item.tags.isNotEmpty)
-                    const SizedBox(height: AppSpacing.s16),
-                  if (!isEmptyState)
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topLeft,
-                        child: Text(
-                          item.body,
-                          textAlign: TextAlign.left,
-                          style: AppTypography.bodyLargeRegular.copyWith(
-                            color: AppNeutralColors.grey800,
-                          ),
-                          maxLines: 6,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),

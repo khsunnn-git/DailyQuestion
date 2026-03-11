@@ -243,10 +243,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     final double bottomPadding =
-        (widget.showNavigationBar
-            ? AppNavigationBar.totalHeight(context)
-            : MediaQuery.viewPaddingOf(context).bottom) +
-        AppSpacing.s24;
+        AppNavigationBar.totalHeight(context) + AppSpacing.s24;
     return Scaffold(
       backgroundColor: brand.bg,
       body: Stack(
@@ -254,56 +251,76 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
           Positioned.fill(
             child: SafeArea(
               bottom: false,
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.s20,
-                  AppSpacing.s0,
-                  AppSpacing.s20,
-                  bottomPadding,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    const _SettingsScreenHeader(),
-                    const SizedBox(height: AppSpacing.s32),
-                    _ProfileSection(
-                      refreshSeed: _profileRefreshSeed,
-                      onEditPressed: _openNicknameEdit,
+              child: Column(
+                children: <Widget>[
+                  const _SettingsScreenHeader(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(
+                        AppSpacing.s20,
+                        AppSpacing.s32,
+                        AppSpacing.s20,
+                        bottomPadding,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          _ProfileSection(
+                            refreshSeed: _profileRefreshSeed,
+                            onEditPressed: _openNicknameEdit,
+                          ),
+                          const SizedBox(height: AppSpacing.s32),
+                          _SettingsSectionCard(
+                            title: "서비스 설정",
+                            items: <_SettingsItem>[
+                              _SettingsItem(
+                                title: "알림 설정",
+                                onTap: _openNotificationSettings,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.s16),
+                          _SettingsSectionCard(
+                            title: "고객 센터",
+                            items: <_SettingsItem>[
+                              _SettingsItem(
+                                title: "공지사항",
+                                onTap: _openNoticeList,
+                              ),
+                              _SettingsItem(
+                                title: "의견 보내기",
+                                onTap: _openFeedbackSend,
+                              ),
+                              _SettingsItem(
+                                title: "백업하기",
+                                onTap: _backupLocalData,
+                              ),
+                              _SettingsItem(
+                                title: "복원하기",
+                                onTap: _restoreLocalData,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.s16),
+                          _SettingsSectionCard(
+                            title: "계정",
+                            items: <_SettingsItem>[
+                              _SettingsItem(
+                                title: "앱 버전",
+                                trailingText: "v.1.0 최신 버전",
+                              ),
+                              _SettingsItem(title: "이용약관", onTap: _openTerms),
+                              _SettingsItem(
+                                title: "개인정보처리방침",
+                                onTap: _openPrivacyPolicy,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: AppSpacing.s32),
-                    _SettingsSectionCard(
-                      title: "서비스 설정",
-                      items: <_SettingsItem>[
-                        _SettingsItem(
-                          title: "알림 설정",
-                          onTap: _openNotificationSettings,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.s16),
-                    _SettingsSectionCard(
-                      title: "고객 센터",
-                      items: <_SettingsItem>[
-                        _SettingsItem(title: "공지사항", onTap: _openNoticeList),
-                        _SettingsItem(title: "의견 보내기", onTap: _openFeedbackSend),
-                        _SettingsItem(title: "백업하기", onTap: _backupLocalData),
-                        _SettingsItem(title: "복원하기", onTap: _restoreLocalData),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.s16),
-                    _SettingsSectionCard(
-                      title: "계정",
-                      items: <_SettingsItem>[
-                        _SettingsItem(title: "앱 버전", trailingText: "v.1.0 최신 버전"),
-                        _SettingsItem(title: "이용약관", onTap: _openTerms),
-                        _SettingsItem(
-                          title: "개인정보처리방침",
-                          onTap: _openPrivacyPolicy,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
