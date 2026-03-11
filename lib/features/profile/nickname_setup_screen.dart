@@ -1,10 +1,10 @@
 import "dart:async";
 
 import "package:flutter/material.dart";
-import "package:flutter/services.dart";
 
 import "../../design_system/design_system.dart";
 import "nickname_complete_screen.dart";
+import "nickname_rules.dart";
 import "user_profile_prefs.dart";
 
 class NicknameSetupScreen extends StatefulWidget {
@@ -37,7 +37,7 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
   String get _trimmedNickname => _nicknameController.text.trim();
   int get _nicknameLength => _trimmedNickname.length;
   bool get _isKoreanOnly =>
-      RegExp(r"^[ㄱ-ㅎㅏ-ㅣ가-힣]+$").hasMatch(_trimmedNickname);
+      nicknameValidationRegExp.hasMatch(_trimmedNickname);
   bool get _isLocallyValid =>
       _trimmedNickname.isNotEmpty &&
       _isKoreanOnly &&
@@ -255,14 +255,9 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                             focusNode: _nicknameFocusNode,
                             autofocus: true,
                             keyboardType: TextInputType.name,
-                            inputFormatters: <TextInputFormatter>[
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r"[ㄱ-ㅎㅏ-ㅣ가-힣]"),
-                              ),
-                              LengthLimitingTextInputFormatter(
-                                _maxNicknameLength,
-                              ),
-                            ],
+                            inputFormatters: nicknameInputFormatters(
+                              maxLength: _maxNicknameLength,
+                            ),
                             style: AppInputTokens.mdTextStyle.copyWith(
                               color: AppNeutralColors.grey900,
                             ),
