@@ -310,13 +310,25 @@ class _AutoSignUpHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      "처음 구글로 로그인하면\n별도 회원가입 없이 바로 시작돼요",
-      textAlign: TextAlign.center,
-      style: AppTypography.buttonSmall.copyWith(
-        color: AppNeutralColors.grey700,
-        height: 1.4,
-      ),
+    final TextStyle hintStyle = AppTypography.buttonSmall.copyWith(
+      color: AppNeutralColors.grey700,
+      height: 1.4,
+    );
+
+    return Column(
+      children: <Widget>[
+        Text(
+          "처음 로그인하면\n별도 회원가입 없이 바로 시작됩니다.",
+          textAlign: TextAlign.center,
+          style: hintStyle,
+        ),
+        const SizedBox(height: AppSpacing.s8),
+        Text(
+          "계정이 연동되면\n기존 데이터가 자동으로 백업됩니다.",
+          textAlign: TextAlign.center,
+          style: hintStyle,
+        ),
+      ],
     );
   }
 }

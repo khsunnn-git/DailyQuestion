@@ -13,6 +13,10 @@ Future<void> syncPendingUserAnswers({bool restoreRemoteOnConnect = false}) {
   );
 }
 
+Future<void> deleteRemoteUserAnswerBackup({String? uid}) {
+  return service.deleteRemoteUserAnswerBackup(uid: uid);
+}
+
 Future<void> handleUserAnswerBackupAppLifecycleState(AppLifecycleState state) {
   return service.handleUserAnswerBackupAppLifecycleState(state);
 }

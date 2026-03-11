@@ -111,6 +111,16 @@ class AuthService {
     }
   }
 
+  Future<void> clearCurrentSession() async {
+    if (hasConnectedProvider) {
+      await disconnectConnectedProvider();
+      return;
+    }
+    if (currentUser != null) {
+      await _auth.signOut();
+    }
+  }
+
   Future<UserCredential> _signInWithGoogle() async {
     if (kIsWeb) {
       final GoogleAuthProvider provider = GoogleAuthProvider();

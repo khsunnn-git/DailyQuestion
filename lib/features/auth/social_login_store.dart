@@ -18,4 +18,9 @@ class SocialLoginStore {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     return socialAuthProviderFromId(prefs.getString(_recentProviderKey));
   }
+
+  Future<void> clearRecentProvider() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_recentProviderKey);
+  }
 }

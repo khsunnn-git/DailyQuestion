@@ -87,6 +87,66 @@ class PublicAnswerUploader {
     await _daySlotCollection(questionDateKey, questionSlot).doc(docId).delete();
   }
 
+  Future<void> deleteAllOwnedAnswers({String? uid}) async {
+    final FirebaseFirestore db = FirebaseFirestore.instance;
+    final Set<String> seenPaths = <String>{};
+    final List<DocumentReference<Map<String, dynamic>>> refs =
+        <DocumentReference<Map<String, dynamic>>>[];
+
+    final String? normalizedUid = uid?.trim().isEmpty ?? true
+        ? null
+        : uid!.trim();
+    if (normalizedUid != null) {
+      final QuerySnapshot<Map<String, dynamic>> snapshot = await db
+          .collectionGroup("answers")
+          .where("authorUid", isEqualTo: normalizedUid)
+          .get();
+      for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+          in snapshot.docs) {
+        if (seenPaths.add(doc.reference.path)) {
+          refs.add(doc.reference);
+        }
+      }
+    }
+
+    final String? anonId = await _readStoredAnonId();
+    if (anonId != null && anonId.isNotEmpty) {
+      final QuerySnapshot<Map<String, dynamic>> snapshot = await db
+          .collectionGroup("answers")
+          .where("deviceAnonId", isEqualTo: anonId)
+          .get();
+      for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
+          in snapshot.docs) {
+        if (seenPaths.add(doc.reference.path)) {
+          refs.add(doc.reference);
+        }
+      }
+    }
+
+    if (refs.isEmpty) {
+      return;
+    }
+
+    const int batchLimit = 450;
+    for (int i = 0; i < refs.length; i += batchLimit) {
+      final int end = min(i + batchLimit, refs.length);
+      final WriteBatch batch = db.batch();
+      for (final DocumentReference<Map<String, dynamic>> ref in refs.sublist(
+        i,
+        end,
+      )) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
+  }
+
+  Future<void> clearDeviceAnonId() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_anonIdKey);
+    _cachedAnonId = null;
+  }
+
   Future<void> _ensureAnonymousSignIn() async {
     final FirebaseAuth auth = FirebaseAuth.instance;
     if (auth.currentUser != null) {
@@ -109,6 +169,19 @@ class PublicAnswerUploader {
     await prefs.setString(_anonIdKey, created);
     _cachedAnonId = created;
     return created;
+  }
+
+  Future<String?> _readStoredAnonId() async {
+    if (_cachedAnonId != null && _cachedAnonId!.isNotEmpty) {
+      return _cachedAnonId;
+    }
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? saved = prefs.getString(_anonIdKey);
+    if (saved != null && saved.isNotEmpty) {
+      _cachedAnonId = saved;
+      return saved;
+    }
+    return null;
   }
 
   String _createAnonId() {

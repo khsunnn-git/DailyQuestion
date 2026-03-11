@@ -6,6 +6,8 @@ Future<void> syncPendingUserAnswers({
   bool restoreRemoteOnConnect = false,
 }) async {}
 
+Future<void> deleteRemoteUserAnswerBackup({String? uid}) async {}
+
 Future<void> handleUserAnswerBackupAppLifecycleState(
   AppLifecycleState state,
 ) async {}

@@ -1,4 +1,5 @@
 import "dart:async";
+import "dart:math" as math;
 
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
@@ -25,6 +26,10 @@ Future<void> syncPendingUserAnswers({bool restoreRemoteOnConnect = false}) {
   return _userAnswerBackupCoordinator.syncPendingUserAnswers(
     restoreRemoteOnConnect: restoreRemoteOnConnect,
   );
+}
+
+Future<void> deleteRemoteUserAnswerBackup({String? uid}) {
+  return _userAnswerBackupCoordinator.deleteRemoteUserAnswerBackup(uid: uid);
 }
 
 Future<void> handleUserAnswerBackupAppLifecycleState(AppLifecycleState state) {
@@ -120,6 +125,31 @@ class _UserAnswerBackupCoordinator {
       }
     } finally {
       _syncInProgress = false;
+    }
+  }
+
+  Future<void> deleteRemoteUserAnswerBackup({String? uid}) async {
+    final String? targetUid = uid ?? _auth.currentUser?.uid;
+    if (targetUid == null || targetUid.isEmpty) {
+      return;
+    }
+
+    final CollectionReference<Map<String, dynamic>> answers = _firestore
+        .collection(_usersCollectionId)
+        .doc(targetUid)
+        .collection(_answersCollectionId);
+    final QuerySnapshot<Map<String, dynamic>> snapshot = await answers.get();
+    await _deleteDocumentReferences(
+      snapshot.docs
+          .map(
+            (QueryDocumentSnapshot<Map<String, dynamic>> doc) => doc.reference,
+          )
+          .toList(growable: false),
+    );
+    try {
+      await _firestore.collection(_usersCollectionId).doc(targetUid).delete();
+    } catch (_) {
+      // Ignore missing parent docs.
     }
   }
 
@@ -310,6 +340,27 @@ class _UserAnswerBackupCoordinator {
     await isar.writeTxn(() async {
       await isar.answerRecordEntitys.delete(entityId);
     });
+  }
+
+  Future<void> _deleteDocumentReferences(
+    List<DocumentReference<Map<String, dynamic>>> refs,
+  ) async {
+    if (refs.isEmpty) {
+      return;
+    }
+
+    const int batchLimit = 450;
+    for (int i = 0; i < refs.length; i += batchLimit) {
+      final int end = math.min(i + batchLimit, refs.length);
+      final WriteBatch batch = _firestore.batch();
+      for (final DocumentReference<Map<String, dynamic>> ref in refs.sublist(
+        i,
+        end,
+      )) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
   }
 
   DocumentReference<Map<String, dynamic>> _remoteAnswerDoc({
