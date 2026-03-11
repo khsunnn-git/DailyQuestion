@@ -4,6 +4,8 @@ import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 
 import "../../design_system/design_system.dart";
+import "../auth/auth_service.dart";
+import "../auth/login_screen.dart";
 import "../navigation/main_tab_shell.dart";
 import "more_profile_stats_store.dart";
 import "feedback_send_screen.dart";
@@ -213,6 +215,118 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
     await _openExternalUrl(_privacyUrl, "개인정보처리방침");
   }
 
+  Future<void> _openAccountConnect() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            LoginScreen(onLoginSuccess: () => Navigator.of(context).pop()),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _disconnectAccount() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: AppPopupTokens.dimmed,
+      builder: (BuildContext dialogContext) {
+        final BrandScale brand = dialogContext.appBrandScale;
+        return Center(
+          child: AppPopup(
+            width: AppPopupTokens.maxWidth,
+            title: "계정 연동 해제",
+            body: "이 기기에서 현재 연결된 계정을 해제할까요?",
+            actions: <Widget>[
+              SizedBox(
+                width: 100,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppNeutralColors.grey100,
+                    foregroundColor: AppNeutralColors.grey600,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonMedium,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: const Text("취소"),
+                ),
+              ),
+              SizedBox(
+                width: 170,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: brand.c500,
+                    foregroundColor: AppNeutralColors.white,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonMedium,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: const Text("계정 연동 해제"),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (confirmed != true) {
+      return;
+    }
+    try {
+      await AuthService.instance.disconnectConnectedProvider();
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+    } on AuthActionException catch (error) {
+      _showUrlError(error.userMessage);
+    } catch (_) {
+      _showUrlError("계정 연동 해제에 실패했어요. 잠시 후 다시 시도해주세요.");
+    }
+  }
+
+  List<_SettingsItem> _buildAccountItems() {
+    final bool hasConnectedProvider = AuthService.instance.hasConnectedProvider;
+    final _SettingsItem versionItem = const _SettingsItem(
+      title: "앱 버전",
+      trailingText: "v.1.0 최신 버전",
+    );
+
+    if (hasConnectedProvider) {
+      return <_SettingsItem>[
+        _SettingsItem(
+          title: "계정연결",
+          trailingText: AuthService.instance.currentProviderConnectionLabel,
+        ),
+        versionItem,
+        _SettingsItem(title: "이용약관", onTap: _openTerms),
+        _SettingsItem(title: "개인정보처리방침", onTap: _openPrivacyPolicy),
+      ];
+    }
+
+    return <_SettingsItem>[
+      versionItem,
+      _SettingsItem(title: "계정 연결", onTap: _openAccountConnect),
+      _SettingsItem(title: "이용약관", onTap: _openTerms),
+      _SettingsItem(title: "개인정보처리방침", onTap: _openPrivacyPolicy),
+    ];
+  }
+
   Future<void> _openExternalUrl(String rawUrl, String label) async {
     final Uri? uri = Uri.tryParse(rawUrl);
     if (uri == null ||
@@ -242,84 +356,92 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final double bottomPadding =
-        AppNavigationBar.totalHeight(context) + AppSpacing.s24;
+    final bool hasConnectedProvider = AuthService.instance.hasConnectedProvider;
     return Scaffold(
       backgroundColor: brand.bg,
       body: Stack(
         children: <Widget>[
           Positioned.fill(
-            child: SafeArea(
-              bottom: false,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.s20,
+                AppHeaderTokens.topInset + AppSpacing.s20,
+                AppSpacing.s20,
+                AppNavigationBar.totalHeight(context) + AppSpacing.s24,
+              ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  const _SettingsScreenHeader(),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(
-                        AppSpacing.s20,
-                        AppSpacing.s32,
-                        AppSpacing.s20,
-                        bottomPadding,
+                  Row(
+                    children: <Widget>[
+                      const SizedBox(
+                        width: AppSpacing.s24,
+                        height: AppSpacing.s24,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: <Widget>[
-                          _ProfileSection(
-                            refreshSeed: _profileRefreshSeed,
-                            onEditPressed: _openNicknameEdit,
+                      Expanded(
+                        child: Text(
+                          "설정",
+                          textAlign: TextAlign.center,
+                          style: AppTypography.headingXSmall.copyWith(
+                            color: AppNeutralColors.grey900,
                           ),
-                          const SizedBox(height: AppSpacing.s32),
-                          _SettingsSectionCard(
-                            title: "서비스 설정",
-                            items: <_SettingsItem>[
-                              _SettingsItem(
-                                title: "알림 설정",
-                                onTap: _openNotificationSettings,
-                              ),
-                            ],
+                        ),
+                      ),
+                      const SizedBox(
+                        width: AppSpacing.s24,
+                        height: AppSpacing.s24,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.s32),
+                  _ProfileSection(
+                    refreshSeed: _profileRefreshSeed,
+                    onEditPressed: _openNicknameEdit,
+                  ),
+                  const SizedBox(height: AppSpacing.s32),
+                  _SettingsSectionCard(
+                    title: "서비스 설정",
+                    items: <_SettingsItem>[
+                      _SettingsItem(
+                        title: "알림 설정",
+                        onTap: _openNotificationSettings,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.s16),
+                  _SettingsSectionCard(
+                    title: "고객 센터",
+                    items: <_SettingsItem>[
+                      _SettingsItem(title: "공지사항", onTap: _openNoticeList),
+                      _SettingsItem(title: "의견 보내기", onTap: _openFeedbackSend),
+                      _SettingsItem(title: "백업하기", onTap: _backupLocalData),
+                      _SettingsItem(title: "복원하기", onTap: _restoreLocalData),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.s16),
+                  _SettingsSectionCard(
+                    title: "계정",
+                    items: _buildAccountItems(),
+                  ),
+                  if (hasConnectedProvider) ...<Widget>[
+                    const SizedBox(height: AppSpacing.s24),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: GestureDetector(
+                        onTap: _disconnectAccount,
+                        behavior: HitTestBehavior.opaque,
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.s4),
+                          child: Text(
+                            "계정 연동 해제",
+                            style: AppTypography.buttonSmall.copyWith(
+                              color: AppNeutralColors.grey500,
+                            ),
                           ),
-                          const SizedBox(height: AppSpacing.s16),
-                          _SettingsSectionCard(
-                            title: "고객 센터",
-                            items: <_SettingsItem>[
-                              _SettingsItem(
-                                title: "공지사항",
-                                onTap: _openNoticeList,
-                              ),
-                              _SettingsItem(
-                                title: "의견 보내기",
-                                onTap: _openFeedbackSend,
-                              ),
-                              _SettingsItem(
-                                title: "백업하기",
-                                onTap: _backupLocalData,
-                              ),
-                              _SettingsItem(
-                                title: "복원하기",
-                                onTap: _restoreLocalData,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.s16),
-                          _SettingsSectionCard(
-                            title: "계정",
-                            items: <_SettingsItem>[
-                              _SettingsItem(
-                                title: "앱 버전",
-                                trailingText: "v.1.0 최신 버전",
-                              ),
-                              _SettingsItem(title: "이용약관", onTap: _openTerms),
-                              _SettingsItem(
-                                title: "개인정보처리방침",
-                                onTap: _openPrivacyPolicy,
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -358,26 +480,6 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _SettingsScreenHeader extends StatelessWidget {
-  const _SettingsScreenHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.s20),
-      child: Center(
-        child: Text(
-          "설정",
-          textAlign: TextAlign.center,
-          style: AppTypography.headingXSmall.copyWith(
-            color: AppNeutralColors.grey900,
-          ),
-        ),
       ),
     );
   }
@@ -426,84 +528,76 @@ class _ProfileSection extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s8,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Text(
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
                               nickname,
                               style: AppTypography.headingSmall.copyWith(
                                 color: AppNeutralColors.grey900,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(width: AppSpacing.s12),
-                            GestureDetector(
-                              onTap: onEditPressed,
-                              behavior: HitTestBehavior.opaque,
-                              child: const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: Icon(
-                                  Icons.edit_outlined,
-                                  size: 20,
-                                  color: AppNeutralColors.grey900,
-                                ),
+                          ),
+                          const SizedBox(width: AppSpacing.s8),
+                          GestureDetector(
+                            onTap: onEditPressed,
+                            behavior: HitTestBehavior.opaque,
+                            child: const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: Icon(
+                                Icons.edit_outlined,
+                                size: 20,
+                                color: AppNeutralColors.grey900,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: AppSpacing.s6),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s8,
-                        ),
-                        child: Row(
-                          children: <Widget>[
-                            RichText(
-                              text: TextSpan(
-                                style: AppTypography.bodySmallMedium.copyWith(
-                                  color: AppNeutralColors.grey900,
-                                ),
-                                children: <TextSpan>[
-                                  const TextSpan(text: "질문 "),
-                                  TextSpan(
-                                    text: questionDaysText,
-                                    style: AppTypography.bodySmallSemiBold
-                                        .copyWith(color: brand.c500),
-                                  ),
-                                  const TextSpan(text: "일째"),
-                                ],
+                      Row(
+                        children: <Widget>[
+                          RichText(
+                            text: TextSpan(
+                              style: AppTypography.bodySmallMedium.copyWith(
+                                color: AppNeutralColors.grey900,
                               ),
-                            ),
-                            const SizedBox(width: AppSpacing.s8),
-                            Container(
-                              width: 1,
-                              height: 16,
-                              color: AppNeutralColors.grey200,
-                            ),
-                            const SizedBox(width: AppSpacing.s8),
-                            RichText(
-                              text: TextSpan(
-                                style: AppTypography.bodySmallMedium.copyWith(
-                                  color: AppNeutralColors.grey900,
+                              children: <TextSpan>[
+                                const TextSpan(text: "질문 "),
+                                TextSpan(
+                                  text: questionDaysText,
+                                  style: AppTypography.bodySmallSemiBold
+                                      .copyWith(color: brand.c500),
                                 ),
-                                children: <TextSpan>[
-                                  const TextSpan(text: "버킷리스트 "),
-                                  TextSpan(
-                                    text: bucketCountText,
-                                    style: AppTypography.bodySmallSemiBold
-                                        .copyWith(color: brand.c500),
-                                  ),
-                                  const TextSpan(text: "개"),
-                                ],
-                              ),
+                                const TextSpan(text: "일째"),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: AppSpacing.s8),
+                          Container(
+                            width: 1,
+                            height: 16,
+                            color: AppNeutralColors.grey200,
+                          ),
+                          const SizedBox(width: AppSpacing.s8),
+                          RichText(
+                            text: TextSpan(
+                              style: AppTypography.bodySmallMedium.copyWith(
+                                color: AppNeutralColors.grey900,
+                              ),
+                              children: <TextSpan>[
+                                const TextSpan(text: "버킷리스트 "),
+                                TextSpan(
+                                  text: bucketCountText,
+                                  style: AppTypography.bodySmallSemiBold
+                                      .copyWith(color: brand.c500),
+                                ),
+                                const TextSpan(text: "개"),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

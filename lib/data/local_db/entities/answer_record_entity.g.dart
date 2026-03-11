@@ -48,48 +48,63 @@ const AnswerRecordEntitySchema = CollectionSchema(
       name: r'createdAtMillis',
       type: IsarType.long,
     ),
-    r'energyScore5': PropertySchema(
+    r'deletedAt': PropertySchema(
       id: 6,
+      name: r'deletedAt',
+      type: IsarType.dateTime,
+    ),
+    r'energyScore5': PropertySchema(
+      id: 7,
       name: r'energyScore5',
       type: IsarType.long,
     ),
     r'isPublic': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'isPublic',
       type: IsarType.bool,
     ),
     r'moodScore5': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'moodScore5',
       type: IsarType.long,
     ),
     r'questionDateKey': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'questionDateKey',
       type: IsarType.string,
     ),
     r'questionDayOfYear': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'questionDayOfYear',
       type: IsarType.long,
     ),
     r'questionSlot': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'questionSlot',
       type: IsarType.long,
     ),
     r'questionText': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'questionText',
       type: IsarType.string,
     ),
+    r'remoteSyncStatus': PropertySchema(
+      id: 14,
+      name: r'remoteSyncStatus',
+      type: IsarType.string,
+    ),
+    r'remoteSyncedAt': PropertySchema(
+      id: 15,
+      name: r'remoteSyncedAt',
+      type: IsarType.dateTime,
+    ),
     r'stressScore5': PropertySchema(
-      id: 13,
+      id: 16,
       name: r'stressScore5',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 14,
+      id: 17,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -150,6 +165,12 @@ int _answerRecordEntityEstimateSize(
       bytesCount += 3 + value.length * 3;
     }
   }
+  {
+    final value = object.remoteSyncStatus;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -165,15 +186,18 @@ void _answerRecordEntitySerialize(
   writer.writeStringList(offsets[3], object.bucketTags);
   writer.writeDateTime(offsets[4], object.createdAt);
   writer.writeLong(offsets[5], object.createdAtMillis);
-  writer.writeLong(offsets[6], object.energyScore5);
-  writer.writeBool(offsets[7], object.isPublic);
-  writer.writeLong(offsets[8], object.moodScore5);
-  writer.writeString(offsets[9], object.questionDateKey);
-  writer.writeLong(offsets[10], object.questionDayOfYear);
-  writer.writeLong(offsets[11], object.questionSlot);
-  writer.writeString(offsets[12], object.questionText);
-  writer.writeLong(offsets[13], object.stressScore5);
-  writer.writeDateTime(offsets[14], object.updatedAt);
+  writer.writeDateTime(offsets[6], object.deletedAt);
+  writer.writeLong(offsets[7], object.energyScore5);
+  writer.writeBool(offsets[8], object.isPublic);
+  writer.writeLong(offsets[9], object.moodScore5);
+  writer.writeString(offsets[10], object.questionDateKey);
+  writer.writeLong(offsets[11], object.questionDayOfYear);
+  writer.writeLong(offsets[12], object.questionSlot);
+  writer.writeString(offsets[13], object.questionText);
+  writer.writeString(offsets[14], object.remoteSyncStatus);
+  writer.writeDateTime(offsets[15], object.remoteSyncedAt);
+  writer.writeLong(offsets[16], object.stressScore5);
+  writer.writeDateTime(offsets[17], object.updatedAt);
 }
 
 AnswerRecordEntity _answerRecordEntityDeserialize(
@@ -189,16 +213,19 @@ AnswerRecordEntity _answerRecordEntityDeserialize(
   object.bucketTags = reader.readStringList(offsets[3]) ?? [];
   object.createdAt = reader.readDateTime(offsets[4]);
   object.createdAtMillis = reader.readLong(offsets[5]);
-  object.energyScore5 = reader.readLongOrNull(offsets[6]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[6]);
+  object.energyScore5 = reader.readLongOrNull(offsets[7]);
   object.id = id;
-  object.isPublic = reader.readBool(offsets[7]);
-  object.moodScore5 = reader.readLongOrNull(offsets[8]);
-  object.questionDateKey = reader.readString(offsets[9]);
-  object.questionDayOfYear = reader.readLongOrNull(offsets[10]);
-  object.questionSlot = reader.readLong(offsets[11]);
-  object.questionText = reader.readStringOrNull(offsets[12]);
-  object.stressScore5 = reader.readLongOrNull(offsets[13]);
-  object.updatedAt = reader.readDateTime(offsets[14]);
+  object.isPublic = reader.readBool(offsets[8]);
+  object.moodScore5 = reader.readLongOrNull(offsets[9]);
+  object.questionDateKey = reader.readString(offsets[10]);
+  object.questionDayOfYear = reader.readLongOrNull(offsets[11]);
+  object.questionSlot = reader.readLong(offsets[12]);
+  object.questionText = reader.readStringOrNull(offsets[13]);
+  object.remoteSyncStatus = reader.readStringOrNull(offsets[14]);
+  object.remoteSyncedAt = reader.readDateTimeOrNull(offsets[15]);
+  object.stressScore5 = reader.readLongOrNull(offsets[16]);
+  object.updatedAt = reader.readDateTime(offsets[17]);
   return object;
 }
 
@@ -222,22 +249,28 @@ P _answerRecordEntityDeserializeProp<P>(
     case 5:
       return (reader.readLong(offset)) as P;
     case 6:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 7:
-      return (reader.readBool(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 8:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 10:
-      return (reader.readLongOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 11:
-      return (reader.readLong(offset)) as P;
-    case 12:
-      return (reader.readStringOrNull(offset)) as P;
-    case 13:
       return (reader.readLongOrNull(offset)) as P;
+    case 12:
+      return (reader.readLong(offset)) as P;
+    case 13:
+      return (reader.readStringOrNull(offset)) as P;
     case 14:
+      return (reader.readStringOrNull(offset)) as P;
+    case 15:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 16:
+      return (reader.readLongOrNull(offset)) as P;
+    case 17:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1264,6 +1297,80 @@ extension AnswerRecordEntityQueryFilter
   }
 
   QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      deletedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      deletedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      deletedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      deletedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      deletedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      deletedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'deletedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
       energyScore5IsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1898,6 +2005,234 @@ extension AnswerRecordEntityQueryFilter
   }
 
   QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'remoteSyncStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'remoteSyncStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'remoteSyncStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'remoteSyncStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'remoteSyncStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'remoteSyncStatus',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'remoteSyncStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'remoteSyncStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'remoteSyncStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'remoteSyncStatus',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'remoteSyncStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncStatusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'remoteSyncStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'remoteSyncedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'remoteSyncedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'remoteSyncedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'remoteSyncedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'remoteSyncedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
+      remoteSyncedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'remoteSyncedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterFilterCondition>
       stressScore5IsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -2107,6 +2442,20 @@ extension AnswerRecordEntityQuerySortBy
   }
 
   QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      sortByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      sortByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
       sortByEnergyScore5() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'energyScore5', Sort.asc);
@@ -2201,6 +2550,34 @@ extension AnswerRecordEntityQuerySortBy
       sortByQuestionTextDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'questionText', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      sortByRemoteSyncStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'remoteSyncStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      sortByRemoteSyncStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'remoteSyncStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      sortByRemoteSyncedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'remoteSyncedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      sortByRemoteSyncedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'remoteSyncedAt', Sort.desc);
     });
   }
 
@@ -2302,6 +2679,20 @@ extension AnswerRecordEntityQuerySortThenBy
       thenByCreatedAtMillisDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAtMillis', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      thenByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      thenByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
@@ -2418,6 +2809,34 @@ extension AnswerRecordEntityQuerySortThenBy
   }
 
   QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      thenByRemoteSyncStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'remoteSyncStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      thenByRemoteSyncStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'remoteSyncStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      thenByRemoteSyncedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'remoteSyncedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
+      thenByRemoteSyncedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'remoteSyncedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QAfterSortBy>
       thenByStressScore5() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stressScore5', Sort.asc);
@@ -2491,6 +2910,13 @@ extension AnswerRecordEntityQueryWhereDistinct
   }
 
   QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QDistinct>
+      distinctByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'deletedAt');
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QDistinct>
       distinctByEnergyScore5() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'energyScore5');
@@ -2537,6 +2963,21 @@ extension AnswerRecordEntityQueryWhereDistinct
       distinctByQuestionText({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'questionText', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QDistinct>
+      distinctByRemoteSyncStatus({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'remoteSyncStatus',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, AnswerRecordEntity, QDistinct>
+      distinctByRemoteSyncedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'remoteSyncedAt');
     });
   }
 
@@ -2603,6 +3044,13 @@ extension AnswerRecordEntityQueryProperty
     });
   }
 
+  QueryBuilder<AnswerRecordEntity, DateTime?, QQueryOperations>
+      deletedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'deletedAt');
+    });
+  }
+
   QueryBuilder<AnswerRecordEntity, int?, QQueryOperations>
       energyScore5Property() {
     return QueryBuilder.apply(this, (query) {
@@ -2648,6 +3096,20 @@ extension AnswerRecordEntityQueryProperty
       questionTextProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'questionText');
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, String?, QQueryOperations>
+      remoteSyncStatusProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'remoteSyncStatus');
+    });
+  }
+
+  QueryBuilder<AnswerRecordEntity, DateTime?, QQueryOperations>
+      remoteSyncedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'remoteSyncedAt');
     });
   }
 

@@ -12,7 +12,28 @@
           "package_name": "com.pland.dailyquestion"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "362336765894-b6ruclpp624oa3q7nhkvut3u81giich3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pland.dailyquestion",
+            "certificate_hash": "20f230b395503eea594954a1ea34793e61d8b2f9"
+          }
+        },
+        {
+          "client_id": "362336765894-smlldsb66r8rimoc7spnvv4ag92s40l3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pland.dailyquestion",
+            "certificate_hash": "2bb2945f1776a874166086ea13b23b68f15a766d"
+          }
+        },
+        {
+          "client_id": "362336765894-ei7ne7l7drpm3o7vqsahvq82lvo5hi1f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAfs0F5KJya5-FSPwqk-JRq7jgkPk98wCo"
@@ -20,7 +41,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "362336765894-ei7ne7l7drpm3o7vqsahvq82lvo5hi1f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

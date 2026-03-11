@@ -26,7 +26,9 @@ class AppToastMessage extends StatelessWidget {
         child: Text(
           text,
           textAlign: TextAlign.center,
-          style: AppToastTokens.textStyle.copyWith(color: AppToastTokens.textColor),
+          style: AppToastTokens.textStyle.copyWith(
+            color: AppToastTokens.textColor,
+          ),
         ),
       ),
     );
@@ -43,7 +45,8 @@ class AppTooltipBubble extends StatelessWidget {
   final String text;
   final AppBubbleDirection direction;
 
-  bool get _isUp => direction == AppBubbleDirection.upLeft ||
+  bool get _isUp =>
+      direction == AppBubbleDirection.upLeft ||
       direction == AppBubbleDirection.upCenter ||
       direction == AppBubbleDirection.upRight;
 
@@ -67,7 +70,10 @@ class AppTooltipBubble extends StatelessWidget {
       child: Padding(
         padding: AppTooltipTokens.pointerHorizontalPadding,
         child: CustomPaint(
-          size: const Size(AppTooltipTokens.pointerWidth, AppTooltipTokens.pointerHeight),
+          size: const Size(
+            AppTooltipTokens.pointerWidth,
+            AppTooltipTokens.pointerHeight,
+          ),
           painter: _TrianglePainter(
             color: AppTooltipTokens.background,
             up: _isUp,
@@ -84,7 +90,9 @@ class AppTooltipBubble extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: AppTooltipTokens.textStyle.copyWith(color: AppTooltipTokens.textColor),
+        style: AppTooltipTokens.textStyle.copyWith(
+          color: AppTooltipTokens.textColor,
+        ),
       ),
     );
 
@@ -112,10 +120,12 @@ class AppSpeechBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color background =
-        _primary ? AppSpeechBubbleTokens.primaryBackground : AppSpeechBubbleTokens.whiteBackground;
-    final Color textColor =
-        _primary ? AppSpeechBubbleTokens.primaryText : AppSpeechBubbleTokens.whiteText;
+    final Color background = _primary
+        ? AppSpeechBubbleTokens.primaryBackground
+        : AppSpeechBubbleTokens.whiteBackground;
+    final Color textColor = _primary
+        ? AppSpeechBubbleTokens.primaryText
+        : AppSpeechBubbleTokens.whiteText;
 
     final bool left = direction == AppBubbleDirection.left;
     final bool right = direction == AppBubbleDirection.right;
@@ -139,12 +149,12 @@ class AppSpeechBubble extends StatelessWidget {
       size: const Size(10, 6),
       painter: _TrianglePainter(
         color: background,
-        up: down,
+        up: up,
         rotateQuarterTurns: left
             ? 3
             : right
-                ? 1
-                : 0,
+            ? 1
+            : 0,
       ),
     );
 

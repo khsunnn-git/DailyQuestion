@@ -1,6 +1,10 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
+import "../auth/auth_service.dart";
+import "../auth/login_screen.dart";
 import "../bucket/bucket_list_screen.dart";
 import "../home/home_screen.dart";
 import "../home/my_records_screen.dart";
@@ -38,6 +42,8 @@ class MainTabShell extends StatefulWidget {
 
 class _MainTabShellState extends State<MainTabShell> {
   late int _currentIndex = widget.initialIndex;
+  StreamSubscription<Object?>? _authSubscription;
+  bool _showAccountConnectPrompt = false;
 
   late final List<Widget> _pages = <Widget>[
     const HomeScreen(showNavigationBar: false),
@@ -45,6 +51,48 @@ class _MainTabShellState extends State<MainTabShell> {
     const MyRecordsScreen(showNavigationBar: false),
     const MoreSettingsScreen(showNavigationBar: false),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _authSubscription = AuthService.instance.authStateChanges.listen((_) {
+      _refreshAccountConnectPrompt();
+    });
+    _refreshAccountConnectPrompt();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _refreshAccountConnectPrompt() {
+    final bool shouldShow = !AuthService.instance.hasConnectedProvider;
+    if (!mounted) {
+      _showAccountConnectPrompt = shouldShow;
+      return;
+    }
+    if (_showAccountConnectPrompt == shouldShow) {
+      return;
+    }
+    setState(() {
+      _showAccountConnectPrompt = shouldShow;
+    });
+  }
+
+  Future<void> _openAccountConnect() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            LoginScreen(onLoginSuccess: () => Navigator.of(context).pop()),
+      ),
+    );
+    if (!mounted) {
+      return;
+    }
+    _refreshAccountConnectPrompt();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,8 +134,64 @@ class _MainTabShellState extends State<MainTabShell> {
               ],
             ),
           ),
+          if (_showAccountConnectPrompt)
+            Positioned(
+              right: AppSpacing.s20,
+              bottom: AppNavigationBar.totalHeight(context) + 2,
+              child: _AnimatedAccountConnectPrompt(onTap: _openAccountConnect),
+            ),
         ],
       ),
+    );
+  }
+}
+
+class _AnimatedAccountConnectPrompt extends StatefulWidget {
+  const _AnimatedAccountConnectPrompt({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  State<_AnimatedAccountConnectPrompt> createState() =>
+      _AnimatedAccountConnectPromptState();
+}
+
+class _AnimatedAccountConnectPromptState
+    extends State<_AnimatedAccountConnectPrompt>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat(reverse: true);
+  late final Animation<double> _offsetY = Tween<double>(
+    begin: 0,
+    end: -4,
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _offsetY,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        behavior: HitTestBehavior.opaque,
+        child: const AppSpeechBubble(
+          text: "계정 연동하기",
+          direction: AppBubbleDirection.down,
+        ),
+      ),
+      builder: (BuildContext context, Widget? child) {
+        return Transform.translate(
+          offset: Offset(0, _offsetY.value),
+          child: child,
+        );
+      },
     );
   }
 }

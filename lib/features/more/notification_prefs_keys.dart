@@ -8,6 +8,7 @@ abstract final class NotificationPrefsKeys {
   static const String bucketDdayDaysBefore =
       "notification_bucket_dday_days_before";
 
+  static const bool defaultTodayQuestionEnabled = true;
   static const int defaultTodayQuestionHour = 15;
   static const int defaultTodayQuestionMinute = 0;
   static const int defaultBucketDdayDaysBefore = 7;

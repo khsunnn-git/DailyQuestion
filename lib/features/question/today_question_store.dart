@@ -1,3 +1,4 @@
+import "dart:async";
 import "dart:math";
 
 import "package:flutter/foundation.dart";
@@ -8,6 +9,7 @@ import "../../data/local_db/entities/answer_record_entity.dart";
 import "../../data/local_db/entities/daily_checkin_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "public_answer_uploader.dart";
+import "user_answer_backup_service.dart";
 
 class TodayQuestionRecord {
   const TodayQuestionRecord({
@@ -71,17 +73,24 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     if (_initialized) {
       return;
     }
+    await reloadFromDatabase();
+    _initialized = true;
+  }
+
+  Future<void> reloadFromDatabase() async {
     final isar = await LocalDatabase.instance.isar;
     final List<AnswerRecordEntity> entities = await isar.answerRecordEntitys
         .where()
         .findAll();
     final List<TodayQuestionRecord> loaded =
-        entities.map(_toRecord).toList(growable: false)
+        entities
+            .where((AnswerRecordEntity entity) => entity.deletedAt == null)
+            .map(_toRecord)
+            .toList(growable: false)
           ..sort((TodayQuestionRecord a, TodayQuestionRecord b) {
             return b.createdAt.compareTo(a.createdAt);
           });
     value = loaded;
-    _initialized = true;
   }
 
   TodayQuestionRecord? get latestRecord => value.isEmpty ? null : value.first;
@@ -218,6 +227,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
         value = next;
         await _upsertRecord(updated);
         await _syncPublicAnswer(updated);
+        _scheduleUserAnswerBackupSync();
         return updated;
       }
     }
@@ -245,6 +255,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     value = merged;
     await _upsertRecord(next);
     await _syncPublicAnswer(next);
+    _scheduleUserAnswerBackupSync();
     return next;
   }
 
@@ -301,6 +312,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       value = next;
       await _upsertRecord(updatedRecord!);
       await _syncPublicAnswer(updatedRecord!);
+      _scheduleUserAnswerBackupSync();
     }
     return updatedRecord;
   }
@@ -320,7 +332,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
         .toList(growable: false);
     final bool removed = value.length != beforeCount;
     if (removed) {
-      await _deleteRecordByCreatedAt(createdAt);
+      await _markDeletedRecordByCreatedAt(createdAt);
       if (target != null) {
         try {
           await PublicAnswerUploader.instance.delete(
@@ -332,6 +344,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
           // Keep local delete successful even when public delete fails.
         }
       }
+      _scheduleUserAnswerBackupSync();
     }
     return removed;
   }
@@ -377,6 +390,7 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       value = next;
       await _upsertRecord(updatedRecord!);
       await _syncPublicAnswer(updatedRecord!);
+      _scheduleUserAnswerBackupSync();
     }
   }
 
@@ -425,11 +439,14 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       entity.energyScore5 = record.energyScore5;
       entity.stressScore5 = record.stressScore5;
       entity.updatedAt = nowInKst();
+      entity.remoteSyncStatus = answerRemoteSyncPendingUpsert;
+      entity.remoteSyncedAt = null;
+      entity.deletedAt = null;
       await isar.answerRecordEntitys.put(entity);
     });
   }
 
-  Future<void> _deleteRecordByCreatedAt(DateTime createdAt) async {
+  Future<void> _markDeletedRecordByCreatedAt(DateTime createdAt) async {
     final isar = await LocalDatabase.instance.isar;
     await isar.writeTxn(() async {
       final AnswerRecordEntity? entity = await isar.answerRecordEntitys
@@ -439,8 +456,16 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       if (entity == null) {
         return;
       }
-      await isar.answerRecordEntitys.delete(entity.id);
+      entity.deletedAt = nowInKst();
+      entity.updatedAt = entity.deletedAt!;
+      entity.remoteSyncStatus = answerRemoteSyncPendingDelete;
+      entity.remoteSyncedAt = null;
+      await isar.answerRecordEntitys.put(entity);
     });
+  }
+
+  void _scheduleUserAnswerBackupSync() {
+    unawaited(syncPendingUserAnswers());
   }
 
   TodayQuestionRecord _toRecord(AnswerRecordEntity entity) {

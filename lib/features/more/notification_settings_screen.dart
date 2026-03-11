@@ -19,7 +19,8 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     with WidgetsBindingObserver {
-  bool _todayQuestionEnabled = false;
+  bool _todayQuestionEnabled =
+      NotificationPrefsKeys.defaultTodayQuestionEnabled;
   bool _bucketDdayEnabled = false;
   int _bucketDdayDaysBefore = NotificationPrefsKeys.defaultBucketDdayDaysBefore;
   bool _hasNotificationPermission = false;
@@ -28,6 +29,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     hour: NotificationPrefsKeys.defaultTodayQuestionHour,
     minute: NotificationPrefsKeys.defaultTodayQuestionMinute,
   );
+
+  void _logNotificationSettings(String message) {
+    if (kDebugMode) {
+      debugPrint("[notification_settings] $message");
+    }
+  }
 
   @override
   void initState() {
@@ -78,6 +85,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           status == PermissionStatus.provisional;
       _showDeviceNotificationBanner = !_hasNotificationPermission;
     });
+    _logNotificationSettings(
+      "permission status=$status granted=$_hasNotificationPermission banner=$_showDeviceNotificationBanner",
+    );
     await _syncNotificationSchedules();
   }
 
@@ -98,7 +108,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   Future<void> _loadNotificationSettings() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final bool todayEnabled =
-        prefs.getBool(NotificationPrefsKeys.todayQuestionEnabled) ?? false;
+        prefs.getBool(NotificationPrefsKeys.todayQuestionEnabled) ??
+        NotificationPrefsKeys.defaultTodayQuestionEnabled;
     final bool bucketEnabled =
         prefs.getBool(NotificationPrefsKeys.bucketDdayEnabled) ?? false;
     final int hour =
@@ -110,6 +121,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     final int bucketDdayDaysBefore =
         prefs.getInt(NotificationPrefsKeys.bucketDdayDaysBefore) ??
         NotificationPrefsKeys.defaultBucketDdayDaysBefore;
+    _logNotificationSettings(
+      "load prefs todayEnabled=$todayEnabled time=${hour.toString().padLeft(2, "0")}:${minute.toString().padLeft(2, "0")} bucketEnabled=$bucketEnabled bucketDaysBefore=$bucketDdayDaysBefore",
+    );
 
     if (!mounted) {
       return;
@@ -146,6 +160,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   Future<void> _syncNotificationSchedules() async {
+    _logNotificationSettings(
+      "sync schedules todayEnabled=$_todayQuestionEnabled time=${_todayQuestionTime.hour.toString().padLeft(2, "0")}:${_todayQuestionTime.minute.toString().padLeft(2, "0")} bucketEnabled=$_bucketDdayEnabled bucketDaysBefore=$_bucketDdayDaysBefore hasPermission=$_hasNotificationPermission",
+    );
     await updateDailyQuestionNotificationSchedule(
       enabled: _hasNotificationPermission && _todayQuestionEnabled,
       hour: _todayQuestionTime.hour,
@@ -369,8 +386,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   width: 55,
                                   onTap: () {
                                     setModalState(() {
-                                      selectedHour12 =
-                                          selectedHour12 == 12
+                                      selectedHour12 = selectedHour12 == 12
                                           ? 1
                                           : selectedHour12 + 1;
                                     });
@@ -418,7 +434,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                                 const SizedBox(width: AppSpacing.s16),
                                 buildSelectedPill(
-                                  text: selectedMinute.toString().padLeft(2, "0"),
+                                  text: selectedMinute.toString().padLeft(
+                                    2,
+                                    "0",
+                                  ),
                                   width: 59,
                                 ),
                               ],
@@ -446,8 +465,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   width: 55,
                                   onTap: () {
                                     setModalState(() {
-                                      selectedHour12 =
-                                          selectedHour12 == 1
+                                      selectedHour12 = selectedHour12 == 1
                                           ? 12
                                           : selectedHour12 - 1;
                                     });
@@ -747,12 +765,15 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                     _hasNotificationPermission && _todayQuestionEnabled,
                 timeLabel: _formatKoreanTime(_todayQuestionTime),
                 onTimeTap: _selectTodayQuestionTime,
-                onChanged: (bool value) {
+                onChanged: (bool value) async {
                   setState(() {
                     _todayQuestionEnabled = value;
                   });
-                  _saveTodayQuestionEnabled(value);
-                  _syncNotificationSchedules();
+                  _logNotificationSettings(
+                    "toggle today question enabled=$value",
+                  );
+                  await _saveTodayQuestionEnabled(value);
+                  await _syncNotificationSchedules();
                 },
               ),
               const SizedBox(height: AppSpacing.s16),

@@ -2,6 +2,10 @@ import "package:isar/isar.dart";
 
 part "answer_record_entity.g.dart";
 
+const String answerRemoteSyncPendingUpsert = "pending_upsert";
+const String answerRemoteSyncPendingDelete = "pending_delete";
+const String answerRemoteSyncSynced = "synced";
+
 @collection
 class AnswerRecordEntity {
   Id id = Isar.autoIncrement;
@@ -23,4 +27,7 @@ class AnswerRecordEntity {
   int? energyScore5;
   int? stressScore5;
   late DateTime updatedAt;
+  String? remoteSyncStatus;
+  DateTime? remoteSyncedAt;
+  DateTime? deletedAt;
 }
