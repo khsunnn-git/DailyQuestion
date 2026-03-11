@@ -198,6 +198,9 @@ class LocalBackupService {
       "energyScore5": item.energyScore5,
       "stressScore5": item.stressScore5,
       "updatedAt": item.updatedAt.toUtc().toIso8601String(),
+      "remoteSyncStatus": item.remoteSyncStatus,
+      "remoteSyncedAt": item.remoteSyncedAt?.toUtc().toIso8601String(),
+      "deletedAt": item.deletedAt?.toUtc().toIso8601String(),
     };
   }
 
@@ -273,6 +276,9 @@ class LocalBackupService {
           item.energyScore5 = _asInt(json["energyScore5"]);
           item.stressScore5 = _asInt(json["stressScore5"]);
           item.updatedAt = _parseDateTime(json["updatedAt"]) ?? item.createdAt;
+          item.remoteSyncStatus = json["remoteSyncStatus"] as String?;
+          item.remoteSyncedAt = _parseDateTime(json["remoteSyncedAt"]);
+          item.deletedAt = _parseDateTime(json["deletedAt"]);
           return item;
         })
         .toList(growable: false);

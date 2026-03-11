@@ -7,30 +7,18 @@ import "auth_service.dart";
 import "social_auth_provider.dart";
 import "social_login_store.dart";
 
-enum LoginScreenMode { login, signUp }
-
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
-    this.mode = LoginScreenMode.login,
-    this.hasRecentSocialLogin = true,
-    this.recentSocialLoginProvider,
-    this.recentSocialLoginProviders,
     this.onLoginSuccess,
     this.onFindId,
     this.onFindPassword,
-    this.onSignUp,
     this.onSocialLogin,
   });
 
-  final LoginScreenMode mode;
-  final bool hasRecentSocialLogin;
-  final String? recentSocialLoginProvider;
-  final List<String>? recentSocialLoginProviders;
   final VoidCallback? onLoginSuccess;
   final VoidCallback? onFindId;
   final VoidCallback? onFindPassword;
-  final VoidCallback? onSignUp;
   final Future<void> Function(String provider)? onSocialLogin;
 
   @override
@@ -38,52 +26,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  SocialAuthProvider? _recentProvider;
   SocialAuthProvider? _activeProvider;
-
-  bool get _isSignUpMode => widget.mode == LoginScreenMode.signUp;
-
-  bool _isSupportedProvider(SocialAuthProvider? provider) {
-    return provider == SocialAuthProvider.google;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRecentProvider();
-  }
-
-  Future<void> _loadRecentProvider() async {
-    if (!widget.hasRecentSocialLogin || _isSignUpMode) {
-      return;
-    }
-    SocialAuthProvider? provider = _recentProviderFromWidget();
-    provider ??= await SocialLoginStore.instance.readRecentProvider();
-    if (!_isSupportedProvider(provider)) {
-      provider = null;
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _recentProvider = provider;
-    });
-  }
-
-  SocialAuthProvider? _recentProviderFromWidget() {
-    final List<String> candidateIds = <String>[
-      ...?widget.recentSocialLoginProviders,
-      if (widget.recentSocialLoginProvider != null)
-        widget.recentSocialLoginProvider!,
-    ];
-    for (final String id in candidateIds) {
-      final SocialAuthProvider? provider = socialAuthProviderFromId(id);
-      if (_isSupportedProvider(provider)) {
-        return provider;
-      }
-    }
-    return null;
-  }
 
   Future<void> _handleSocialLogin(SocialAuthProvider provider) async {
     if (_activeProvider != null) {
@@ -103,9 +46,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _recentProvider = provider;
-      });
       if (widget.onLoginSuccess != null) {
         widget.onLoginSuccess!();
         return;
@@ -129,23 +69,6 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     }
-  }
-
-  void _handleSignUpTap() {
-    if (widget.onSignUp != null) {
-      widget.onSignUp!();
-      return;
-    }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => LoginScreen(
-          mode: LoginScreenMode.signUp,
-          hasRecentSocialLogin: false,
-          onLoginSuccess: () => Navigator.of(context).pop(),
-          onSocialLogin: widget.onSocialLogin,
-        ),
-      ),
-    );
   }
 
   void _showMessage(String message) {
@@ -200,18 +123,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     const _LoginHeroSection(),
                     SizedBox(height: titleSpacing),
                     _SocialLoginPanel(
-                      mode: widget.mode,
-                      recentProvider: _recentProvider,
                       activeProvider: _activeProvider,
                       onTap: _handleSocialLogin,
                     ),
-                    if (_isSignUpMode) ...<Widget>[
-                      const SizedBox(height: AppSpacing.s32),
-                      const _SignUpLegalNotice(),
-                    ] else ...<Widget>[
-                      const SizedBox(height: AppSpacing.s24),
-                      _SignUpLink(onTap: _handleSignUpTap),
-                    ],
+                    const SizedBox(height: AppSpacing.s24),
+                    const _AutoSignUpHint(),
                     SizedBox(height: bottomSpacing),
                   ],
                 ),
@@ -253,44 +169,19 @@ class _LoginHeroSection extends StatelessWidget {
 }
 
 class _SocialLoginPanel extends StatelessWidget {
-  const _SocialLoginPanel({
-    required this.mode,
-    required this.recentProvider,
-    required this.activeProvider,
-    required this.onTap,
-  });
+  const _SocialLoginPanel({required this.activeProvider, required this.onTap});
 
-  final LoginScreenMode mode;
-  final SocialAuthProvider? recentProvider;
   final SocialAuthProvider? activeProvider;
   final Future<void> Function(SocialAuthProvider provider) onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
       children: <Widget>[
-        if (mode == LoginScreenMode.login && recentProvider != null)
-          const Positioned(
-            top: -37,
-            right: 18,
-            child: SizedBox(
-              width: AppTooltipTokens.width,
-              child: AppTooltipBubble(
-                text: "최근 로그인",
-                direction: AppBubbleDirection.downRight,
-              ),
-            ),
-          ),
-        Column(
-          children: <Widget>[
-            _SocialLoginButton(
-              mode: mode,
-              provider: SocialAuthProvider.google,
-              isLoading: activeProvider == SocialAuthProvider.google,
-              onTap: () => onTap(SocialAuthProvider.google),
-            ),
-          ],
+        _SocialLoginButton(
+          provider: SocialAuthProvider.google,
+          isLoading: activeProvider == SocialAuthProvider.google,
+          onTap: () => onTap(SocialAuthProvider.google),
         ),
       ],
     );
@@ -299,13 +190,11 @@ class _SocialLoginPanel extends StatelessWidget {
 
 class _SocialLoginButton extends StatelessWidget {
   const _SocialLoginButton({
-    required this.mode,
     required this.provider,
     required this.isLoading,
     required this.onTap,
   });
 
-  final LoginScreenMode mode;
   final SocialAuthProvider provider;
   final bool isLoading;
   final VoidCallback onTap;
@@ -356,13 +245,11 @@ class _SocialLoginButton extends StatelessWidget {
       case SocialAuthProvider.naver:
         return const Size(14.7, 14.7);
       case SocialAuthProvider.google:
-        return const Size(18, 18.3);
+        return const Size(18, 18.258);
     }
   }
 
-  String get _buttonLabel => mode == LoginScreenMode.signUp
-      ? provider.startLabel
-      : provider.loginLabel;
+  String get _buttonLabel => provider.loginLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -418,78 +305,17 @@ class _SocialLoginButton extends StatelessWidget {
   }
 }
 
-class _SignUpLink extends StatelessWidget {
-  const _SignUpLink({required this.onTap});
-
-  final VoidCallback onTap;
+class _AutoSignUpHint extends StatelessWidget {
+  const _AutoSignUpHint();
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.br16,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.s4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                "회원가입하기",
-                style: AppTypography.buttonSmall.copyWith(
-                  color: AppNeutralColors.grey900,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.s4),
-              const Icon(
-                Icons.chevron_right,
-                size: 24,
-                color: AppNeutralColors.grey900,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SignUpLegalNotice extends StatelessWidget {
-  const _SignUpLegalNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    final TextStyle baseStyle = AppTypography.captionSmall.copyWith(
-      color: AppNeutralColors.grey800,
-      height: 1.4,
-      fontWeight: FontWeight.w500,
-    );
-    final TextStyle emphasizedStyle = baseStyle.copyWith(
-      fontWeight: FontWeight.w600,
-      decoration: TextDecoration.underline,
-    );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.only(
-        top: AppSpacing.s20,
-        bottom: AppSpacing.s36,
-      ),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppNeutralColors.grey100)),
-      ),
-      child: Text.rich(
-        TextSpan(
-          style: baseStyle,
-          children: <InlineSpan>[
-            const TextSpan(text: "회원가입 시 "),
-            TextSpan(text: "개인정보 수집 이용", style: emphasizedStyle),
-            const TextSpan(text: " 및 "),
-            TextSpan(text: "이용약관", style: emphasizedStyle),
-            const TextSpan(text: "에\n동의하는 것으로 간주합니다."),
-          ],
-        ),
-        textAlign: TextAlign.center,
+    return Text(
+      "처음 구글로 로그인하면\n별도 회원가입 없이 바로 시작돼요",
+      textAlign: TextAlign.center,
+      style: AppTypography.buttonSmall.copyWith(
+        color: AppNeutralColors.grey700,
+        height: 1.4,
       ),
     );
   }

@@ -6,6 +6,7 @@ import "package:firebase_core/firebase_core.dart";
 import "app_bootstrap.dart";
 import "design_system/design_system.dart";
 import "features/profile/nickname_setup_screen.dart";
+import "features/question/user_answer_backup_service.dart";
 import "features/splash/splash_screen.dart";
 
 Future<void> main() async {
@@ -50,7 +51,7 @@ Future<void> _initializeFirebaseSafely() async {
   }
 }
 
-class DailyQuestionApp extends StatelessWidget {
+class DailyQuestionApp extends StatefulWidget {
   const DailyQuestionApp({super.key});
 
   static const bool _forceNicknameSetupPreview = false;
@@ -67,19 +68,44 @@ class DailyQuestionApp extends StatelessWidget {
   );
 
   @override
+  State<DailyQuestionApp> createState() => _DailyQuestionAppState();
+}
+
+class _DailyQuestionAppState extends State<DailyQuestionApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    handleUserAnswerBackupAppLifecycleState(state);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       builder: (BuildContext context, Widget? child) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: _systemUiStyle,
+          value: DailyQuestionApp._systemUiStyle,
           child: child ?? const SizedBox.shrink(),
         );
       },
       theme: AppTheme.of(
-        AppCharacterThemeMapper.fromCharacterName(_selectedCharacterName),
+        AppCharacterThemeMapper.fromCharacterName(
+          DailyQuestionApp._selectedCharacterName,
+        ),
       ),
-      home: _forceNicknameSetupPreview
+      home: DailyQuestionApp._forceNicknameSetupPreview
           ? const NicknameSetupScreen()
           : SplashScreen(
               firstDuration: Duration(milliseconds: 1400),

@@ -3,7 +3,6 @@ import "package:flutter/foundation.dart";
 import "package:google_sign_in/google_sign_in.dart";
 
 import "social_auth_provider.dart";
-import "social_login_store.dart";
 
 class AuthActionException implements Exception {
   const AuthActionException(this.userMessage);
@@ -20,6 +19,7 @@ class AuthService {
   bool _googleInitialized = false;
 
   User? get currentUser => _auth.currentUser;
+  Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   Future<User> ensureSignedInUser() async {
     final User? user = currentUser;
@@ -94,15 +94,19 @@ class AuthService {
     }
   }
 
-  Future<void> signOut() async {
+  Future<void> disconnectConnectedProvider() async {
     final SocialAuthProvider? provider = currentProvider;
     await _auth.signOut();
     if (provider == SocialAuthProvider.google) {
       try {
         await _ensureGoogleInitialized();
-        await GoogleSignIn.instance.signOut();
+        await GoogleSignIn.instance.disconnect();
       } catch (_) {
-        // Keep Firebase sign-out as the source of truth even if plugin sign-out fails.
+        try {
+          await GoogleSignIn.instance.signOut();
+        } catch (_) {
+          // Keep Firebase sign-out as the source of truth even if plugin cleanup fails.
+        }
       }
     }
   }
@@ -113,9 +117,6 @@ class AuthService {
       try {
         final UserCredential credential = await _linkOrSignInWithPopup(
           provider,
-        );
-        await SocialLoginStore.instance.saveRecentProvider(
-          SocialAuthProvider.google,
         );
         return credential;
       } on FirebaseAuthException catch (error) {
@@ -142,9 +143,6 @@ class AuthService {
       );
       final UserCredential userCredential = await _linkOrSignInWithCredential(
         credential,
-      );
-      await SocialLoginStore.instance.saveRecentProvider(
-        SocialAuthProvider.google,
       );
       return userCredential;
     } on GoogleSignInException catch (error) {

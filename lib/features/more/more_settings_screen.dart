@@ -3,12 +3,10 @@ import "package:flutter/material.dart";
 import "package:share_plus/share_plus.dart";
 import "package:url_launcher/url_launcher.dart";
 
-import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../auth/auth_service.dart";
 import "../auth/login_screen.dart";
 import "../navigation/main_tab_shell.dart";
-import "../question/today_question_store.dart";
 import "more_profile_stats_store.dart";
 import "feedback_send_screen.dart";
 import "local_backup_service.dart";
@@ -41,7 +39,6 @@ class MoreSettingsScreen extends StatefulWidget {
 }
 
 class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
-  static const int _accountConnectPromptThreshold = 3;
   static const String _termsUrl = String.fromEnvironment(
     "TERMS_URL",
     defaultValue:
@@ -54,51 +51,6 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
   );
 
   int _profileRefreshSeed = 0;
-  int _answeredQuestionCount = 0;
-
-  bool get _shouldShowAccountConnectPrompt =>
-      !AuthService.instance.hasConnectedProvider &&
-      _answeredQuestionCount >= _accountConnectPromptThreshold;
-
-  @override
-  void initState() {
-    super.initState();
-    TodayQuestionStore.instance.addListener(_handleQuestionRecordsChanged);
-    _initializeQuestionRecords();
-  }
-
-  @override
-  void dispose() {
-    TodayQuestionStore.instance.removeListener(_handleQuestionRecordsChanged);
-    super.dispose();
-  }
-
-  Future<void> _initializeQuestionRecords() async {
-    await TodayQuestionStore.instance.initialize();
-    if (!mounted) {
-      return;
-    }
-    _handleQuestionRecordsChanged();
-  }
-
-  void _handleQuestionRecordsChanged() {
-    final Set<String> answeredDateKeys = <String>{};
-    for (final TodayQuestionRecord record
-        in TodayQuestionStore.instance.value) {
-      final String dateKey =
-          (record.questionDateKey?.trim().isNotEmpty ?? false)
-          ? record.questionDateKey!.trim()
-          : kstDateKeyFromDateTime(record.createdAt);
-      answeredDateKeys.add(dateKey);
-    }
-    if (!mounted) {
-      _answeredQuestionCount = answeredDateKeys.length;
-      return;
-    }
-    setState(() {
-      _answeredQuestionCount = answeredDateKeys.length;
-    });
-  }
 
   Future<void> _openNicknameEdit() async {
     await Navigator.of(context).push(
@@ -276,7 +228,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
     setState(() {});
   }
 
-  Future<void> _logout() async {
+  Future<void> _disconnectAccount() async {
     final bool? confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
@@ -286,8 +238,8 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
         return Center(
           child: AppPopup(
             width: AppPopupTokens.maxWidth,
-            title: "로그아웃",
-            body: "현재 연결된 계정에서 로그아웃할까요?",
+            title: "계정 연동 해제",
+            body: "이 기기에서 현재 연결된 계정을 해제할까요?",
             actions: <Widget>[
               SizedBox(
                 width: 100,
@@ -324,7 +276,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
                     textStyle: AppTypography.buttonMedium,
                     padding: EdgeInsets.zero,
                   ),
-                  child: const Text("로그아웃"),
+                  child: const Text("계정 연동 해제"),
                 ),
               ),
             ],
@@ -336,7 +288,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
       return;
     }
     try {
-      await AuthService.instance.signOut();
+      await AuthService.instance.disconnectConnectedProvider();
       if (!mounted) {
         return;
       }
@@ -344,7 +296,7 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
     } on AuthActionException catch (error) {
       _showUrlError(error.userMessage);
     } catch (_) {
-      _showUrlError("로그아웃에 실패했어요. 잠시 후 다시 시도해주세요.");
+      _showUrlError("계정 연동 해제에 실패했어요. 잠시 후 다시 시도해주세요.");
     }
   }
 
@@ -476,12 +428,12 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: GestureDetector(
-                        onTap: _logout,
+                        onTap: _disconnectAccount,
                         behavior: HitTestBehavior.opaque,
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.s4),
                           child: Text(
-                            "로그아웃",
+                            "계정 연동 해제",
                             style: AppTypography.buttonSmall.copyWith(
                               color: AppNeutralColors.grey500,
                             ),
@@ -494,19 +446,6 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
               ),
             ),
           ),
-          if (_shouldShowAccountConnectPrompt && widget.showNavigationBar)
-            Positioned(
-              right: AppSpacing.s20,
-              bottom: AppNavigationBar.totalHeight(context) - AppSpacing.s8,
-              child: GestureDetector(
-                onTap: _openAccountConnect,
-                behavior: HitTestBehavior.opaque,
-                child: const AppSpeechBubble(
-                  text: "계정연동하기",
-                  direction: AppBubbleDirection.down,
-                ),
-              ),
-            ),
           if (widget.showNavigationBar)
             Positioned(
               left: 0,
