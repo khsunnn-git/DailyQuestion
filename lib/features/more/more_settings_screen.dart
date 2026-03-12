@@ -4,7 +4,9 @@ import "package:url_launcher/url_launcher.dart";
 import "../../design_system/design_system.dart";
 import "../auth/auth_service.dart";
 import "../auth/login_screen.dart";
+import "../home/home_character_assets.dart";
 import "../navigation/main_tab_shell.dart";
+import "../question/today_question_store.dart";
 import "data_management_screen.dart";
 import "more_profile_stats_store.dart";
 import "feedback_send_screen.dart";
@@ -17,9 +19,6 @@ class MoreSettingsScreen extends StatefulWidget {
   const MoreSettingsScreen({super.key, this.showNavigationBar = true});
 
   final bool showNavigationBar;
-
-  static const String _profileAsset =
-      "assets/images/signup/signup_nickname_profile_fish.png";
 
   static void open(BuildContext context, {bool replace = false}) {
     final Route<void> route = MaterialPageRoute<void>(
@@ -403,112 +402,129 @@ class _ProfileSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return FutureBuilder<_ProfileSnapshot>(
-      future: _loadProfileSnapshot(refreshSeed),
+    return ValueListenableBuilder<List<TodayQuestionRecord>>(
+      valueListenable: TodayQuestionStore.instance,
       builder:
-          (BuildContext context, AsyncSnapshot<_ProfileSnapshot> snapshot) {
-            final _ProfileSnapshot profile =
-                snapshot.data ?? const _ProfileSnapshot();
-            final String nickname =
-                (profile.nickname?.trim().isNotEmpty ?? false)
-                ? profile.nickname!.trim()
-                : "{닉네임}";
-            final String questionDaysText = (profile.questionStreakDays ?? 0)
-                .toString();
-            final String bucketCountText = profile.bucketCount == null
-                ? "NNN"
-                : _formatBucketCount(profile.bucketCount!);
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: <Widget>[
-                ClipOval(
-                  child: Image.asset(
-                    MoreSettingsScreen._profileAsset,
-                    width: 64,
-                    height: 64,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.s12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Text(
-                              nickname,
-                              style: AppTypography.headingSmall.copyWith(
-                                color: AppNeutralColors.grey900,
+          (BuildContext context, List<TodayQuestionRecord> records, Widget? _) {
+            final String profileFishAssetPath =
+                HomeCharacterAssets.assetForRecordCount(
+                  HomeCharacterType.fish,
+                  records.length,
+                );
+            return FutureBuilder<_ProfileSnapshot>(
+              future: _loadProfileSnapshot(refreshSeed),
+              builder:
+                  (
+                    BuildContext context,
+                    AsyncSnapshot<_ProfileSnapshot> snapshot,
+                  ) {
+                    final _ProfileSnapshot profile =
+                        snapshot.data ?? const _ProfileSnapshot();
+                    final String nickname =
+                        (profile.nickname?.trim().isNotEmpty ?? false)
+                        ? profile.nickname!.trim()
+                        : "{닉네임}";
+                    final String questionDaysText =
+                        (profile.questionStreakDays ?? 0).toString();
+                    final String bucketCountText = profile.bucketCount == null
+                        ? "NNN"
+                        : _formatBucketCount(profile.bucketCount!);
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: <Widget>[
+                        ClipOval(
+                          child: Image.asset(
+                            profileFishAssetPath,
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.s12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Row(
+                                children: <Widget>[
+                                  Expanded(
+                                    child: Text(
+                                      nickname,
+                                      style: AppTypography.headingSmall
+                                          .copyWith(
+                                            color: AppNeutralColors.grey900,
+                                          ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.s8),
+                                  GestureDetector(
+                                    onTap: onEditPressed,
+                                    behavior: HitTestBehavior.opaque,
+                                    child: const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: Icon(
+                                        Icons.edit_outlined,
+                                        size: 20,
+                                        color: AppNeutralColors.grey900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.s8),
-                          GestureDetector(
-                            onTap: onEditPressed,
-                            behavior: HitTestBehavior.opaque,
-                            child: const SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: Icon(
-                                Icons.edit_outlined,
-                                size: 20,
-                                color: AppNeutralColors.grey900,
+                              const SizedBox(height: AppSpacing.s6),
+                              Row(
+                                children: <Widget>[
+                                  RichText(
+                                    text: TextSpan(
+                                      style: AppTypography.bodySmallMedium
+                                          .copyWith(
+                                            color: AppNeutralColors.grey900,
+                                          ),
+                                      children: <TextSpan>[
+                                        const TextSpan(text: "질문 "),
+                                        TextSpan(
+                                          text: questionDaysText,
+                                          style: AppTypography.bodySmallSemiBold
+                                              .copyWith(color: brand.c500),
+                                        ),
+                                        const TextSpan(text: "일째"),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppSpacing.s8),
+                                  Container(
+                                    width: 1,
+                                    height: 16,
+                                    color: AppNeutralColors.grey200,
+                                  ),
+                                  const SizedBox(width: AppSpacing.s8),
+                                  RichText(
+                                    text: TextSpan(
+                                      style: AppTypography.bodySmallMedium
+                                          .copyWith(
+                                            color: AppNeutralColors.grey900,
+                                          ),
+                                      children: <TextSpan>[
+                                        const TextSpan(text: "버킷리스트 "),
+                                        TextSpan(
+                                          text: bucketCountText,
+                                          style: AppTypography.bodySmallSemiBold
+                                              .copyWith(color: brand.c500),
+                                        ),
+                                        const TextSpan(text: "개"),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.s6),
-                      Row(
-                        children: <Widget>[
-                          RichText(
-                            text: TextSpan(
-                              style: AppTypography.bodySmallMedium.copyWith(
-                                color: AppNeutralColors.grey900,
-                              ),
-                              children: <TextSpan>[
-                                const TextSpan(text: "질문 "),
-                                TextSpan(
-                                  text: questionDaysText,
-                                  style: AppTypography.bodySmallSemiBold
-                                      .copyWith(color: brand.c500),
-                                ),
-                                const TextSpan(text: "일째"),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.s8),
-                          Container(
-                            width: 1,
-                            height: 16,
-                            color: AppNeutralColors.grey200,
-                          ),
-                          const SizedBox(width: AppSpacing.s8),
-                          RichText(
-                            text: TextSpan(
-                              style: AppTypography.bodySmallMedium.copyWith(
-                                color: AppNeutralColors.grey900,
-                              ),
-                              children: <TextSpan>[
-                                const TextSpan(text: "버킷리스트 "),
-                                TextSpan(
-                                  text: bucketCountText,
-                                  style: AppTypography.bodySmallSemiBold
-                                      .copyWith(color: brand.c500),
-                                ),
-                                const TextSpan(text: "개"),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                        ),
+                      ],
+                    );
+                  },
             );
           },
     );

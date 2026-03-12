@@ -36,6 +36,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     }
   }
 
+  bool _isNotificationPermissionGranted(PermissionStatus status) {
+    return status == PermissionStatus.granted ||
+        status == PermissionStatus.provisional;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -80,9 +85,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     }
 
     setState(() {
-      _hasNotificationPermission =
-          status == PermissionStatus.granted ||
-          status == PermissionStatus.provisional;
+      _hasNotificationPermission = _isNotificationPermissionGranted(status);
       _showDeviceNotificationBanner = !_hasNotificationPermission;
     });
     _logNotificationSettings(
@@ -96,13 +99,124 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       return;
     }
     try {
-      final PermissionStatus status = await Permission.notification.status;
-      if (!status.isGranted) {
-        await Permission.notification.request();
+      PermissionStatus status = await Permission.notification.status;
+      if (!_isNotificationPermissionGranted(status)) {
+        status = await Permission.notification.request();
+      }
+      if (!_isNotificationPermissionGranted(status)) {
+        await openAppSettings();
+      }
+    } catch (_) {
+      await openAppSettings();
+    }
+    await _refreshNotificationPermissionBanner();
+  }
+
+  Future<bool?> _showNotificationPermissionDialog() {
+    final BrandScale brand = context.appBrandScale;
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: AppPopupTokens.dimmed,
+      builder: (BuildContext dialogContext) {
+        return Center(
+          child: AppPopup(
+            width: AppPopupTokens.maxWidth,
+            title: "푸시 알림 설정",
+            body: "‘알림’을 활성화하면\n푸시 알림을 받을 수 있어요.",
+            actions: <Widget>[
+              SizedBox(
+                width: 100,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppNeutralColors.grey100,
+                    foregroundColor: AppNeutralColors.grey600,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "취소",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.grey600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 170,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: brand.c500,
+                    foregroundColor: AppNeutralColors.white,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "설정하기",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.white,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<bool> _ensureNotificationPermission() async {
+    if (kIsWeb) {
+      return false;
+    }
+
+    try {
+      PermissionStatus status = await Permission.notification.status;
+      if (_isNotificationPermissionGranted(status)) {
+        await _refreshNotificationPermissionBanner();
+        return true;
+      }
+
+      status = await Permission.notification.request();
+      if (_isNotificationPermissionGranted(status)) {
+        await _refreshNotificationPermissionBanner();
+        return true;
       }
     } catch (_) {}
-    await openAppSettings();
-    await _refreshNotificationPermissionBanner();
+
+    if (!mounted) {
+      return false;
+    }
+
+    final bool? shouldOpenSettings = await _showNotificationPermissionDialog();
+    if (!mounted || shouldOpenSettings != true) {
+      await _refreshNotificationPermissionBanner();
+      return false;
+    }
+
+    await _openNotificationPermissionSettings();
+    return _hasNotificationPermission;
   }
 
   Future<void> _loadNotificationSettings() async {
@@ -175,77 +289,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   Future<void> _onDeviceNotificationBannerTap() async {
-    final BrandScale brand = context.appBrandScale;
-    final bool? shouldOpenSettings = await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: AppPopupTokens.dimmed,
-      builder: (BuildContext dialogContext) {
-        return Center(
-          child: AppPopup(
-            width: AppPopupTokens.maxWidth,
-            title: "푸시 알림 설정",
-            body: "‘알림’을 활성화하면\n푸시 알림을 받을 수 있어요.",
-            actions: <Widget>[
-              SizedBox(
-                width: 100,
-                height: 56,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppNeutralColors.grey100,
-                    foregroundColor: AppNeutralColors.grey600,
-                    surfaceTintColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    overlayColor: Colors.transparent,
-                    splashFactory: NoSplash.splashFactory,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.s8),
-                    ),
-                    textStyle: AppTypography.buttonLarge,
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: Text(
-                    "취소",
-                    style: AppTypography.buttonLarge.copyWith(
-                      color: AppNeutralColors.grey600,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 170,
-                height: 56,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: brand.c500,
-                    foregroundColor: AppNeutralColors.white,
-                    surfaceTintColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    overlayColor: Colors.transparent,
-                    splashFactory: NoSplash.splashFactory,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.s8),
-                    ),
-                    textStyle: AppTypography.buttonLarge,
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: Text(
-                    "설정하기",
-                    style: AppTypography.buttonLarge.copyWith(
-                      color: AppNeutralColors.white,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    final bool? shouldOpenSettings = await _showNotificationPermissionDialog();
 
     if (!mounted || shouldOpenSettings != true) {
       return;
@@ -258,6 +302,29 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     final int hour12 = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
     final String minute = time.minute.toString().padLeft(2, "0");
     return "${isAm ? "오전" : "오후"} $hour12:$minute";
+  }
+
+  Future<void> _handleTodayQuestionToggle(bool enabled) async {
+    if (enabled) {
+      final bool granted = await _ensureNotificationPermission();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _todayQuestionEnabled = granted;
+      });
+      _logNotificationSettings("toggle today question enabled=$granted");
+      await _saveTodayQuestionEnabled(granted);
+      await _syncNotificationSchedules();
+      return;
+    }
+
+    setState(() {
+      _todayQuestionEnabled = false;
+    });
+    _logNotificationSettings("toggle today question enabled=false");
+    await _saveTodayQuestionEnabled(false);
+    await _syncNotificationSchedules();
   }
 
   Future<void> _selectTodayQuestionTime() async {
@@ -637,6 +704,22 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   Future<void> _handleBucketDdayToggle(bool enabled) async {
+    if (enabled) {
+      final bool granted = await _ensureNotificationPermission();
+      if (!mounted) {
+        return;
+      }
+      if (!granted) {
+        setState(() {
+          _bucketDdayEnabled = false;
+        });
+        _logNotificationSettings("toggle bucket dday enabled=false");
+        await _saveBucketDdayEnabled(false);
+        await _syncNotificationSchedules();
+        return;
+      }
+    }
+
     setState(() {
       _bucketDdayEnabled = enabled;
       if (enabled && _bucketDdayDaysBefore <= 0) {
@@ -765,16 +848,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                     _hasNotificationPermission && _todayQuestionEnabled,
                 timeLabel: _formatKoreanTime(_todayQuestionTime),
                 onTimeTap: _selectTodayQuestionTime,
-                onChanged: (bool value) async {
-                  setState(() {
-                    _todayQuestionEnabled = value;
-                  });
-                  _logNotificationSettings(
-                    "toggle today question enabled=$value",
-                  );
-                  await _saveTodayQuestionEnabled(value);
-                  await _syncNotificationSchedules();
-                },
+                onChanged: _handleTodayQuestionToggle,
               ),
               const SizedBox(height: AppSpacing.s16),
               _BucketDdayNotificationCard(

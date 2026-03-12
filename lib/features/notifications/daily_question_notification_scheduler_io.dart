@@ -56,7 +56,11 @@ void _logNotification(String message) {
 Future<void> initializeDailyQuestionNotificationScheduler() async {
   _logNotification("initialize scheduler");
   await _ensureInitialized();
-  await _restoreSchedulesFromPrefs();
+  final bool hasNotificationPermission =
+      await _ensureNotificationPermissionOnFirstLaunch();
+  await _restoreSchedulesFromPrefs(
+    hasNotificationPermission: hasNotificationPermission,
+  );
 }
 
 Future<void> updateDailyQuestionNotificationSchedule({
@@ -125,21 +129,6 @@ Future<void> _ensureInitialized() async {
 
   await _notifications.initialize(initializationSettings);
 
-  unawaited(
-    _notifications
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.requestNotificationsPermission(),
-  );
-  unawaited(
-    _notifications
-        .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin
-        >()
-        ?.requestPermissions(alert: true, badge: true, sound: false),
-  );
-
   _initialized = true;
   _logNotification("plugin initialized");
 }
@@ -160,7 +149,73 @@ Future<void> _configureLocalTimeZone() async {
   }
 }
 
-Future<void> _restoreSchedulesFromPrefs() async {
+Future<bool> _ensureNotificationPermissionOnFirstLaunch() async {
+  if (kIsWeb) {
+    return false;
+  }
+
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final bool onboardingRequested =
+      prefs.getBool(NotificationPrefsKeys.permissionOnboardingRequested) ??
+      false;
+  PermissionStatus status;
+  try {
+    status = await Permission.notification.status;
+  } catch (_) {
+    status = PermissionStatus.denied;
+  }
+
+  final bool alreadyGranted =
+      status == PermissionStatus.granted ||
+      status == PermissionStatus.provisional;
+  if (alreadyGranted) {
+    if (!onboardingRequested) {
+      await prefs.setBool(
+        NotificationPrefsKeys.permissionOnboardingRequested,
+        true,
+      );
+    }
+    _logNotification(
+      "permission already granted before onboarding request status=$status",
+    );
+    return true;
+  }
+
+  if (onboardingRequested) {
+    _logNotification(
+      "permission onboarding already requested once status=$status",
+    );
+    return false;
+  }
+
+  final bool granted = await _requestNotificationPermission();
+  await prefs.setBool(NotificationPrefsKeys.permissionOnboardingRequested, true);
+  _logNotification("permission onboarding requested granted=$granted");
+  return granted;
+}
+
+Future<bool> _requestNotificationPermission() async {
+  try {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final bool? granted = await _notifications
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
+      return granted ?? false;
+    }
+
+    final PermissionStatus status = await Permission.notification.request();
+    return status == PermissionStatus.granted ||
+        status == PermissionStatus.provisional;
+  } catch (_) {
+    return false;
+  }
+}
+
+Future<void> _restoreSchedulesFromPrefs({
+  required bool hasNotificationPermission,
+}) async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   final bool todayQuestionEnabled =
       prefs.getBool(NotificationPrefsKeys.todayQuestionEnabled) ??
@@ -177,18 +232,20 @@ Future<void> _restoreSchedulesFromPrefs() async {
       prefs.getInt(NotificationPrefsKeys.bucketDdayDaysBefore) ??
       NotificationPrefsKeys.defaultBucketDdayDaysBefore;
   _logNotification(
-    "restore prefs todayEnabled=$todayQuestionEnabled time=${hour.toString().padLeft(2, "0")}:${minute.toString().padLeft(2, "0")} bucketEnabled=$bucketDdayEnabled bucketDaysBefore=$bucketDdayDaysBefore",
+    "restore prefs todayEnabled=$todayQuestionEnabled time=${hour.toString().padLeft(2, "0")}:${minute.toString().padLeft(2, "0")} bucketEnabled=$bucketDdayEnabled bucketDaysBefore=$bucketDdayDaysBefore hasPermission=$hasNotificationPermission",
   );
 
-  if (!todayQuestionEnabled) {
+  if (!todayQuestionEnabled || !hasNotificationPermission) {
     await _notifications.cancel(_dailyQuestionNotificationId);
     await _notifications.cancel(_dailyQuestionCatchupNotificationId);
-    _logNotification("daily schedule not restored because todayEnabled=false");
+    _logNotification(
+      "daily schedule not restored because todayEnabled=$todayQuestionEnabled hasPermission=$hasNotificationPermission",
+    );
   } else {
     await _scheduleDaily(hour: hour, minute: minute);
   }
   await _resyncBucketDdayNotifications(
-    enabled: bucketDdayEnabled,
+    enabled: bucketDdayEnabled && hasNotificationPermission,
     daysBefore: bucketDdayDaysBefore,
   );
 }

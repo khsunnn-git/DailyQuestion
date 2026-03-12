@@ -1,10 +1,14 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter/foundation.dart";
 import "package:firebase_core/firebase_core.dart";
 
 import "app_bootstrap.dart";
+import "core/app_route_observer.dart";
 import "design_system/design_system.dart";
+import "features/notifications/daily_question_notification_scheduler.dart";
 import "features/profile/nickname_setup_screen.dart";
 import "features/question/user_answer_backup_service.dart";
 import "features/splash/splash_screen.dart";
@@ -77,6 +81,9 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_initializeNotificationSchedulerSafely());
+    });
   }
 
   @override
@@ -90,10 +97,24 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
     handleUserAnswerBackupAppLifecycleState(state);
   }
 
+  Future<void> _initializeNotificationSchedulerSafely() async {
+    try {
+      await initializeDailyQuestionNotificationScheduler();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+          "[main] initializeDailyQuestionNotificationScheduler failed: $error",
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      navigatorObservers: <NavigatorObserver>[appRouteObserver],
       builder: (BuildContext context, Widget? child) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: DailyQuestionApp._systemUiStyle,

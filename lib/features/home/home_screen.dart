@@ -2,13 +2,19 @@ import "dart:async";
 
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
+import "package:isar/isar.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
+import "../../core/app_route_observer.dart";
 import "../../core/kst_date_time.dart";
+import "../../data/local_db/entities/bucket_item_entity.dart";
+import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
 import "../navigation/main_tab_shell.dart";
 import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
+import "home_character_assets.dart";
+import "home_fish_growth.dart";
 import "my_records_screen.dart";
 import "public_today_records_repository.dart";
 import "../question/today_question_answer_screen.dart";
@@ -22,8 +28,6 @@ class HomeScreen extends StatelessWidget {
 
   final bool showNavigationBar;
 
-  static const String _heroFishAsset =
-      "assets/images/home/home_character_fish_blue.png";
   static const String _decoSeaweedAsset =
       "assets/images/home/home_deco_seaweed_blue.png";
   static const String _decoCrabAsset =
@@ -142,6 +146,7 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
+            const Positioned.fill(child: _HomeLevelUpOverlayHost()),
           ],
         ),
       ),
@@ -221,6 +226,7 @@ class _TopQuestionPanelState extends State<_TopQuestionPanel>
               final bool hasRecord =
                   records.isNotEmpty &&
                   TodayQuestionStore.instance.hasRecordForTodayKst;
+              final int totalRecordCount = records.length;
               return Column(
                 children: <Widget>[
                   const SizedBox(height: 49),
@@ -246,8 +252,13 @@ class _TopQuestionPanelState extends State<_TopQuestionPanel>
                   if (hasRecord) ...<Widget>[
                     const _QuestionWrittenPreviewCard(),
                     const SizedBox(height: AppSpacing.s8),
-                    _TopCharacterDecorations(bubbleColor: brand.c500),
-                  ] else ...<Widget>[const _QuestionBeforeRecordCard()],
+                    _TopCharacterDecorations(
+                      bubbleColor: brand.c500,
+                      recordCount: totalRecordCount,
+                    ),
+                  ] else ...<Widget>[
+                    _QuestionBeforeRecordCard(recordCount: totalRecordCount),
+                  ],
                 ],
               );
             },
@@ -256,10 +267,330 @@ class _TopQuestionPanelState extends State<_TopQuestionPanel>
   }
 }
 
+class _HomeLevelUpOverlayHost extends StatefulWidget {
+  const _HomeLevelUpOverlayHost();
+
+  @override
+  State<_HomeLevelUpOverlayHost> createState() =>
+      _HomeLevelUpOverlayHostState();
+}
+
+class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
+    with RouteAware {
+  static const String _lastCelebratedLevelPrefsKey =
+      "home_last_celebrated_fish_level";
+  static const Duration _visibleDuration = Duration(seconds: 2);
+  static const Duration _fadeDuration = Duration(milliseconds: 220);
+
+  SharedPreferences? _prefs;
+  int? _lastCelebratedLevelNumber;
+  HomeFishGrowthLevel? _visibleLevel;
+  PageRoute<dynamic>? _pageRoute;
+  bool _isOverlayVisible = false;
+  bool _isRouteVisible = false;
+  Timer? _hideTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    TodayQuestionStore.instance.addListener(_handleRecordsChanged);
+    unawaited(_prepare());
+  }
+
+  Future<void> _prepare() async {
+    await TodayQuestionStore.instance.initialize();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final HomeFishGrowthLevel currentLevel = homeFishGrowthLevelForRecordCount(
+      TodayQuestionStore.instance.value.length,
+    );
+    final int storedLevelNumber =
+        prefs.getInt(_lastCelebratedLevelPrefsKey) ?? currentLevel.number;
+    if (!prefs.containsKey(_lastCelebratedLevelPrefsKey)) {
+      await prefs.setInt(_lastCelebratedLevelPrefsKey, storedLevelNumber);
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _prefs = prefs;
+      _lastCelebratedLevelNumber = storedLevelNumber;
+    });
+    _evaluatePendingCelebration();
+  }
+
+  void _handleRecordsChanged() {
+    _evaluatePendingCelebration();
+  }
+
+  void _evaluatePendingCelebration() {
+    final SharedPreferences? prefs = _prefs;
+    final int? lastCelebratedLevelNumber = _lastCelebratedLevelNumber;
+    if (prefs == null || lastCelebratedLevelNumber == null) {
+      return;
+    }
+    final HomeFishGrowthLevel currentLevel = homeFishGrowthLevelForRecordCount(
+      TodayQuestionStore.instance.value.length,
+    );
+    if (!currentLevel.canCelebrate ||
+        currentLevel.number <= lastCelebratedLevelNumber) {
+      return;
+    }
+    if (!_isRouteVisible) {
+      return;
+    }
+    _lastCelebratedLevelNumber = currentLevel.number;
+    unawaited(prefs.setInt(_lastCelebratedLevelPrefsKey, currentLevel.number));
+    _showOverlay(currentLevel);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ModalRoute<dynamic>? route = ModalRoute.of(context);
+    if (route is! PageRoute<dynamic>) {
+      return;
+    }
+    if (_pageRoute == route) {
+      _isRouteVisible = route.isCurrent;
+      return;
+    }
+    if (_pageRoute != null) {
+      appRouteObserver.unsubscribe(this);
+    }
+    _pageRoute = route;
+    _isRouteVisible = route.isCurrent;
+    appRouteObserver.subscribe(this, route);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _evaluatePendingCelebration();
+    });
+  }
+
+  @override
+  void didPush() {
+    _isRouteVisible = true;
+    _evaluatePendingCelebration();
+  }
+
+  @override
+  void didPopNext() {
+    _isRouteVisible = true;
+    _evaluatePendingCelebration();
+  }
+
+  @override
+  void didPushNext() {
+    _isRouteVisible = false;
+  }
+
+  @override
+  void didPop() {
+    _isRouteVisible = false;
+  }
+
+  void _showOverlay(HomeFishGrowthLevel level) {
+    _hideTimer?.cancel();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _visibleLevel = level;
+      _isOverlayVisible = true;
+    });
+    _hideTimer = Timer(_visibleDuration, () {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isOverlayVisible = false;
+      });
+      Timer(_fadeDuration, () {
+        if (!mounted || _isOverlayVisible) {
+          return;
+        }
+        setState(() {
+          _visibleLevel = null;
+        });
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    TodayQuestionStore.instance.removeListener(_handleRecordsChanged);
+    if (_pageRoute != null) {
+      appRouteObserver.unsubscribe(this);
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final HomeFishGrowthLevel? visibleLevel = _visibleLevel;
+    if (visibleLevel == null) {
+      return const SizedBox.shrink();
+    }
+    return IgnorePointer(
+      ignoring: !_isOverlayVisible,
+      child: AnimatedOpacity(
+        opacity: _isOverlayVisible ? 1 : 0,
+        duration: _fadeDuration,
+        curve: Curves.easeOutCubic,
+        child: _HomeLevelUpOverlay(level: visibleLevel),
+      ),
+    );
+  }
+}
+
+class _HomeLevelUpOverlay extends StatelessWidget {
+  const _HomeLevelUpOverlay({required this.level});
+
+  final HomeFishGrowthLevel level;
+
+  static const Color _scrimColor = Color(0xB8000000);
+  static const Color _accentColor = Color(0xFFB6E2FF);
+
+  @override
+  Widget build(BuildContext context) {
+    final String fishAssetPath = HomeCharacterAssets.levelUpOverlayAssetFor(
+      HomeCharacterType.fish,
+      level,
+    );
+    return ColoredBox(
+      color: _scrimColor,
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  "축하해요!",
+                  textAlign: TextAlign.center,
+                  style: AppTypography.heading2XSmall.copyWith(
+                    color: _accentColor,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  level.celebrationHeadline,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.headingLarge.copyWith(
+                    color: AppNeutralColors.white,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  "Level ${level.number}",
+                  style: AppTypography.heading2XSmall.copyWith(
+                    color: _accentColor,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: 285,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    clipBehavior: Clip.none,
+                    children: <Widget>[
+                      Positioned(
+                        left: 0,
+                        top: 34,
+                        child: Image.asset(
+                          HomeCharacterAssets.levelUpConfettiLeft,
+                          width: 88,
+                          height: 131,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 32,
+                        child: Image.asset(
+                          HomeCharacterAssets.levelUpConfettiRight,
+                          width: 97,
+                          height: 133,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                      SizedBox(
+                        width: 190,
+                        height: 190,
+                        child: Image.asset(
+                          fishAssetPath,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, error, stackTrace) {
+                            return const Center(
+                              child: Text("🐟", style: TextStyle(fontSize: 80)),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  "누적기록 횟수 ${level.requiredRecordCount}회 달성!",
+                  textAlign: TextAlign.center,
+                  style: AppTypography.heading2XSmall.copyWith(
+                    color: AppNeutralColors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 enum _SpeechTailDirection { right, down }
 
+class _HomeHeroFishImage extends StatelessWidget {
+  const _HomeHeroFishImage({
+    required this.assetPath,
+    required this.size,
+    required this.fallbackFontSize,
+  });
+
+  final String assetPath;
+  final double size;
+  final double fallbackFontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 260),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      child: SizedBox(
+        key: ValueKey<String>(assetPath),
+        width: size,
+        height: size,
+        child: Image.asset(
+          assetPath,
+          fit: BoxFit.contain,
+          errorBuilder: (_, error, stackTrace) {
+            return Center(
+              child: Text("🐟", style: TextStyle(fontSize: fallbackFontSize)),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _QuestionBeforeRecordCard extends StatefulWidget {
-  const _QuestionBeforeRecordCard();
+  const _QuestionBeforeRecordCard({required this.recordCount});
+
+  final int recordCount;
 
   @override
   State<_QuestionBeforeRecordCard> createState() =>
@@ -316,6 +647,10 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
+    final String fishAssetPath = HomeCharacterAssets.assetForRecordCount(
+      HomeCharacterType.fish,
+      widget.recordCount,
+    );
     return ValueListenableBuilder<TodayQuestionPromptState>(
       valueListenable: TodayQuestionPromptStore.instance,
       builder:
@@ -369,6 +704,19 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
                       _fishController,
                       _bubbleController,
                     ]),
+                    child: SizedBox(
+                      width: 150,
+                      height: 150,
+                      child: OverflowBox(
+                        maxWidth: 212,
+                        maxHeight: 212,
+                        child: _HomeHeroFishImage(
+                          assetPath: fishAssetPath,
+                          size: 212,
+                          fallbackFontSize: 72,
+                        ),
+                      ),
+                    ),
                     builder: (BuildContext context, Widget? child) {
                       return Stack(
                         clipBehavior: Clip.none,
@@ -412,20 +760,7 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
                           Positioned.fill(
                             child: Transform.translate(
                               offset: Offset(0, _fishDy.value),
-                              child: Image.asset(
-                                HomeScreen._heroFishAsset,
-                                width: 150,
-                                height: 150,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, error, stackTrace) {
-                                  return const Center(
-                                    child: Text(
-                                      "🐟",
-                                      style: TextStyle(fontSize: 64),
-                                    ),
-                                  );
-                                },
-                              ),
+                              child: child,
                             ),
                           ),
                         ],
@@ -476,7 +811,29 @@ class _QuestionWrittenPreviewCard extends StatefulWidget {
 class _QuestionWrittenPreviewCardState
     extends State<_QuestionWrittenPreviewCard> {
   bool _showMoreMenu = false;
+  bool _showAnswerScrollHint = false;
+  List<String> _fallbackBucketTags = const <String>[];
   int? _selectedMoreMenuIndex;
+  String? _lastAnswerText;
+  bool _pendingAnswerScrollSync = false;
+  bool _pendingAnswerScrollReset = false;
+  final ScrollController _answerScrollController = ScrollController();
+  Object? _fallbackBucketTagsLoadedToken;
+  Object? _fallbackBucketTagsActiveToken;
+  bool _loadingFallbackBucketTags = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _answerScrollController.addListener(_syncAnswerScrollHint);
+  }
+
+  @override
+  void dispose() {
+    _answerScrollController.removeListener(_syncAnswerScrollHint);
+    _answerScrollController.dispose();
+    super.dispose();
+  }
 
   void _dismissMoreMenu() {
     if (!_showMoreMenu) {
@@ -494,6 +851,114 @@ class _QuestionWrittenPreviewCardState
       if (_showMoreMenu) {
         _selectedMoreMenuIndex = null;
       }
+    });
+  }
+
+  void _scheduleAnswerScrollSync({bool resetToTop = false}) {
+    _pendingAnswerScrollReset = _pendingAnswerScrollReset || resetToTop;
+    if (_pendingAnswerScrollSync) {
+      return;
+    }
+    _pendingAnswerScrollSync = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pendingAnswerScrollSync = false;
+      final bool shouldReset = _pendingAnswerScrollReset;
+      _pendingAnswerScrollReset = false;
+
+      if (!mounted || !_answerScrollController.hasClients) {
+        if (_showAnswerScrollHint) {
+          setState(() {
+            _showAnswerScrollHint = false;
+          });
+        }
+        return;
+      }
+
+      final ScrollPosition position = _answerScrollController.position;
+      if (shouldReset) {
+        _answerScrollController.jumpTo(position.minScrollExtent);
+      } else if (_answerScrollController.offset > position.maxScrollExtent) {
+        _answerScrollController.jumpTo(position.maxScrollExtent);
+      }
+      _syncAnswerScrollHint();
+    });
+  }
+
+  void _syncAnswerScrollHint() {
+    if (!_answerScrollController.hasClients) {
+      if (_showAnswerScrollHint && mounted) {
+        setState(() {
+          _showAnswerScrollHint = false;
+        });
+      }
+      return;
+    }
+
+    final ScrollPosition position = _answerScrollController.position;
+    final bool shouldShow =
+        position.maxScrollExtent > 1 &&
+        position.pixels < position.maxScrollExtent - 1;
+    if (_showAnswerScrollHint == shouldShow || !mounted) {
+      return;
+    }
+    setState(() {
+      _showAnswerScrollHint = shouldShow;
+    });
+  }
+
+  void _ensureFallbackBucketTags({
+    required TodayQuestionRecord? latest,
+    required List<String> recordBucketTags,
+  }) {
+    if (latest == null || recordBucketTags.isNotEmpty) {
+      return;
+    }
+    if (_loadingFallbackBucketTags &&
+        identical(_fallbackBucketTagsActiveToken, latest)) {
+      return;
+    }
+    if (identical(_fallbackBucketTagsLoadedToken, latest)) {
+      return;
+    }
+
+    _loadingFallbackBucketTags = true;
+    _fallbackBucketTagsActiveToken = latest;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_loadFallbackBucketTags(latest: latest));
+    });
+  }
+
+  Future<void> _loadFallbackBucketTags({
+    required TodayQuestionRecord latest,
+  }) async {
+    final isar = await LocalDatabase.instance.isar;
+    final List<BucketItemEntity> items = await isar.bucketItemEntitys
+        .where()
+        .findAll();
+    final Set<String> seen = <String>{};
+    final List<String> tags = <String>[];
+
+    for (final BucketItemEntity item in items) {
+      final String title = item.title.trim();
+      if (item.isCompleted || title.isEmpty) {
+        continue;
+      }
+      if (!isSameKstDate(item.createdAt, latest.createdAt)) {
+        continue;
+      }
+      if (seen.add(title)) {
+        tags.add(title);
+      }
+    }
+
+    if (!mounted || !identical(_fallbackBucketTagsActiveToken, latest)) {
+      return;
+    }
+
+    _loadingFallbackBucketTags = false;
+    setState(() {
+      _fallbackBucketTagsLoadedToken = latest;
+      _fallbackBucketTags = tags;
     });
   }
 
@@ -732,6 +1197,9 @@ class _QuestionWrittenPreviewCardState
         latest?.answer ??
         "올해는 꼭 제주도 한라산에 올라가 백록담을 직접 보고 싶어. "
             "예전부터 사진으로만 보던 그 푸른 호수를 실제로 내 눈으로 담아보고 싶다는 마음이 있었거든요...";
+    final bool shouldResetAnswerScroll = _lastAnswerText != answerText;
+    _lastAnswerText = answerText;
+    _scheduleAnswerScrollSync(resetToTop: shouldResetAnswerScroll);
     final String questionText =
         (latest?.questionText?.trim().isNotEmpty ?? false)
         ? latest!.questionText!.trim()
@@ -743,6 +1211,14 @@ class _QuestionWrittenPreviewCardState
         : (latest.bucketTag == null || latest.bucketTag!.trim().isEmpty)
         ? const <String>[]
         : <String>[latest.bucketTag!.trim()];
+    _ensureFallbackBucketTags(latest: latest, recordBucketTags: bucketTags);
+    final List<String> visibleBucketTags = latest == null
+        ? const <String>[]
+        : bucketTags.isNotEmpty
+        ? bucketTags
+        : identical(_fallbackBucketTagsLoadedToken, latest)
+        ? _fallbackBucketTags
+        : const <String>[];
 
     return Stack(
       clipBehavior: Clip.none,
@@ -857,17 +1333,61 @@ class _QuestionWrittenPreviewCardState
                   ),
                   const SizedBox(height: AppSpacing.s16),
                   Expanded(
-                    child: Text(
-                      answerText,
-                      textAlign: TextAlign.left,
-                      style: AppTypography.bodyLargeRegular.copyWith(
-                        color: AppNeutralColors.grey800,
-                      ),
-                      maxLines: 6,
-                      overflow: TextOverflow.ellipsis,
+                    child: Stack(
+                      children: <Widget>[
+                        Positioned.fill(
+                          child: SingleChildScrollView(
+                            controller: _answerScrollController,
+                            physics: const BouncingScrollPhysics(),
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  right: AppSpacing.s4,
+                                  bottom: AppSpacing.s28,
+                                ),
+                                child: Text(
+                                  answerText,
+                                  textAlign: TextAlign.left,
+                                  style: AppTypography.bodyLargeRegular
+                                      .copyWith(
+                                        color: AppNeutralColors.grey800,
+                                      ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_showAnswerScrollHint)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            height: 48,
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: <Color>[
+                                      AppNeutralColors.white.withValues(
+                                        alpha: 0,
+                                      ),
+                                      AppNeutralColors.white.withValues(
+                                        alpha: 0.84,
+                                      ),
+                                      AppNeutralColors.white,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  if (bucketTags.isNotEmpty)
+                  if (visibleBucketTags.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         vertical: AppSpacing.s16,
@@ -878,7 +1398,7 @@ class _QuestionWrittenPreviewCardState
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
-                            children: bucketTags
+                            children: visibleBucketTags
                                 .map(
                                   (String tag) => Padding(
                                     padding: const EdgeInsets.only(
@@ -1065,9 +1585,13 @@ class _SpeechDownTailPainter extends CustomPainter {
 }
 
 class _TopCharacterDecorations extends StatefulWidget {
-  const _TopCharacterDecorations({required this.bubbleColor});
+  const _TopCharacterDecorations({
+    required this.bubbleColor,
+    required this.recordCount,
+  });
 
   final Color bubbleColor;
+  final int recordCount;
 
   @override
   State<_TopCharacterDecorations> createState() =>
@@ -1116,9 +1640,13 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
 
   @override
   Widget build(BuildContext context) {
+    final String fishAssetPath = HomeCharacterAssets.assetForRecordCount(
+      HomeCharacterType.fish,
+      widget.recordCount,
+    );
     return SizedBox(
       width: 350,
-      height: 140,
+      height: 152,
       child: Stack(
         clipBehavior: Clip.none,
         children: <Widget>[
@@ -1157,27 +1685,26 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
           ),
           Positioned(
             left: 218,
-            top: 0,
+            top: -14,
             child: AnimatedBuilder(
               animation: _fishController,
+              child: SizedBox(
+                width: 152,
+                height: 152,
+                child: OverflowBox(
+                  maxWidth: 208,
+                  maxHeight: 208,
+                  child: _HomeHeroFishImage(
+                    assetPath: fishAssetPath,
+                    size: 208,
+                    fallbackFontSize: 56,
+                  ),
+                ),
+              ),
               builder: (BuildContext context, Widget? child) {
                 return Transform.translate(
                   offset: Offset(0, _fishDy.value),
-                  child: Image.asset(
-                    HomeScreen._heroFishAsset,
-                    width: 140,
-                    height: 140,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, error, stackTrace) {
-                      return const SizedBox(
-                        width: 140,
-                        height: 140,
-                        child: Center(
-                          child: Text("🐟", style: TextStyle(fontSize: 48)),
-                        ),
-                      );
-                    },
-                  ),
+                  child: child,
                 );
               },
             ),
@@ -1354,7 +1881,12 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
     return ValueListenableBuilder<List<TodayQuestionRecord>>(
       valueListenable: TodayQuestionStore.instance,
       builder:
-          (BuildContext context, List<TodayQuestionRecord> _, Widget? child) {
+          (
+            BuildContext context,
+            List<TodayQuestionRecord> allRecords,
+            Widget? child,
+          ) {
+            final int totalRecordCount = allRecords.length;
             return FutureBuilder<List<PublicTodayRecord>>(
               future: _loadVisiblePublicRecords(),
               builder:
@@ -1490,6 +2022,7 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
                           )
                         else
                           _TodayRecordEmptyCard(
+                            recordCount: totalRecordCount,
                             onTap: () =>
                                 HomeScreen.openTodayQuestionAnswer(context),
                           ),
@@ -1511,13 +2044,18 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
 }
 
 class _TodayRecordEmptyCard extends StatelessWidget {
-  const _TodayRecordEmptyCard({required this.onTap});
+  const _TodayRecordEmptyCard({required this.recordCount, required this.onTap});
 
+  final int recordCount;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
+    final String fishAssetPath = HomeCharacterAssets.assetForRecordCount(
+      HomeCharacterType.fish,
+      recordCount,
+    );
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1535,7 +2073,7 @@ class _TodayRecordEmptyCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               Image.asset(
-                HomeScreen._heroFishAsset,
+                fishAssetPath,
                 width: 64,
                 height: 64,
                 fit: BoxFit.contain,

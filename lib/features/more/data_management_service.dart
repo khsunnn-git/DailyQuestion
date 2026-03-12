@@ -107,6 +107,7 @@ class DataManagementService {
         key == NotificationPrefsKeys.todayQuestionMinute ||
         key == NotificationPrefsKeys.bucketDdayEnabled ||
         key == NotificationPrefsKeys.bucketDdayDaysBefore ||
+        key == NotificationPrefsKeys.permissionOnboardingRequested ||
         key == _bucketDdayNotificationIdsKey ||
         key == _legacyNicknamePrefKey ||
         key == _nicknamePrefKey ||

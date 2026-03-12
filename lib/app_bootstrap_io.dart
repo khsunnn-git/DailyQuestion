@@ -1,6 +1,5 @@
 import "data/local_db/local_database.dart";
 import "features/home/daily_checkin_store.dart";
-import "features/notifications/daily_question_notification_scheduler.dart";
 import "features/question/today_question_store.dart";
 import "features/question/user_answer_backup_service.dart";
 
@@ -9,5 +8,4 @@ Future<void> initializeAppDependencies() async {
   await TodayQuestionStore.instance.initialize();
   await DailyCheckinStore.instance.initialize();
   await startUserAnswerBackupService();
-  await initializeDailyQuestionNotificationScheduler();
 }

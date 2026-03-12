@@ -7,6 +7,8 @@ abstract final class NotificationPrefsKeys {
       "notification_today_question_minute";
   static const String bucketDdayDaysBefore =
       "notification_bucket_dday_days_before";
+  static const String permissionOnboardingRequested =
+      "notification_permission_onboarding_requested";
 
   static const bool defaultTodayQuestionEnabled = true;
   static const int defaultTodayQuestionHour = 15;
