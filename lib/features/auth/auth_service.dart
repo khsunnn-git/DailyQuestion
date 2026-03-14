@@ -4,6 +4,9 @@ import "package:google_sign_in/google_sign_in.dart";
 
 import "social_auth_provider.dart";
 
+const String _defaultGoogleServerClientId =
+    "362336765894-ei7ne7l7drpm3o7vqsahvq82lvo5hi1f.apps.googleusercontent.com";
+
 class AuthActionException implements Exception {
   const AuthActionException(this.userMessage);
 
@@ -156,10 +159,13 @@ class AuthService {
       );
       return userCredential;
     } on GoogleSignInException catch (error) {
-      if (error.code == GoogleSignInExceptionCode.canceled) {
-        throw const AuthActionException("로그인이 취소되었어요.");
+      if (kDebugMode) {
+        debugPrint("[auth] Google sign-in failed: ${error.code}");
+        if ((error.description ?? "").isNotEmpty) {
+          debugPrint("[auth] Google sign-in details: ${error.description}");
+        }
       }
-      throw const AuthActionException("구글 로그인에 실패했어요. 잠시 후 다시 시도해주세요.");
+      throw _mapGoogleSignInError(error);
     } on FirebaseAuthException catch (error) {
       throw _mapFirebaseAuthError(error);
     }
@@ -169,7 +175,15 @@ class AuthService {
     if (_googleInitialized) {
       return;
     }
-    await GoogleSignIn.instance.initialize();
+    const String configuredServerClientId = String.fromEnvironment(
+      "GOOGLE_SERVER_CLIENT_ID",
+      defaultValue: _defaultGoogleServerClientId,
+    );
+    await GoogleSignIn.instance.initialize(
+      serverClientId: configuredServerClientId.trim().isEmpty
+          ? null
+          : configuredServerClientId,
+    );
     _googleInitialized = true;
   }
 
@@ -221,6 +235,26 @@ class AuthService {
         return const AuthActionException("로그인이 취소되었어요.");
       default:
         return const AuthActionException("로그인에 실패했어요. 잠시 후 다시 시도해주세요.");
+    }
+  }
+
+  AuthActionException _mapGoogleSignInError(GoogleSignInException error) {
+    switch (error.code) {
+      case GoogleSignInExceptionCode.canceled:
+        return const AuthActionException("로그인이 취소되었어요.");
+      case GoogleSignInExceptionCode.clientConfigurationError:
+      case GoogleSignInExceptionCode.providerConfigurationError:
+        return const AuthActionException(
+          "구글 로그인 설정을 확인하지 못했어요. 앱을 다시 설치한 뒤 다시 시도해주세요.",
+        );
+      case GoogleSignInExceptionCode.uiUnavailable:
+        return const AuthActionException("구글 로그인 화면을 열지 못했어요. 잠시 후 다시 시도해주세요.");
+      case GoogleSignInExceptionCode.interrupted:
+        return const AuthActionException("로그인 과정이 중단됐어요. 다시 한 번 시도해주세요.");
+      case GoogleSignInExceptionCode.userMismatch:
+        return const AuthActionException("선택한 계정을 확인하지 못했어요. 다시 시도해주세요.");
+      case GoogleSignInExceptionCode.unknownError:
+        return const AuthActionException("구글 로그인에 실패했어요. 잠시 후 다시 시도해주세요.");
     }
   }
 }

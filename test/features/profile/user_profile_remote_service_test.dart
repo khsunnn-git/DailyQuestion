@@ -42,16 +42,51 @@ void main() {
       );
     });
 
-    test("returns nickname setup for legacy returning users missing nickname", () {
+    test(
+      "returns nickname setup for legacy returning users missing nickname",
+      () {
+        expect(
+          resolvePostLoginDestinationForState(
+            remoteNickname: null,
+            localNickname: null,
+            remoteConsentAccepted: true,
+            remoteOnboardingCompleted: false,
+            hasRemoteAnswers: true,
+          ),
+          PostLoginDestination.nicknameSetup,
+        );
+      },
+    );
+  });
+
+  group("resolveLocalPostLoginDestination", () {
+    test("returns terms when local consent is missing", () {
       expect(
-        resolvePostLoginDestinationForState(
-          remoteNickname: null,
+        resolveLocalPostLoginDestination(
+          localConsentAccepted: false,
           localNickname: null,
-          remoteConsentAccepted: true,
-          remoteOnboardingCompleted: false,
-          hasRemoteAnswers: true,
+        ),
+        PostLoginDestination.termsConsent,
+      );
+    });
+
+    test("returns nickname setup when nickname is missing", () {
+      expect(
+        resolveLocalPostLoginDestination(
+          localConsentAccepted: true,
+          localNickname: null,
         ),
         PostLoginDestination.nicknameSetup,
+      );
+    });
+
+    test("returns home when consent and nickname already exist", () {
+      expect(
+        resolveLocalPostLoginDestination(
+          localConsentAccepted: true,
+          localNickname: "혜선",
+        ),
+        PostLoginDestination.home,
       );
     });
   });

@@ -9,11 +9,9 @@ const String _answersCollectionId = "answers";
 enum PostLoginDestination { termsConsent, nicknameSetup, home }
 
 class UserProfileRemoteService {
-  UserProfileRemoteService._({
-    FirebaseFirestore? firestore,
-    FirebaseAuth? auth,
-  }) : _firestore = firestore ?? FirebaseFirestore.instance,
-       _auth = auth ?? FirebaseAuth.instance;
+  UserProfileRemoteService._({FirebaseFirestore? firestore, FirebaseAuth? auth})
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _auth = auth ?? FirebaseAuth.instance;
 
   static final UserProfileRemoteService instance = UserProfileRemoteService._();
 
@@ -34,16 +32,16 @@ class UserProfileRemoteService {
     final String? remoteNickname = _normalizedString(data?["nickname"]);
     final String? localNickname = _normalizedString(await loadNickname());
     final bool remoteConsentAccepted = data?["consentAccepted"] == true;
-    final bool remoteOnboardingCompleted =
-        data?["onboardingCompleted"] == true;
+    final bool remoteOnboardingCompleted = data?["onboardingCompleted"] == true;
     final bool hasRemoteAnswers = await _hasRemoteAnswers(userDoc);
-    final PostLoginDestination destination = resolvePostLoginDestinationForState(
-      remoteNickname: remoteNickname,
-      localNickname: localNickname,
-      remoteConsentAccepted: remoteConsentAccepted,
-      remoteOnboardingCompleted: remoteOnboardingCompleted,
-      hasRemoteAnswers: hasRemoteAnswers,
-    );
+    final PostLoginDestination destination =
+        resolvePostLoginDestinationForState(
+          remoteNickname: remoteNickname,
+          localNickname: localNickname,
+          remoteConsentAccepted: remoteConsentAccepted,
+          remoteOnboardingCompleted: remoteOnboardingCompleted,
+          hasRemoteAnswers: hasRemoteAnswers,
+        );
 
     if (destination == PostLoginDestination.termsConsent) {
       return destination;
@@ -129,4 +127,17 @@ PostLoginDestination resolvePostLoginDestinationForState({
     return PostLoginDestination.home;
   }
   return PostLoginDestination.nicknameSetup;
+}
+
+PostLoginDestination resolveLocalPostLoginDestination({
+  required bool localConsentAccepted,
+  required String? localNickname,
+}) {
+  if (!localConsentAccepted) {
+    return PostLoginDestination.termsConsent;
+  }
+  if ((localNickname ?? "").trim().isEmpty) {
+    return PostLoginDestination.nicknameSetup;
+  }
+  return PostLoginDestination.home;
 }

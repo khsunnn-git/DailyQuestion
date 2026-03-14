@@ -6,6 +6,7 @@ import "../navigation/main_tab_shell.dart";
 import "../profile/initial_terms_consent_screen.dart";
 import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_remote_service.dart";
+import "../profile/user_profile_store.dart";
 import "../question/user_answer_backup_service.dart";
 import "auth_service.dart";
 import "social_auth_provider.dart";
@@ -52,7 +53,11 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       await SocialLoginStore.instance.saveRecentProvider(provider);
       await syncPendingUserAnswers(restoreRemoteOnConnect: true);
-      await UserProfileRemoteService.instance.syncCurrentUserProfile();
+      try {
+        await UserProfileRemoteService.instance.syncCurrentUserProfile();
+      } catch (_) {
+        // Keep the signed-in session even if remote profile sync is temporarily unavailable.
+      }
       if (!mounted) {
         return;
       }
@@ -67,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final PostLoginDestination destination =
-          await UserProfileRemoteService.instance.resolvePostLoginDestination();
+          await _resolvePostLoginDestination();
       if (!mounted) {
         return;
       }
@@ -129,6 +134,28 @@ class _LoginScreenState extends State<LoginScreen> {
         builder: (_) => const InitialTermsConsentScreen(),
       ),
     );
+  }
+
+  Future<PostLoginDestination> _resolvePostLoginDestination() async {
+    try {
+      return await UserProfileRemoteService.instance
+          .resolvePostLoginDestination();
+    } catch (_) {
+      final bool consentAccepted = await loadInitialConsentAccepted();
+      final String? nickname = _normalizedNickname(await loadNickname());
+      return resolveLocalPostLoginDestination(
+        localConsentAccepted: consentAccepted,
+        localNickname: nickname,
+      );
+    }
+  }
+
+  String? _normalizedNickname(String? nickname) {
+    final String text = (nickname ?? "").trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    return text;
   }
 
   @override
