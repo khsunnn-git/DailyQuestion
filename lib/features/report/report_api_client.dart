@@ -22,7 +22,7 @@ class ReportApiClient {
     if (!isConfigured) {
       throw const ReportApiException("REPORT_API_BASE_URL is not configured.");
     }
-    final Uri uri = Uri.parse("$_baseUrl/v1/report/analyze");
+    final Uri uri = _analyzeUri();
     final HttpClientRequest request = await _httpClient
         .postUrl(uri)
         .timeout(_timeout);
@@ -43,6 +43,16 @@ class ReportApiClient {
       );
     }
     return WeeklyAiReport.fromJson(decoded);
+  }
+
+  Uri _analyzeUri() {
+    final String normalizedBase = _baseUrl.endsWith("/")
+        ? _baseUrl.substring(0, _baseUrl.length - 1)
+        : _baseUrl;
+    if (normalizedBase.endsWith("/v1/report/analyze")) {
+      return Uri.parse(normalizedBase);
+    }
+    return Uri.parse("$normalizedBase/v1/report/analyze");
   }
 }
 

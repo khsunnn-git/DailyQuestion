@@ -31,3 +31,9 @@ Future<void> syncBucketDdayNotificationSchedule({
     daysBefore: daysBefore,
   );
 }
+
+Future<void> syncWeeklyReportNotificationSchedule({
+  required bool enabled,
+}) async {
+  await impl.syncWeeklyReportNotificationSchedule(enabled: enabled);
+}

@@ -47,11 +47,14 @@ function asNumber(value) {
 
 function buildFallbackReport(payload) {
   const metrics = payload?.metrics || {};
+  const recordedDays = asNumber(metrics.recorded_days) || 0;
+  if (recordedDays < 3) {
+    return buildCompactFallbackReport(payload);
+  }
   const weeklyScore = Math.max(0, Math.min(5, Math.round(asNumber(metrics.weekly_score) || 0)));
   const avgMood = asNumber(metrics.avg_mood) || 0;
   const avgEnergy = asNumber(metrics.avg_energy) || 0;
   const avgStress = asNumber(metrics.avg_stress) || 0;
-  const recordedDays = asNumber(metrics.recorded_days) || 0;
   const targetDays = asNumber(metrics.target_days) || 7;
   const completion = targetDays > 0 ? Math.round((recordedDays / targetDays) * 100) : 0;
   const topKeywords = Array.isArray(payload?.top_keywords)
@@ -82,25 +85,73 @@ function buildFallbackReport(payload) {
   };
 }
 
-async function createOpenAIReport(payload) {
-  const compact = Array.isArray(payload?.entries_compact)
-    ? payload.entries_compact.filter((x) => typeof x === "string").slice(0, 50)
+function buildCompactFallbackReport(payload) {
+  const metrics = payload?.metrics || {};
+  const weeklyScore = Math.max(0, Math.min(5, Math.round(asNumber(metrics.weekly_score) || 0)));
+  const recordedDays = asNumber(metrics.recorded_days) || 0;
+  const targetDays = asNumber(metrics.target_days) || 7;
+  const completion = targetDays > 0 ? Math.round((recordedDays / targetDays) * 100) : 0;
+  const topKeywords = Array.isArray(payload?.top_keywords)
+    ? payload.top_keywords.filter((x) => typeof x === "string").slice(0, 2)
     : [];
+  const keywordText = topKeywords.length > 0
+    ? `지금까지 자주 나온 키워드는 ${topKeywords.join(", ")} 입니다.`
+    : "아직 뚜렷한 키워드가 많지 않아요.";
 
-  const prompt = [
-    "너는 한국어 라이프 저널 리포트 분석가다.",
-    "입력은 사용자의 주간 기록 요약이다.",
-    "반드시 JSON만 출력한다.",
-    "필수 필드: summary(string), insights(string[]), weekly_score(number), monthly_score(number|null), actions(string[]), source(string).",
-    "actions는 실행 가능한 문장 3개로 작성하고 각 문장은 '~해보세요.'로 끝낸다.",
-    "insights는 3~5개, 짧고 근거 중심으로 작성한다.",
-    "",
-    "입력 데이터:",
-    JSON.stringify(payload),
-    "",
-    "entries_compact:",
-    compact.join("\n"),
-  ].join("\n");
+  return {
+    summary: `이번 주는 ${recordedDays}일 기록했어요. 아직 데이터가 많지 않아 간단한 리포트로 정리했어요. ${keywordText}`,
+    insights: [`기록률은 ${completion}%예요. 3일 이상 기록이 쌓이면 더 풍부한 리포트를 만들 수 있어요.`],
+    weekly_score: weeklyScore,
+    monthly_score: null,
+    actions: ["다음 주에는 3일 이상 가볍게 기록해보세요."],
+    source: "server-fallback",
+  };
+}
+
+function reportSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      summary: { type: "string" },
+      insights: {
+        type: "array",
+        items: { type: "string" },
+        maxItems: 5,
+      },
+      weekly_score: {
+        type: "integer",
+        minimum: 0,
+        maximum: 5,
+      },
+      actions: {
+        type: "array",
+        items: { type: "string" },
+        maxItems: 3,
+      },
+    },
+    required: ["summary", "insights", "weekly_score", "actions"],
+  };
+}
+
+function outputTextFromResponse(data) {
+  if (typeof data?.output_text === "string" && data.output_text.trim()) {
+    return data.output_text.trim();
+  }
+  const items = Array.isArray(data?.output) ? data.output : [];
+  for (const item of items) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const part of content) {
+      if (typeof part?.text === "string" && part.text.trim()) {
+        return part.text.trim();
+      }
+    }
+  }
+  return "";
+}
+
+async function createOpenAIReport(payload) {
+  const recordedDays = asNumber(payload?.metrics?.recorded_days) || 0;
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -110,9 +161,41 @@ async function createOpenAIReport(payload) {
     },
     body: JSON.stringify({
       model: OPENAI_MODEL,
-      input: prompt,
-      text: { format: { type: "json_object" } },
-      max_output_tokens: 700,
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "너는 한국어 라이프 저널 주간 리포트 에디터다. " +
+                "사용자가 쉽게 읽을 수 있도록 따뜻하고 간결하게 작성한다. " +
+                "metrics.recorded_days가 3 미만이면 간단 리포트로 작성하고 insights는 최대 1개, actions는 최대 1개만 작성한다. " +
+                "그 외에는 insights 2~4개, actions 2~3개를 작성한다. " +
+                "summary는 2~3문장 이내로 작성한다. " +
+                "actions는 모두 '~해보세요.'로 끝낸다.",
+            },
+          ],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: JSON.stringify(payload),
+            },
+          ],
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "weekly_report",
+          strict: true,
+          schema: reportSchema(),
+        },
+      },
+      max_output_tokens: recordedDays < 3 ? 320 : 700,
     }),
   });
 
@@ -122,11 +205,7 @@ async function createOpenAIReport(payload) {
   }
 
   const data = await response.json();
-  const rawText =
-    data?.output_text ||
-    data?.output?.[0]?.content?.[0]?.text ||
-    data?.choices?.[0]?.message?.content ||
-    "";
+  const rawText = outputTextFromResponse(data);
   if (!rawText) {
     throw new Error("OpenAI response is empty");
   }
@@ -134,7 +213,10 @@ async function createOpenAIReport(payload) {
   return {
     summary: String(parsed.summary || "").trim() || "리포트를 생성했어요.",
     insights: Array.isArray(parsed.insights)
-      ? parsed.insights.map((x) => String(x).trim()).filter(Boolean).slice(0, 5)
+      ? parsed.insights
+          .map((x) => String(x).trim())
+          .filter(Boolean)
+          .slice(0, recordedDays < 3 ? 1 : 5)
       : [],
     weekly_score: Math.max(0, Math.min(5, Math.round(asNumber(parsed.weekly_score) || 0))),
     monthly_score:
@@ -142,7 +224,10 @@ async function createOpenAIReport(payload) {
         ? null
         : Math.round(asNumber(parsed.monthly_score) || 0),
     actions: Array.isArray(parsed.actions)
-      ? parsed.actions.map((x) => String(x).trim()).filter(Boolean).slice(0, 3)
+      ? parsed.actions
+          .map((x) => String(x).trim())
+          .filter(Boolean)
+          .slice(0, recordedDays < 3 ? 1 : 3)
       : [],
     source: "ai",
   };

@@ -11,6 +11,7 @@ import "design_system/design_system.dart";
 import "features/notifications/daily_question_notification_scheduler.dart";
 import "features/profile/nickname_setup_screen.dart";
 import "features/question/user_answer_backup_service.dart";
+import "features/report/weekly_report_store.dart";
 import "features/splash/splash_screen.dart";
 
 Future<void> main() async {
@@ -83,6 +84,7 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_initializeNotificationSchedulerSafely());
+      unawaited(_prepareWeeklyReportSafely());
     });
   }
 
@@ -105,6 +107,17 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
         debugPrint(
           "[main] initializeDailyQuestionNotificationScheduler failed: $error",
         );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+  }
+
+  Future<void> _prepareWeeklyReportSafely() async {
+    try {
+      await WeeklyReportStore.instance.prepareCurrentWeeklyReport();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint("[main] prepareCurrentWeeklyReport failed: $error");
         debugPrintStack(stackTrace: stackTrace);
       }
     }

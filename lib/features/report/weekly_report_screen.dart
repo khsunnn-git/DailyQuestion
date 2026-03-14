@@ -38,7 +38,7 @@ class _WeeklyReportScreenState extends State<WeeklyReportScreen> {
   @override
   void initState() {
     super.initState();
-    WeeklyReportStore.instance.generateWeeklyReport();
+    WeeklyReportStore.instance.prepareCurrentWeeklyReport();
   }
 
   @override

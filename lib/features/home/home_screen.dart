@@ -279,7 +279,7 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     with RouteAware {
   static const String _lastCelebratedLevelPrefsKey =
       "home_last_celebrated_fish_level";
-  static const Duration _visibleDuration = Duration(seconds: 2);
+  static const Duration _visibleDuration = Duration(seconds: 5);
   static const Duration _fadeDuration = Duration(milliseconds: 220);
 
   SharedPreferences? _prefs;

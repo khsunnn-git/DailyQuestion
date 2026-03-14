@@ -550,6 +550,30 @@ class ReportAggregationService {
     );
   }
 
+  WeeklyAiReport buildCompactLocalFallbackReport(
+    WeeklyAggregationSnapshot snapshot,
+  ) {
+    final int completionRate =
+        ((snapshot.recordedDays / snapshot.targetDays) * 100).round();
+    final String keywordText = snapshot.topKeywords.isEmpty
+        ? "이번 주에는 아직 뚜렷한 키워드가 많이 쌓이지 않았어요."
+        : "지금까지 자주 나온 키워드는 ${snapshot.topKeywords.take(2).join(", ")} 입니다.";
+
+    return WeeklyAiReport(
+      summary:
+          "이번 주는 ${snapshot.recordedDays}일 기록했어요. "
+          "아직 데이터가 많지 않아 간단한 리포트로 정리했어요. "
+          "$keywordText",
+      insights: <String>[
+        "기록률은 $completionRate%이고, 조금만 더 쌓이면 더 정확한 주간 리포트를 볼 수 있어요.",
+      ],
+      actions: const <String>["다음 주에는 3일 이상 가볍게 기록해보세요."],
+      weeklyScore: snapshot.weeklyScore,
+      monthlyScore: null,
+      source: "local-fallback",
+    );
+  }
+
   _DayScoreEvidence? _pickDayByScore(
     List<Map<String, Object?>> days, {
     required bool pickMax,

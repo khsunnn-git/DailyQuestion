@@ -1,3 +1,4 @@
+import "dart:async";
 import "dart:math" as math;
 
 import "package:cloud_firestore/cloud_firestore.dart";
@@ -14,6 +15,8 @@ import "home_screen.dart";
 import "../more/more_settings_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
+import "../report/weekly_report_schedule.dart";
+import "../report/weekly_report_store.dart";
 import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
 
@@ -1608,13 +1611,43 @@ class _StreakCard extends StatelessWidget {
     );
   }
 
+  List<AppStreakStarState> _buildWeekStates({
+    required List<TodayQuestionRecord> records,
+  }) {
+    final DateTime today = _dateOnly(nowInKst());
+    final DateTime monday = today.subtract(Duration(days: today.weekday - 1));
+    if (records.isEmpty) {
+      return List<AppStreakStarState>.filled(
+        7,
+        AppStreakStarState.defaultState,
+      );
+    }
+
+    final Set<DateTime> recordedDays = records
+        .map(_recordDisplayDate)
+        .map(_dateOnly)
+        .where((DateTime day) => !day.isBefore(monday) && !day.isAfter(today))
+        .toSet();
+
+    return List<AppStreakStarState>.generate(7, (int index) {
+      final DateTime day = monday.add(Duration(days: index));
+      if (recordedDays.contains(day)) {
+        return AppStreakStarState.success;
+      }
+      if (day.isBefore(today)) {
+        return AppStreakStarState.missed;
+      }
+      return AppStreakStarState.defaultState;
+    }, growable: false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<List<TodayQuestionRecord>>(
       valueListenable: TodayQuestionStore.instance,
       builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
         final int streak = TodayQuestionStore.instance.consecutiveRecordDays;
-        final DateTime now = _dateOnly(DateTime.now());
+        final DateTime now = _dateOnly(nowInKst());
         final DateTime? latestDate = records.isEmpty
             ? null
             : _dateOnly(records.first.createdAt);
@@ -1626,8 +1659,9 @@ class _StreakCard extends StatelessWidget {
           streak: streak,
           hasRecords: records.isNotEmpty,
         );
-        final List<bool> weeklyDone = TodayQuestionStore.instance
-            .weeklyCompletion(referenceDate: latestDate);
+        final List<AppStreakStarState> weekStates = _buildWeekStates(
+          records: records,
+        );
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
@@ -1656,13 +1690,13 @@ class _StreakCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: <Widget>[
-                  _StreakDay(label: "월", done: weeklyDone[0]),
-                  _StreakDay(label: "화", done: weeklyDone[1]),
-                  _StreakDay(label: "수", done: weeklyDone[2]),
-                  _StreakDay(label: "목", done: weeklyDone[3]),
-                  _StreakDay(label: "금", done: weeklyDone[4]),
-                  _StreakDay(label: "토", done: weeklyDone[5]),
-                  _StreakDay(label: "일", done: weeklyDone[6]),
+                  _StreakDay(label: "월", state: weekStates[0]),
+                  _StreakDay(label: "화", state: weekStates[1]),
+                  _StreakDay(label: "수", state: weekStates[2]),
+                  _StreakDay(label: "목", state: weekStates[3]),
+                  _StreakDay(label: "금", state: weekStates[4]),
+                  _StreakDay(label: "토", state: weekStates[5]),
+                  _StreakDay(label: "일", state: weekStates[6]),
                 ],
               ),
             ],
@@ -1673,7 +1707,7 @@ class _StreakCard extends StatelessWidget {
   }
 }
 
-enum _AiReportPeriod { monthly, quarterly, yearly }
+enum _AiReportPeriod { weekly, monthly, quarterly, yearly }
 
 class _AiReportEntryCard extends StatefulWidget {
   const _AiReportEntryCard({
@@ -1688,8 +1722,29 @@ class _AiReportEntryCard extends StatefulWidget {
   State<_AiReportEntryCard> createState() => _AiReportEntryCardState();
 }
 
-class _AiReportEntryCardState extends State<_AiReportEntryCard> {
-  _AiReportPeriod _selected = _AiReportPeriod.monthly;
+class _AiReportEntryCardState extends State<_AiReportEntryCard>
+    with WidgetsBindingObserver {
+  _AiReportPeriod _selected = _AiReportPeriod.weekly;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(WeeklyReportStore.instance.prepareCurrentWeeklyReport());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(WeeklyReportStore.instance.prepareCurrentWeeklyReport());
+    }
+  }
 
   _AiReportUiData _dataFor(_AiReportPeriod period) {
     final String monthLabel = "${widget.selectedMonth}월";
@@ -1697,6 +1752,13 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard> {
     final int year = widget.selectedYear;
 
     switch (period) {
+      case _AiReportPeriod.weekly:
+        return const _AiReportUiData(
+          summaryTitle: "주간 요약",
+          summaryBody: "",
+          insightBody: "",
+          actions: <String>[],
+        );
       case _AiReportPeriod.monthly:
         return _AiReportUiData(
           summaryTitle: "$monthLabel 요약",
@@ -1751,6 +1813,100 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard> {
     return !today.isBefore(lastDayOfMonth);
   }
 
+  String _weeklySummaryTitle(WeeklyReportState state) {
+    final DateTime? start = state.periodStartDate;
+    final DateTime? end = state.periodEndDate;
+    if (start == null || end == null) {
+      return "주간 요약";
+    }
+    return WeeklyReportWindow(
+      slotAnchor: start,
+      referenceDate: end,
+      startDate: start,
+      endDate: end,
+    ).summaryTitle;
+  }
+
+  Widget _buildWeeklyReportContent() {
+    return ValueListenableBuilder<WeeklyReportState>(
+      valueListenable: WeeklyReportStore.instance,
+      builder: (BuildContext context, WeeklyReportState state, Widget? child) {
+        if (state.status == WeeklyReportStatus.loading &&
+            state.report == null) {
+          return const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.s24),
+            child: SizedBox(
+              width: double.infinity,
+              height: 180,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          );
+        }
+        if (state.status == WeeklyReportStatus.error || state.report == null) {
+          return Column(
+            children: <Widget>[
+              const SizedBox(height: AppSpacing.s24),
+              _AiDataAlert(
+                message: state.errorMessage ?? "이번 주 리포트를 아직 준비하지 못했어요.",
+              ),
+            ],
+          );
+        }
+
+        final report = state.report!;
+        final String summaryTitle = _weeklySummaryTitle(state);
+        final String insightBody = report.insights.join("\n");
+        final String actionsBody = report.actions
+            .map((String action) => "• $action")
+            .join("\n");
+
+        if (state.isCompact) {
+          return Column(
+            children: <Widget>[
+              const SizedBox(height: AppSpacing.s16),
+              _AiReportPreviewCard(
+                iconAsset: MyRecordsScreen._profileInsightAsset,
+                title: summaryTitle,
+                body: report.summary,
+              ),
+              if (report.actions.isNotEmpty) ...<Widget>[
+                const SizedBox(height: AppSpacing.s12),
+                _AiReportPreviewCard(
+                  iconAsset: MyRecordsScreen._profileBucketlistAsset,
+                  title: "이렇게 해볼까요?",
+                  body: actionsBody,
+                ),
+              ],
+            ],
+          );
+        }
+
+        return Column(
+          children: <Widget>[
+            const SizedBox(height: AppSpacing.s16),
+            _AiReportPreviewCard(
+              iconAsset: MyRecordsScreen._profileInsightAsset,
+              title: summaryTitle,
+              body: report.summary,
+            ),
+            const SizedBox(height: AppSpacing.s12),
+            _AiReportPreviewCard(
+              iconAsset: MyRecordsScreen._profileInterestAsset,
+              title: "인사이트",
+              body: insightBody,
+            ),
+            const SizedBox(height: AppSpacing.s12),
+            _AiReportPreviewCard(
+              iconAsset: MyRecordsScreen._profileBucketlistAsset,
+              title: "이렇게 해볼까요?",
+              body: actionsBody,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final _AiReportUiData data = _dataFor(_selected);
@@ -1776,21 +1932,28 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard> {
         ),
         const SizedBox(height: AppSpacing.s2),
         Text(
-          "월간/분기/연간 기준으로 AI 리포트를 생성해요.",
+          "주간/월간/분기/연간 기준으로 AI 리포트를 생성해요.",
           style: AppTypography.bodySmallMedium.copyWith(
             color: AppNeutralColors.grey400,
           ),
         ),
         const SizedBox(height: AppSpacing.s24),
-        Row(
+        Wrap(
+          spacing: AppSpacing.s8,
+          runSpacing: AppSpacing.s8,
           children: <Widget>[
+            _AiPeriodChip(
+              label: "주간",
+              enabled: true,
+              selected: _selected == _AiReportPeriod.weekly,
+              onTap: () => setState(() => _selected = _AiReportPeriod.weekly),
+            ),
             _AiPeriodChip(
               label: "월간",
               enabled: monthlyEnabled,
               selected: monthlyEnabled && _selected == _AiReportPeriod.monthly,
               onTap: () => setState(() => _selected = _AiReportPeriod.monthly),
             ),
-            const SizedBox(width: AppSpacing.s8),
             _AiPeriodChip(
               label: "분기",
               enabled: quarterlyEnabled,
@@ -1799,7 +1962,6 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard> {
               onTap: () =>
                   setState(() => _selected = _AiReportPeriod.quarterly),
             ),
-            const SizedBox(width: AppSpacing.s8),
             _AiPeriodChip(
               label: "연간",
               enabled: yearlyEnabled,
@@ -1808,7 +1970,9 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard> {
             ),
           ],
         ),
-        if (!monthlyEnabled) ...<Widget>[
+        if (_selected == _AiReportPeriod.weekly) ...<Widget>[
+          _buildWeeklyReportContent(),
+        ] else if (!monthlyEnabled) ...<Widget>[
           const SizedBox(height: AppSpacing.s24),
           const _AiDataAlert(message: "아직 데이터가 부족합니다.\n월말까지 기다려주세요!"),
         ] else if (_selected == _AiReportPeriod.quarterly &&
@@ -2006,13 +2170,15 @@ class _StreakCardCopy {
 }
 
 class _StreakDay extends StatelessWidget {
-  const _StreakDay({required this.label, required this.done});
+  const _StreakDay({required this.label, required this.state});
 
   final String label;
-  final bool done;
+  final AppStreakStarState state;
 
   @override
   Widget build(BuildContext context) {
+    final bool isSuccess = state == AppStreakStarState.success;
+    final bool isMissed = state == AppStreakStarState.missed;
     return Column(
       children: <Widget>[
         Text(
@@ -2028,15 +2194,18 @@ class _StreakDay extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: done
-                ? AppSemanticColors.success500
-                : AppNeutralColors.grey100,
-            border: done
-                ? Border.all(color: AppSemanticColors.success600, width: 1)
-                : null,
+            color: AppCardTokens.streakStarBackground(state),
+            border: AppCardTokens.streakStarBorder(state),
           ),
-          child: done
+          child: isSuccess
               ? const Icon(Icons.star, size: 20, color: AppNeutralColors.white)
+              : isMissed
+              ? Text(
+                  "?",
+                  style: AppTypography.bodyMediumSemiBold.copyWith(
+                    color: AppSemanticColors.success500,
+                  ),
+                )
               : null,
         ),
       ],

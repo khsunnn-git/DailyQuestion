@@ -286,6 +286,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       enabled: _hasNotificationPermission && _bucketDdayEnabled,
       daysBefore: _bucketDdayDaysBefore,
     );
+    await syncWeeklyReportNotificationSchedule(
+      enabled: _hasNotificationPermission,
+    );
   }
 
   Future<void> _onDeviceNotificationBannerTap() async {

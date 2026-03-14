@@ -19,6 +19,19 @@ class ReportAnalyzePayload {
   final List<String> topKeywords;
   final List<String> representativeAnswers;
 
+  factory ReportAnalyzePayload.fromJson(Map<String, dynamic> json) {
+    return ReportAnalyzePayload(
+      period: (json["period"] as String?)?.trim() ?? "",
+      startDate: (json["start_date"] as String?)?.trim() ?? "",
+      endDate: (json["end_date"] as String?)?.trim() ?? "",
+      metrics: _mapOfObject(json["metrics"]),
+      days: _listOfObjectMaps(json["days"]),
+      entriesCompact: _stringListOf(json["entries_compact"]),
+      topKeywords: _stringListOf(json["top_keywords"]),
+      representativeAnswers: _stringListOf(json["representative_answers"]),
+    );
+  }
+
   Map<String, Object?> toJson() {
     return <String, Object?>{
       "period": period,
@@ -30,6 +43,39 @@ class ReportAnalyzePayload {
       "top_keywords": topKeywords,
       "representative_answers": representativeAnswers,
     };
+  }
+
+  static Map<String, Object?> _mapOfObject(Object? value) {
+    if (value is! Map) {
+      return const <String, Object?>{};
+    }
+    return value.map<String, Object?>(
+      (Object? key, Object? item) => MapEntry("$key", item),
+    );
+  }
+
+  static List<Map<String, Object?>> _listOfObjectMaps(Object? value) {
+    if (value is! List<dynamic>) {
+      return const <Map<String, Object?>>[];
+    }
+    return value
+        .whereType<Map<dynamic, dynamic>>()
+        .map(
+          (Map<dynamic, dynamic> item) => item.map<String, Object?>(
+            (dynamic key, dynamic data) => MapEntry("$key", data),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  static List<String> _stringListOf(Object? value) {
+    if (value is! List<dynamic>) {
+      return const <String>[];
+    }
+    return value
+        .map((dynamic item) => "$item".trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
   }
 }
 
@@ -123,4 +169,60 @@ class WeeklyAggregationSnapshot {
   final int targetDays;
   final List<String> topKeywords;
   final double trendDelta;
+
+  factory WeeklyAggregationSnapshot.fromJson(Map<String, dynamic> json) {
+    return WeeklyAggregationSnapshot(
+      payload: ReportAnalyzePayload.fromJson(
+        (json["payload"] as Map<String, dynamic>?) ?? const <String, dynamic>{},
+      ),
+      weeklyScore: _asInt(json["weekly_score"]) ?? 0,
+      averageMood: _asDouble(json["average_mood"]),
+      averageEnergy: _asDouble(json["average_energy"]),
+      averageStress: _asDouble(json["average_stress"]),
+      recordedDays: _asInt(json["recorded_days"]) ?? 0,
+      targetDays: _asInt(json["target_days"]) ?? 7,
+      topKeywords: ReportAnalyzePayload._stringListOf(json["top_keywords"]),
+      trendDelta: _asDouble(json["trend_delta"]),
+    );
+  }
+
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      "payload": payload.toJson(),
+      "weekly_score": weeklyScore,
+      "average_mood": averageMood,
+      "average_energy": averageEnergy,
+      "average_stress": averageStress,
+      "recorded_days": recordedDays,
+      "target_days": targetDays,
+      "top_keywords": topKeywords,
+      "trend_delta": trendDelta,
+    };
+  }
+
+  static int? _asInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.round();
+    }
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
+  }
+
+  static double _asDouble(Object? value) {
+    if (value is double) {
+      return value;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value) ?? 0;
+    }
+    return 0;
+  }
 }

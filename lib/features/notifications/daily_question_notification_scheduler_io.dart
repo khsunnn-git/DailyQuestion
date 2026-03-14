@@ -15,6 +15,7 @@ import "../more/notification_prefs_keys.dart";
 
 const int _dailyQuestionNotificationId = 10001;
 const int _dailyQuestionCatchupNotificationId = 10002;
+const int _weeklyReportNotificationId = 10003;
 const int _bucketDdayNotificationBaseId = 200000;
 const String _bucketDdayNotificationIdsKey = "bucket_dday_notification_ids";
 
@@ -61,6 +62,18 @@ Future<void> initializeDailyQuestionNotificationScheduler() async {
   await _restoreSchedulesFromPrefs(
     hasNotificationPermission: hasNotificationPermission,
   );
+}
+
+Future<void> syncWeeklyReportNotificationSchedule({
+  required bool enabled,
+}) async {
+  await _ensureInitialized();
+  await _notifications.cancel(_weeklyReportNotificationId);
+  if (!enabled) {
+    _logNotification("weekly report schedule canceled because enabled=false");
+    return;
+  }
+  await _scheduleWeeklyReportNotification();
 }
 
 Future<void> updateDailyQuestionNotificationSchedule({
@@ -189,7 +202,10 @@ Future<bool> _ensureNotificationPermissionOnFirstLaunch() async {
   }
 
   final bool granted = await _requestNotificationPermission();
-  await prefs.setBool(NotificationPrefsKeys.permissionOnboardingRequested, true);
+  await prefs.setBool(
+    NotificationPrefsKeys.permissionOnboardingRequested,
+    true,
+  );
   _logNotification("permission onboarding requested granted=$granted");
   return granted;
 }
@@ -244,6 +260,14 @@ Future<void> _restoreSchedulesFromPrefs({
   } else {
     await _scheduleDaily(hour: hour, minute: minute);
   }
+  if (!hasNotificationPermission) {
+    await _notifications.cancel(_weeklyReportNotificationId);
+    _logNotification(
+      "weekly report schedule not restored because hasPermission=$hasNotificationPermission",
+    );
+  } else {
+    await _scheduleWeeklyReportNotification();
+  }
   await _resyncBucketDdayNotifications(
     enabled: bucketDdayEnabled && hasNotificationPermission,
     daysBefore: bucketDdayDaysBefore,
@@ -296,6 +320,33 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
           UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
+}
+
+Future<void> _scheduleWeeklyReportNotification() async {
+  final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+  final int daysUntilSunday = (DateTime.sunday - now.weekday) % 7;
+  tz.TZDateTime scheduled = tz.TZDateTime(
+    tz.local,
+    now.year,
+    now.month,
+    now.day,
+    8,
+  ).add(Duration(days: daysUntilSunday));
+  if (!scheduled.isAfter(now)) {
+    scheduled = scheduled.add(const Duration(days: 7));
+  }
+  _logNotification("schedule weekly report notification for $scheduled");
+  await _notifications.zonedSchedule(
+    _weeklyReportNotificationId,
+    "주간 리포트가 나왔어요",
+    "지난 7일 기록을 돌아보러 와보세요.",
+    scheduled,
+    _notificationDetails,
+    androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    uiLocalNotificationDateInterpretation:
+        UILocalNotificationDateInterpretation.absoluteTime,
+    matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+  );
 }
 
 Future<void> _resyncBucketDdayNotifications({

@@ -12,3 +12,7 @@ Future<void> syncBucketDdayNotificationSchedule({
   required bool enabled,
   required int daysBefore,
 }) async {}
+
+Future<void> syncWeeklyReportNotificationSchedule({
+  required bool enabled,
+}) async {}
