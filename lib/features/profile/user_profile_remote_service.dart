@@ -6,7 +6,7 @@ import "user_profile_store.dart";
 const String _usersCollectionId = "users";
 const String _answersCollectionId = "answers";
 
-enum PostLoginDestination { termsConsent, home }
+enum PostLoginDestination { termsConsent, nicknameSetup, home }
 
 class UserProfileRemoteService {
   UserProfileRemoteService._({
@@ -32,25 +32,32 @@ class UserProfileRemoteService {
     final DocumentSnapshot<Map<String, dynamic>> snapshot = await userDoc.get();
     final Map<String, dynamic>? data = snapshot.data();
     final String? remoteNickname = _normalizedString(data?["nickname"]);
+    final String? localNickname = _normalizedString(await loadNickname());
     final bool remoteConsentAccepted = data?["consentAccepted"] == true;
     final bool remoteOnboardingCompleted =
         data?["onboardingCompleted"] == true;
     final bool hasRemoteAnswers = await _hasRemoteAnswers(userDoc);
-    final bool isReturningUser =
-        remoteOnboardingCompleted ||
-        remoteConsentAccepted ||
-        remoteNickname != null ||
-        hasRemoteAnswers;
+    final PostLoginDestination destination = resolvePostLoginDestinationForState(
+      remoteNickname: remoteNickname,
+      localNickname: localNickname,
+      remoteConsentAccepted: remoteConsentAccepted,
+      remoteOnboardingCompleted: remoteOnboardingCompleted,
+      hasRemoteAnswers: hasRemoteAnswers,
+    );
 
-    if (!isReturningUser) {
-      return PostLoginDestination.termsConsent;
+    if (destination == PostLoginDestination.termsConsent) {
+      return destination;
     }
 
     await saveInitialConsentAccepted(true);
     if (remoteNickname != null) {
       await saveNickname(remoteNickname);
+      return destination;
     }
-    return PostLoginDestination.home;
+    if (localNickname != null) {
+      await saveNickname(localNickname);
+    }
+    return destination;
   }
 
   Future<void> syncCurrentUserProfile() async {
@@ -101,4 +108,25 @@ class UserProfileRemoteService {
     }
     return text;
   }
+}
+
+PostLoginDestination resolvePostLoginDestinationForState({
+  required String? remoteNickname,
+  required String? localNickname,
+  required bool remoteConsentAccepted,
+  required bool remoteOnboardingCompleted,
+  required bool hasRemoteAnswers,
+}) {
+  final bool isReturningUser =
+      remoteOnboardingCompleted ||
+      remoteConsentAccepted ||
+      remoteNickname != null ||
+      hasRemoteAnswers;
+  if (!isReturningUser) {
+    return PostLoginDestination.termsConsent;
+  }
+  if (remoteNickname != null || localNickname != null) {
+    return PostLoginDestination.home;
+  }
+  return PostLoginDestination.nicknameSetup;
 }

@@ -13,6 +13,11 @@ class WeeklyReportWindow {
   final DateTime startDate;
   final DateTime endDate;
 
+  DateTime get currentProgressStartDate =>
+      DateTime(slotAnchor.year, slotAnchor.month, slotAnchor.day);
+
+  DateTime get nextGenerationDateTime => slotAnchor.add(const Duration(days: 7));
+
   String get slotKey => kstDateKeyFromDateTime(slotAnchor);
 
   String get summaryTitle {

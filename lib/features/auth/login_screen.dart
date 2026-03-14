@@ -4,6 +4,7 @@ import "package:flutter_svg/flutter_svg.dart";
 import "../../design_system/design_system.dart";
 import "../navigation/main_tab_shell.dart";
 import "../profile/initial_terms_consent_screen.dart";
+import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_remote_service.dart";
 import "../question/user_answer_backup_service.dart";
 import "auth_service.dart";
@@ -75,6 +76,16 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute<void>(
               builder: (_) => const InitialTermsConsentScreen(),
+            ),
+          );
+        case PostLoginDestination.nicknameSetup:
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (_) => NicknameSetupScreen(
+                onCompleted: () {
+                  Navigator.of(context).pushReplacement(MainTabShell.route());
+                },
+              ),
             ),
           );
         case PostLoginDestination.home:

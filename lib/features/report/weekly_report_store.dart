@@ -78,17 +78,15 @@ class WeeklyReportStore extends ValueNotifier<WeeklyReportState> {
   Future<void> prepareCurrentWeeklyReport({bool forceRefresh = false}) async {
     final WeeklyReportCacheEntry? cached = await _readCache();
     final WeeklyReportWindow window = currentWeeklyReportWindow();
+    WeeklyAggregationSnapshot? precomputedSnapshot;
     if (!forceRefresh && cached != null && cached.slotKey == window.slotKey) {
-      value = WeeklyReportState(
-        status: WeeklyReportStatus.success,
-        report: cached.report,
-        snapshot: cached.snapshot,
-        slotKey: cached.slotKey,
-        generatedAt: cached.generatedAt,
-        periodStartDate: cached.periodStartDate,
-        periodEndDate: cached.periodEndDate,
+      precomputedSnapshot = await _aggregationService.buildWeeklySnapshot(
+        referenceDate: window.referenceDate,
       );
-      return;
+      if (_snapshotsEqual(cached.snapshot, precomputedSnapshot)) {
+        _applyCachedEntry(cached);
+        return;
+      }
     }
 
     value = value.copyWith(
@@ -96,8 +94,11 @@ class WeeklyReportStore extends ValueNotifier<WeeklyReportState> {
       clearError: true,
     );
     try {
-      final WeeklyAggregationSnapshot snapshot = await _aggregationService
-          .buildWeeklySnapshot(referenceDate: window.referenceDate);
+      final WeeklyAggregationSnapshot snapshot =
+          precomputedSnapshot ??
+          await _aggregationService.buildWeeklySnapshot(
+            referenceDate: window.referenceDate,
+          );
       WeeklyAiReport report = _fallbackReportFor(snapshot);
       if (_apiClient.isConfigured) {
         try {
@@ -142,6 +143,25 @@ class WeeklyReportStore extends ValueNotifier<WeeklyReportState> {
         errorMessage: "주간 리포트를 불러오지 못했어요. 잠시 후 다시 시도해주세요.",
       );
     }
+  }
+
+  void _applyCachedEntry(WeeklyReportCacheEntry entry) {
+    value = WeeklyReportState(
+      status: WeeklyReportStatus.success,
+      report: entry.report,
+      snapshot: entry.snapshot,
+      slotKey: entry.slotKey,
+      generatedAt: entry.generatedAt,
+      periodStartDate: entry.periodStartDate,
+      periodEndDate: entry.periodEndDate,
+    );
+  }
+
+  bool _snapshotsEqual(
+    WeeklyAggregationSnapshot left,
+    WeeklyAggregationSnapshot right,
+  ) {
+    return jsonEncode(left.toJson()) == jsonEncode(right.toJson());
   }
 
   Future<void> generateWeeklyReport() async {

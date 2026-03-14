@@ -1891,6 +1891,55 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
     ).summaryTitle;
   }
 
+  _WeeklyReportPendingProgress? _pendingWeeklyProgress() {
+    final WeeklyReportWindow window = currentWeeklyReportWindow();
+    final DateTime today = DateTime(nowInKst().year, nowInKst().month, nowInKst().day);
+    final DateTime startDate = window.currentProgressStartDate;
+    final DateTime maxEndDate = startDate.add(const Duration(days: 6));
+    final DateTime endDate = today.isBefore(maxEndDate) ? today : maxEndDate;
+    if (endDate.isBefore(startDate)) {
+      return null;
+    }
+
+    final Set<String> dateKeys = TodayQuestionStore.instance.value
+        .map(myRecordsDisplayDate)
+        .where(
+          (DateTime date) => !date.isBefore(startDate) && !date.isAfter(endDate),
+        )
+        .map(
+          (DateTime date) =>
+              "${date.year}${date.month.toString().padLeft(2, "0")}${date.day.toString().padLeft(2, "0")}",
+        )
+        .toSet();
+    if (dateKeys.isEmpty) {
+      return null;
+    }
+    return _WeeklyReportPendingProgress(
+      startDate: startDate,
+      endDate: endDate,
+      nextGenerationDateTime: window.nextGenerationDateTime,
+      recordedDays: dateKeys.length,
+    );
+  }
+
+  String _weeklyRangeLabel(DateTime start, DateTime end) {
+    final String startMonth = start.month.toString().padLeft(2, "0");
+    final String startDay = start.day.toString().padLeft(2, "0");
+    final String endMonth = end.month.toString().padLeft(2, "0");
+    final String endDay = end.day.toString().padLeft(2, "0");
+    return "$startMonth.$startDay - $endMonth.$endDay";
+  }
+
+  String _nextGenerationLabel(DateTime dateTime) {
+    final List<String> weekdays = <String>["월", "화", "수", "목", "금", "토", "일"];
+    final String month = dateTime.month.toString().padLeft(2, "0");
+    final String day = dateTime.day.toString().padLeft(2, "0");
+    final String weekday = weekdays[dateTime.weekday - 1];
+    final String hour = dateTime.hour.toString().padLeft(2, "0");
+    final String minute = dateTime.minute.toString().padLeft(2, "0");
+    return "$month.$day($weekday) $hour:$minute";
+  }
+
   Widget _buildWeeklyReportContent() {
     return ValueListenableBuilder<WeeklyReportState>(
       valueListenable: WeeklyReportStore.instance,
@@ -1923,10 +1972,23 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
         final String actionsBody = report.actions
             .map((String action) => "• $action")
             .join("\n");
+        final _WeeklyReportPendingProgress? pending = _pendingWeeklyProgress();
+        final bool showPendingHint =
+            pending != null &&
+            (state.periodEndDate == null ||
+                pending.startDate.isAfter(state.periodEndDate!));
+        final String pendingMessage = pending == null
+            ? ""
+            : "${_weeklyRangeLabel(pending.startDate, pending.endDate)} 기록 ${pending.recordedDays}일은 "
+                "${_nextGenerationLabel(pending.nextGenerationDateTime)}에 반영돼요.";
 
         if (state.isCompact) {
           return Column(
             children: <Widget>[
+              if (showPendingHint) ...<Widget>[
+                const SizedBox(height: AppSpacing.s16),
+                _AiPendingHint(message: pendingMessage),
+              ],
               const SizedBox(height: AppSpacing.s16),
               _AiReportPreviewCard(
                 iconAsset: MyRecordsScreen._profileInsightAsset,
@@ -1947,6 +2009,10 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
 
         return Column(
           children: <Widget>[
+            if (showPendingHint) ...<Widget>[
+              const SizedBox(height: AppSpacing.s16),
+              _AiPendingHint(message: pendingMessage),
+            ],
             const SizedBox(height: AppSpacing.s16),
             _AiReportPreviewCard(
               iconAsset: MyRecordsScreen._profileInsightAsset,
@@ -2095,6 +2161,31 @@ class _AiDataAlert extends StatelessWidget {
   }
 }
 
+class _AiPendingHint extends StatelessWidget {
+  const _AiPendingHint({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.s16),
+      decoration: BoxDecoration(
+        color: brand.c100,
+        borderRadius: AppRadius.br16,
+      ),
+      child: Text(
+        message,
+        style: AppTypography.bodySmallMedium.copyWith(
+          color: AppNeutralColors.grey700,
+        ),
+      ),
+    );
+  }
+}
+
 class _AiPeriodChip extends StatelessWidget {
   const _AiPeriodChip({
     required this.label,
@@ -2224,6 +2315,20 @@ class _AiReportUiData {
   final String summaryBody;
   final String insightBody;
   final List<String> actions;
+}
+
+class _WeeklyReportPendingProgress {
+  const _WeeklyReportPendingProgress({
+    required this.startDate,
+    required this.endDate,
+    required this.nextGenerationDateTime,
+    required this.recordedDays,
+  });
+
+  final DateTime startDate;
+  final DateTime endDate;
+  final DateTime nextGenerationDateTime;
+  final int recordedDays;
 }
 
 class _StreakCardCopy {
