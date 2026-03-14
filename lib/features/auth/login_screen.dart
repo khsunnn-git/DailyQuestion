@@ -2,10 +2,15 @@ import "package:flutter/material.dart";
 import "package:flutter_svg/flutter_svg.dart";
 
 import "../../design_system/design_system.dart";
-import "../splash/splash_screen.dart";
+import "../navigation/main_tab_shell.dart";
+import "../profile/initial_terms_consent_screen.dart";
+import "../profile/user_profile_remote_service.dart";
+import "../question/user_answer_backup_service.dart";
 import "auth_service.dart";
 import "social_auth_provider.dart";
 import "social_login_store.dart";
+
+enum LoginScreenMode { onboarding, accountConnect }
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -14,12 +19,14 @@ class LoginScreen extends StatefulWidget {
     this.onFindId,
     this.onFindPassword,
     this.onSocialLogin,
+    this.mode = LoginScreenMode.onboarding,
   });
 
   final VoidCallback? onLoginSuccess;
   final VoidCallback? onFindId;
   final VoidCallback? onFindPassword;
   final Future<void> Function(String provider)? onSocialLogin;
+  final LoginScreenMode mode;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -43,21 +50,36 @@ class _LoginScreenState extends State<LoginScreen> {
         await AuthService.instance.signInWithProvider(provider);
       }
       await SocialLoginStore.instance.saveRecentProvider(provider);
+      await syncPendingUserAnswers(restoreRemoteOnConnect: true);
+      await UserProfileRemoteService.instance.syncCurrentUserProfile();
       if (!mounted) {
         return;
       }
-      if (widget.onLoginSuccess != null) {
+      if (widget.mode == LoginScreenMode.accountConnect &&
+          widget.onLoginSuccess != null) {
         widget.onLoginSuccess!();
         return;
       }
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => SplashScreen(
-            firstDuration: const Duration(milliseconds: 320),
-            secondDuration: const Duration(milliseconds: 320),
-          ),
-        ),
-      );
+      if (widget.mode == LoginScreenMode.accountConnect) {
+        Navigator.of(context).maybePop();
+        return;
+      }
+
+      final PostLoginDestination destination =
+          await UserProfileRemoteService.instance.resolvePostLoginDestination();
+      if (!mounted) {
+        return;
+      }
+      switch (destination) {
+        case PostLoginDestination.termsConsent:
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute<void>(
+              builder: (_) => const InitialTermsConsentScreen(),
+            ),
+          );
+        case PostLoginDestination.home:
+          Navigator.of(context).pushReplacement(MainTabShell.route());
+      }
     } on AuthActionException catch (error) {
       _showMessage(error.userMessage);
     } catch (_) {
@@ -88,6 +110,14 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       );
+  }
+
+  void _continueWithoutLogin() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (_) => const InitialTermsConsentScreen(),
+      ),
+    );
   }
 
   @override
@@ -126,8 +156,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       activeProvider: _activeProvider,
                       onTap: _handleSocialLogin,
                     ),
-                    const SizedBox(height: AppSpacing.s24),
-                    const _AutoSignUpHint(),
+                    if (widget.mode == LoginScreenMode.onboarding) ...<Widget>[
+                      const SizedBox(height: AppSpacing.s28),
+                      _GuestContinueButton(onTap: _continueWithoutLogin),
+                    ],
                     SizedBox(height: bottomSpacing),
                   ],
                 ),
@@ -305,30 +337,30 @@ class _SocialLoginButton extends StatelessWidget {
   }
 }
 
-class _AutoSignUpHint extends StatelessWidget {
-  const _AutoSignUpHint();
+class _GuestContinueButton extends StatelessWidget {
+  const _GuestContinueButton({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final TextStyle hintStyle = AppTypography.buttonSmall.copyWith(
-      color: AppNeutralColors.grey700,
-      height: 1.4,
-    );
-
-    return Column(
-      children: <Widget>[
-        Text(
-          "처음 로그인하면\n별도 회원가입 없이 바로 시작됩니다.",
-          textAlign: TextAlign.center,
-          style: hintStyle,
+    return Align(
+      alignment: Alignment.center,
+      child: TextButton(
+        onPressed: onTap,
+        style: TextButton.styleFrom(
+          foregroundColor: AppNeutralColors.grey700,
+          textStyle: AppTypography.buttonMedium,
         ),
-        const SizedBox(height: AppSpacing.s8),
-        Text(
-          "계정이 연동되면\n기존 데이터가 자동으로 백업됩니다.",
-          textAlign: TextAlign.center,
-          style: hintStyle,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const <Widget>[
+            Text("로그인 없이 사용해보기"),
+            SizedBox(width: AppSpacing.s4),
+            Icon(Icons.chevron_right, size: 18),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

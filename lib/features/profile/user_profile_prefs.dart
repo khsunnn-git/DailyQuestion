@@ -1,3 +1,6 @@
+import "dart:async";
+
+import "user_profile_remote_service.dart";
 import "user_profile_store.dart";
 
 class UserProfilePrefs {
@@ -9,6 +12,7 @@ class UserProfilePrefs {
 
   static Future<void> setNickname(String nickname) async {
     await saveNickname(nickname);
+    unawaited(UserProfileRemoteService.instance.syncCurrentUserProfile());
   }
 
   static Future<bool> hasNickname() async {
@@ -22,5 +26,6 @@ class UserProfilePrefs {
 
   static Future<void> setInitialConsentAccepted(bool accepted) async {
     await saveInitialConsentAccepted(accepted);
+    unawaited(UserProfileRemoteService.instance.syncCurrentUserProfile());
   }
 }

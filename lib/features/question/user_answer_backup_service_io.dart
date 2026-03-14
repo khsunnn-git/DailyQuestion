@@ -63,7 +63,7 @@ class _UserAnswerBackupCoordinator {
         _auth.currentUser != null && !_auth.currentUser!.isAnonymous;
     _auth.userChanges().listen(_handleAuthStateChanged);
     if (_wasConnectedProvider) {
-      unawaited(syncPendingUserAnswers());
+      unawaited(syncPendingUserAnswers(restoreRemoteOnConnect: true));
     }
   }
 

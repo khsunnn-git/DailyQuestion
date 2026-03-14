@@ -9,6 +9,7 @@ import "package:shared_preferences/shared_preferences.dart";
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "my_records_visibility.dart";
 import "../navigation/main_tab_shell.dart";
 import "../profile/user_profile_prefs.dart";
 import "home_screen.dart";
@@ -19,20 +20,6 @@ import "../report/weekly_report_schedule.dart";
 import "../report/weekly_report_store.dart";
 import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
-
-DateTime _recordDisplayDate(TodayQuestionRecord record) {
-  final String? key = record.questionDateKey?.trim();
-  if (key != null && key.length == 8) {
-    final int? year = int.tryParse(key.substring(0, 4));
-    final int? month = int.tryParse(key.substring(4, 6));
-    final int? day = int.tryParse(key.substring(6, 8));
-    if (year != null && month != null && day != null) {
-      return DateTime(year, month, day);
-    }
-  }
-  final DateTime kst = toKst(record.createdAt);
-  return DateTime(kst.year, kst.month, kst.day);
-}
 
 class MyRecordsScreen extends StatefulWidget {
   const MyRecordsScreen({super.key, this.showNavigationBar = true});
@@ -261,8 +248,15 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
     _selectedYear = now.year;
     _selectedMonth = now.month;
     _maxMonth = DateTime(now.year, now.month);
+    TodayQuestionStore.instance.addListener(_handleRecordsChanged);
     _loadInstallMonth();
     _loadNickname();
+  }
+
+  @override
+  void dispose() {
+    TodayQuestionStore.instance.removeListener(_handleRecordsChanged);
+    super.dispose();
   }
 
   @override
@@ -438,11 +432,68 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
       storedDate.month,
       storedDate.day,
     );
-    final DateTime installMonth = _monthOnly(installDate);
-    await prefs.setInt(_installMonthKey, installMonth.millisecondsSinceEpoch);
+    final DateTime resolvedInstallDate =
+        resolveMyRecordsVisibleStartDate(
+          storedInstallDate: installDate,
+          records: TodayQuestionStore.instance.value,
+        ) ??
+        installDate;
+    final DateTime installMonth = _monthOnly(resolvedInstallDate);
+    await _persistInstallDate(
+      prefs: prefs,
+      installDate: resolvedInstallDate,
+      installMonth: installMonth,
+    );
     if (!mounted) return;
     setState(() {
-      _installDate = installDate;
+      _installDate = resolvedInstallDate;
+      _installMonth = installMonth;
+      final DateTime selected = _clampMonth(
+        DateTime(_selectedYear, _selectedMonth),
+        installMonth,
+        _maxMonth,
+      );
+      _selectedYear = selected.year;
+      _selectedMonth = selected.month;
+    });
+  }
+
+  void _handleRecordsChanged() {
+    unawaited(_syncVisibleStartDateWithRecords());
+  }
+
+  Future<void> _syncVisibleStartDateWithRecords() async {
+    final DateTime? nextInstallDate = resolveMyRecordsVisibleStartDate(
+      storedInstallDate: _installDate,
+      records: TodayQuestionStore.instance.value,
+    );
+    if (nextInstallDate == null) {
+      return;
+    }
+    final DateTime normalized = DateTime(
+      nextInstallDate.year,
+      nextInstallDate.month,
+      nextInstallDate.day,
+    );
+    if (_installDate != null &&
+        normalized.millisecondsSinceEpoch ==
+            _installDate!.millisecondsSinceEpoch) {
+      return;
+    }
+
+    final DateTime installMonth = _monthOnly(normalized);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await _persistInstallDate(
+      prefs: prefs,
+      installDate: normalized,
+      installMonth: installMonth,
+    );
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _installDate = normalized;
       _installMonth = installMonth;
       final DateTime selected = _clampMonth(
         DateTime(_selectedYear, _selectedMonth),
@@ -466,6 +517,19 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
   }
 
   DateTime _monthOnly(DateTime value) => DateTime(value.year, value.month);
+
+  Future<void> _persistInstallDate({
+    required SharedPreferences prefs,
+    required DateTime installDate,
+    required DateTime installMonth,
+  }) async {
+    await prefs.setInt(_installDateKey, installDate.millisecondsSinceEpoch);
+    await prefs.setInt(_installMonthKey, installMonth.millisecondsSinceEpoch);
+    await prefs.setInt(
+      _installDateSchemaVersionKey,
+      _installDateSchemaVersion,
+    );
+  }
 
   DateTime _clampMonth(DateTime value, DateTime min, DateTime max) {
     final DateTime month = _monthOnly(value);
@@ -708,7 +772,7 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
           (BuildContext context, List<TodayQuestionRecord> records, Widget? _) {
             final List<TodayQuestionRecord> monthRecords = records
                 .where((TodayQuestionRecord item) {
-                  final DateTime displayDate = _recordDisplayDate(item);
+                  final DateTime displayDate = myRecordsDisplayDate(item);
                   return displayDate.year == widget.selectedYear &&
                       displayDate.month == widget.selectedMonth;
                 })
@@ -717,7 +781,7 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
             final Map<int, TodayQuestionRecord> recordByDay =
                 <int, TodayQuestionRecord>{};
             for (final TodayQuestionRecord item in monthRecords) {
-              recordByDay[_recordDisplayDate(item).day] = item;
+              recordByDay[myRecordsDisplayDate(item).day] = item;
             }
             final TodayQuestionRecord? debugMock =
                 MyRecordsScreen.debugMockRecordForMonth(
@@ -1120,7 +1184,7 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
 
     final List<TodayQuestionRecord> sameDay = TodayQuestionStore.instance.value
         .where((TodayQuestionRecord record) {
-          final DateTime displayDate = _recordDisplayDate(record);
+          final DateTime displayDate = myRecordsDisplayDate(record);
           return displayDate.month == baseDate.month &&
               displayDate.day == baseDate.day &&
               displayDate.year <= baseDate.year;
@@ -1131,7 +1195,7 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
       ...MyRecordsScreen.debugAnnualMockRecords(baseDate: baseDate),
     ];
     for (final TodayQuestionRecord record in mergedSameDay) {
-      final DateTime displayDate = _recordDisplayDate(record);
+      final DateTime displayDate = myRecordsDisplayDate(record);
       byYear.putIfAbsent(displayDate.year, () {
         final String dateLabel =
             "${displayDate.year.toString().padLeft(4, "0")}."
@@ -1624,7 +1688,7 @@ class _StreakCard extends StatelessWidget {
     }
 
     final Set<DateTime> recordedDays = records
-        .map(_recordDisplayDate)
+        .map(myRecordsDisplayDate)
         .map(_dateOnly)
         .where((DateTime day) => !day.isBefore(monday) && !day.isAfter(today))
         .toSet();
@@ -2354,7 +2418,7 @@ class _PastRecordsSectionState extends State<_PastRecordsSection> {
                   final Map<int, TodayQuestionRecord> recordByDay =
                       <int, TodayQuestionRecord>{};
                   for (final TodayQuestionRecord record in records) {
-                    final DateTime displayDate = _recordDisplayDate(record);
+                    final DateTime displayDate = myRecordsDisplayDate(record);
                     if (displayDate.year != widget.selectedYear ||
                         displayDate.month != widget.selectedMonth) {
                       continue;
@@ -2651,7 +2715,7 @@ class _PastRecordsListScreenState extends State<_PastRecordsListScreen> {
                 final Map<int, TodayQuestionRecord> recordByDay =
                     <int, TodayQuestionRecord>{};
                 for (final TodayQuestionRecord record in records) {
-                  final DateTime displayDate = _recordDisplayDate(record);
+                  final DateTime displayDate = myRecordsDisplayDate(record);
                   if (displayDate.year != _selectedYear ||
                       displayDate.month != _selectedMonth) {
                     continue;
@@ -3401,7 +3465,7 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     final Iterable<TodayQuestionRecord> monthlyRecords = records.where((
       TodayQuestionRecord item,
     ) {
-      final DateTime displayDate = _recordDisplayDate(item);
+      final DateTime displayDate = myRecordsDisplayDate(item);
       return displayDate.year == selectedYear &&
           displayDate.month == selectedMonth;
     });
@@ -3642,7 +3706,7 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
         final int monthlyRecordCount = records.where((
           TodayQuestionRecord item,
         ) {
-          final DateTime displayDate = _recordDisplayDate(item);
+          final DateTime displayDate = myRecordsDisplayDate(item);
           return displayDate.year == selectedYear &&
               displayDate.month == selectedMonth &&
               item.answer.trim().isNotEmpty;

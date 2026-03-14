@@ -4,10 +4,11 @@ import "package:flutter/material.dart";
 import "package:flutter_svg/flutter_svg.dart";
 
 import "../../design_system/design_system.dart";
+import "../auth/login_screen.dart";
 import "../navigation/main_tab_shell.dart";
-import "../profile/initial_terms_consent_screen.dart";
 import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_prefs.dart";
+import "splash_route_resolver.dart";
 
 class SplashScreen extends StatefulWidget {
   SplashScreen({
@@ -56,27 +57,28 @@ class _SplashScreenState extends State<SplashScreen> {
     final bool hasNickname = await UserProfilePrefs.hasNickname();
     if (!mounted) return;
 
-    if (!hasInitialConsent) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => const InitialTermsConsentScreen(),
-        ),
-      );
-      return;
+    final SplashRouteTarget target = resolveSplashRouteTarget(
+      hasInitialConsent: hasInitialConsent,
+      hasNickname: hasNickname,
+    );
+    switch (target) {
+      case SplashRouteTarget.login:
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => const LoginScreen(mode: LoginScreenMode.onboarding),
+          ),
+        );
+      case SplashRouteTarget.nickname:
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(builder: (_) => const NicknameSetupScreen()),
+        );
+      case SplashRouteTarget.home:
+        if (widget.onRouteHome != null) {
+          widget.onRouteHome!();
+          return;
+        }
+        Navigator.of(context).pushReplacement(MainTabShell.route());
     }
-
-    if (!hasNickname) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(builder: (_) => const NicknameSetupScreen()),
-      );
-      return;
-    }
-
-    if (widget.onRouteHome != null) {
-      widget.onRouteHome!();
-      return;
-    }
-    Navigator.of(context).pushReplacement(MainTabShell.route());
   }
 
   void _startFirstPhase() {

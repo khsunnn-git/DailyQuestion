@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:url_launcher/url_launcher.dart";
 
 import "../../design_system/design_system.dart";
+import "../auth/login_screen.dart";
 import "nickname_setup_screen.dart";
 import "user_profile_prefs.dart";
 
@@ -89,145 +90,165 @@ class _InitialTermsConsentScreenState extends State<InitialTermsConsentScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _routeToLoginScreen() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (_) => const LoginScreen(mode: LoginScreenMode.onboarding),
+      ),
+      (Route<dynamic> route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return Scaffold(
-      backgroundColor: AppNeutralColors.white,
-      body: Stack(
-        children: <Widget>[
-          Positioned(
-            left: 0,
-            right: 0,
-            top: AppHeaderTokens.topInset,
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.s20),
-              child: Row(
-                children: <Widget>[
-                  SizedBox(
-                    width: AppSpacing.s24,
-                    height: AppSpacing.s24,
-                    child: IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: AppSpacing.s24,
-                        height: AppSpacing.s24,
-                      ),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        size: AppSpacing.s24,
-                        color: AppNeutralColors.grey900,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      "이용동의",
-                      textAlign: TextAlign.center,
-                      style: AppTypography.headingXSmall.copyWith(
-                        color: AppNeutralColors.grey900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            left: AppSpacing.s20,
-            right: AppSpacing.s20,
-            top: 146,
-            child: Text(
-              "나를 찾아가게 되는 공간\n데일리퀘스천에\n오신걸 환영합니다!",
-              style: AppTypography.headingLarge.copyWith(
-                color: AppNeutralColors.grey900,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(
-          AppSpacing.s20,
-          0,
-          AppSpacing.s20,
-          AppSpacing.s8,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, void result) {
+        if (didPop) {
+          return;
+        }
+        _routeToLoginScreen();
+      },
+      child: Scaffold(
+        backgroundColor: AppNeutralColors.white,
+        body: Stack(
           children: <Widget>[
-            _AgreementRow(
-              label: "약관 전체 동의",
-              checked: _allRequiredAgreed,
-              onTap: () => _toggleAll(!_allRequiredAgreed),
-              withBottomBorder: true,
-              dividerColor: _listDividerColor,
-            ),
-            _AgreementRow(
-              label: "이용약관 동의(필수)",
-              checked: _agreedTerms,
-              onTap: () {
-                setState(() {
-                  _agreedTerms = !_agreedTerms;
-                });
-              },
-              onChevronTap: _openTermsDetail,
-            ),
-            _AgreementRow(
-              label: "개인정보 수집 및 이용 동의(필수)",
-              checked: _agreedPrivacy,
-              onTap: () {
-                setState(() {
-                  _agreedPrivacy = !_agreedPrivacy;
-                });
-              },
-              onChevronTap: _openPrivacyDetail,
-            ),
-            const SizedBox(height: AppSpacing.s32),
-            SizedBox(
-              height: AppSpacing.s56,
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _allRequiredAgreed && !_isSaving
-                    ? _saveAndNext
-                    : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _allRequiredAgreed ? brand.c500 : brand.c300,
-                  foregroundColor: _allRequiredAgreed
-                      ? AppNeutralColors.white
-                      : brand.c100,
-                  disabledBackgroundColor: brand.c300,
-                  disabledForegroundColor: brand.c100,
-                  surfaceTintColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.s8),
-                  ),
-                  textStyle: AppTypography.buttonLarge,
-                ),
-                child: _isSaving
-                    ? const SizedBox(
-                        width: AppSpacing.s20,
-                        height: AppSpacing.s20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppNeutralColors.white,
+            Positioned(
+              left: 0,
+              right: 0,
+              top: AppHeaderTokens.topInset,
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.s20),
+                child: Row(
+                  children: <Widget>[
+                    SizedBox(
+                      width: AppSpacing.s24,
+                      height: AppSpacing.s24,
+                      child: IconButton(
+                        onPressed: _routeToLoginScreen,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: AppSpacing.s24,
+                          height: AppSpacing.s24,
                         ),
-                      )
-                    : Text(
-                        "다음",
-                        style: AppTypography.buttonLarge.copyWith(
-                          color: _allRequiredAgreed
-                              ? AppNeutralColors.white
-                              : brand.c100,
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          size: AppSpacing.s24,
+                          color: AppNeutralColors.grey900,
                         ),
                       ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        "이용동의",
+                        textAlign: TextAlign.center,
+                        style: AppTypography.headingXSmall.copyWith(
+                          color: AppNeutralColors.grey900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: AppSpacing.s20,
+              right: AppSpacing.s20,
+              top: 146,
+              child: Text(
+                "나를 찾아가게 되는 공간\n데일리퀘스천에\n오신걸 환영합니다!",
+                style: AppTypography.headingLarge.copyWith(
+                  color: AppNeutralColors.grey900,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
             ),
           ],
+        ),
+        bottomNavigationBar: SafeArea(
+          minimum: const EdgeInsets.fromLTRB(
+            AppSpacing.s20,
+            0,
+            AppSpacing.s20,
+            AppSpacing.s8,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              _AgreementRow(
+                label: "약관 전체 동의",
+                checked: _allRequiredAgreed,
+                onTap: () => _toggleAll(!_allRequiredAgreed),
+                withBottomBorder: true,
+                dividerColor: _listDividerColor,
+              ),
+              _AgreementRow(
+                label: "이용약관 동의(필수)",
+                checked: _agreedTerms,
+                onTap: () {
+                  setState(() {
+                    _agreedTerms = !_agreedTerms;
+                  });
+                },
+                onChevronTap: _openTermsDetail,
+              ),
+              _AgreementRow(
+                label: "개인정보 수집 및 이용 동의(필수)",
+                checked: _agreedPrivacy,
+                onTap: () {
+                  setState(() {
+                    _agreedPrivacy = !_agreedPrivacy;
+                  });
+                },
+                onChevronTap: _openPrivacyDetail,
+              ),
+              const SizedBox(height: AppSpacing.s32),
+              SizedBox(
+                height: AppSpacing.s56,
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _allRequiredAgreed && !_isSaving
+                      ? _saveAndNext
+                      : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _allRequiredAgreed
+                        ? brand.c500
+                        : brand.c300,
+                    foregroundColor: _allRequiredAgreed
+                        ? AppNeutralColors.white
+                        : brand.c100,
+                    disabledBackgroundColor: brand.c300,
+                    disabledForegroundColor: brand.c100,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: AppSpacing.s20,
+                          height: AppSpacing.s20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppNeutralColors.white,
+                          ),
+                        )
+                      : Text(
+                          "다음",
+                          style: AppTypography.buttonLarge.copyWith(
+                            color: _allRequiredAgreed
+                                ? AppNeutralColors.white
+                                : brand.c100,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

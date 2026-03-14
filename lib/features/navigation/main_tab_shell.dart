@@ -84,8 +84,10 @@ class _MainTabShellState extends State<MainTabShell> {
   Future<void> _openAccountConnect() async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) =>
-            LoginScreen(onLoginSuccess: () => Navigator.of(context).pop()),
+        builder: (_) => LoginScreen(
+          mode: LoginScreenMode.accountConnect,
+          onLoginSuccess: () => Navigator.of(context).pop(),
+        ),
       ),
     );
     if (!mounted) {
