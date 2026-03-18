@@ -1,5 +1,6 @@
 import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:permission_handler/permission_handler.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -24,7 +25,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   bool _bucketDdayEnabled = false;
   int _bucketDdayDaysBefore = NotificationPrefsKeys.defaultBucketDdayDaysBefore;
   bool _hasNotificationPermission = false;
+  bool _hasExactAlarmPermission = true;
   bool _showDeviceNotificationBanner = true;
+  bool _showExactAlarmBanner = false;
+  bool _openingSystemSettings = false;
   TimeOfDay _todayQuestionTime = const TimeOfDay(
     hour: NotificationPrefsKeys.defaultTodayQuestionHour,
     minute: NotificationPrefsKeys.defaultTodayQuestionMinute,
@@ -34,11 +38,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     if (kDebugMode) {
       debugPrint("[notification_settings] $message");
     }
-  }
-
-  bool _isNotificationPermissionGranted(PermissionStatus status) {
-    return status == PermissionStatus.granted ||
-        status == PermissionStatus.provisional;
   }
 
   @override
@@ -68,28 +67,37 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         return;
       }
       setState(() {
+        _hasNotificationPermission = false;
+        _hasExactAlarmPermission = true;
         _showDeviceNotificationBanner = false;
+        _showExactAlarmBanner = false;
       });
       return;
     }
 
-    PermissionStatus status;
-    try {
-      status = await Permission.notification.status;
-    } catch (_) {
-      status = PermissionStatus.denied;
-    }
+    final bool hasNotificationPermission =
+        await areNotificationsEnabledOnDevice();
+    final bool hasExactAlarmPermission =
+        hasNotificationPermission &&
+            defaultTargetPlatform == TargetPlatform.android
+        ? await canScheduleExactAlarmsOnDevice()
+        : true;
 
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _hasNotificationPermission = _isNotificationPermissionGranted(status);
+      _hasNotificationPermission = hasNotificationPermission;
+      _hasExactAlarmPermission = hasExactAlarmPermission;
       _showDeviceNotificationBanner = !_hasNotificationPermission;
+      _showExactAlarmBanner =
+          _hasNotificationPermission &&
+          defaultTargetPlatform == TargetPlatform.android &&
+          !_hasExactAlarmPermission;
     });
     _logNotificationSettings(
-      "permission status=$status granted=$_hasNotificationPermission banner=$_showDeviceNotificationBanner",
+      "notificationGranted=$_hasNotificationPermission exactAlarmGranted=$_hasExactAlarmPermission notificationBanner=$_showDeviceNotificationBanner exactAlarmBanner=$_showExactAlarmBanner",
     );
     await _syncNotificationSchedules();
   }
@@ -98,16 +106,28 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     if (kIsWeb) {
       return;
     }
+    if (_openingSystemSettings) {
+      return;
+    }
+    if (mounted) {
+      setState(() {
+        _openingSystemSettings = true;
+      });
+    } else {
+      _openingSystemSettings = true;
+    }
     try {
-      PermissionStatus status = await Permission.notification.status;
-      if (!_isNotificationPermissionGranted(status)) {
-        status = await Permission.notification.request();
-      }
-      if (!_isNotificationPermissionGranted(status)) {
-        await openAppSettings();
-      }
+      await openAppSettings();
     } catch (_) {
       await openAppSettings();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingSystemSettings = false;
+        });
+      } else {
+        _openingSystemSettings = false;
+      }
     }
     await _refreshNotificationPermissionBanner();
   }
@@ -191,19 +211,17 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       return false;
     }
 
-    try {
-      PermissionStatus status = await Permission.notification.status;
-      if (_isNotificationPermissionGranted(status)) {
-        await _refreshNotificationPermissionBanner();
-        return true;
-      }
+    final bool hasPermission = await areNotificationsEnabledOnDevice();
+    if (hasPermission) {
+      await _refreshNotificationPermissionBanner();
+      return true;
+    }
 
-      status = await Permission.notification.request();
-      if (_isNotificationPermissionGranted(status)) {
-        await _refreshNotificationPermissionBanner();
-        return true;
-      }
-    } catch (_) {}
+    final bool granted = await requestNotificationPermissionOnDevice();
+    if (granted) {
+      await _refreshNotificationPermissionBanner();
+      return true;
+    }
 
     if (!mounted) {
       return false;
@@ -217,6 +235,63 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
     await _openNotificationPermissionSettings();
     return _hasNotificationPermission;
+  }
+
+  Future<void> _ensureExactAlarmPermissionIfNeeded() async {
+    if (kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android ||
+        !_hasNotificationPermission) {
+      return;
+    }
+    final bool canScheduleExact = await canScheduleExactAlarmsOnDevice();
+    if (canScheduleExact) {
+      if (!mounted) {
+        _hasExactAlarmPermission = true;
+        _showExactAlarmBanner = false;
+        return;
+      }
+      setState(() {
+        _hasExactAlarmPermission = true;
+        _showExactAlarmBanner = false;
+      });
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _hasExactAlarmPermission = false;
+      _showExactAlarmBanner = true;
+    });
+  }
+
+  Future<void> _openExactAlarmSettings() async {
+    if (kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android ||
+        _openingSystemSettings) {
+      return;
+    }
+    setState(() {
+      _openingSystemSettings = true;
+    });
+    try {
+      final bool opened = await requestExactAlarmPermissionOnDevice();
+      _logNotificationSettings("request exact alarm permission result=$opened");
+    } on PlatformException catch (error) {
+      _logNotificationSettings("request exact alarm permission failed: $error");
+      await openAppSettings();
+    } catch (_) {
+      await openAppSettings();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingSystemSettings = false;
+        });
+      } else {
+        _openingSystemSettings = false;
+      }
+    }
+    await _refreshNotificationPermissionBanner();
   }
 
   Future<void> _loadNotificationSettings() async {
@@ -318,6 +393,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       });
       _logNotificationSettings("toggle today question enabled=$granted");
       await _saveTodayQuestionEnabled(granted);
+      if (granted) {
+        await _ensureExactAlarmPermissionIfNeeded();
+      }
       await _syncNotificationSchedules();
       return;
     }
@@ -721,6 +799,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         await _syncNotificationSchedules();
         return;
       }
+      await _ensureExactAlarmPermissionIfNeeded();
     }
 
     setState(() {
@@ -825,6 +904,52 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               ),
                               Text(
                                 "설정에서 알림을 켜고 소식을 받아보세요.",
+                                style: AppTypography.captionSmall.copyWith(
+                                  color: AppNeutralColors.grey600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 20,
+                          color: AppNeutralColors.grey700,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s24),
+              ],
+              if (_showExactAlarmBanner) ...<Widget>[
+                GestureDetector(
+                  onTap: _openExactAlarmSettings,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.s20,
+                      vertical: AppSpacing.s12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppSemanticColors.warning100,
+                      borderRadius: BorderRadius.circular(AppSpacing.s16),
+                      boxShadow: AppElevation.level1,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                "⏰ 정시 알림 권한이 꺼져 있어요",
+                                style: AppTypography.heading2XSmall.copyWith(
+                                  color: AppNeutralColors.grey900,
+                                ),
+                              ),
+                              Text(
+                                "실기기에서 제시간에 받으려면 정확한 알람 권한을 켜주세요.",
                                 style: AppTypography.captionSmall.copyWith(
                                   color: AppNeutralColors.grey600,
                                 ),

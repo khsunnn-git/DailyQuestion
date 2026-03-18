@@ -37,3 +37,19 @@ Future<void> syncWeeklyReportNotificationSchedule({
 }) async {
   await impl.syncWeeklyReportNotificationSchedule(enabled: enabled);
 }
+
+Future<bool> areNotificationsEnabledOnDevice() async {
+  return impl.areNotificationsEnabledOnDevice();
+}
+
+Future<bool> requestNotificationPermissionOnDevice() async {
+  return impl.requestNotificationPermissionOnDevice();
+}
+
+Future<bool> canScheduleExactAlarmsOnDevice() async {
+  return impl.canScheduleExactAlarmsOnDevice();
+}
+
+Future<bool> requestExactAlarmPermissionOnDevice() async {
+  return impl.requestExactAlarmPermissionOnDevice();
+}

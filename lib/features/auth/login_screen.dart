@@ -10,7 +10,6 @@ import "../profile/user_profile_store.dart";
 import "../question/user_answer_backup_service.dart";
 import "auth_service.dart";
 import "social_auth_provider.dart";
-import "social_login_store.dart";
 
 enum LoginScreenMode { onboarding, accountConnect }
 
@@ -51,7 +50,6 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await AuthService.instance.signInWithProvider(provider);
       }
-      await SocialLoginStore.instance.saveRecentProvider(provider);
       await syncPendingUserAnswers(restoreRemoteOnConnect: true);
       try {
         await UserProfileRemoteService.instance.syncCurrentUserProfile();

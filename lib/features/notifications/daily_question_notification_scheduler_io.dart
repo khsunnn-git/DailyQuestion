@@ -65,6 +65,108 @@ Future<void> initializeDailyQuestionNotificationScheduler() async {
   );
 }
 
+Future<bool> areNotificationsEnabledOnDevice() async {
+  if (kIsWeb) {
+    return false;
+  }
+  await _ensureInitialized();
+
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    try {
+      final bool? enabled = await _notifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.areNotificationsEnabled();
+      if (enabled != null) {
+        return enabled;
+      }
+    } catch (_) {}
+  }
+
+  try {
+    final PermissionStatus status = await Permission.notification.status;
+    return _isNotificationPermissionGranted(status);
+  } catch (_) {
+    return false;
+  }
+}
+
+Future<bool> requestNotificationPermissionOnDevice() async {
+  if (kIsWeb) {
+    return false;
+  }
+  await _ensureInitialized();
+
+  if (defaultTargetPlatform == TargetPlatform.iOS) {
+    try {
+      final bool? granted = await _notifications
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >()
+          ?.requestPermissions(alert: true, badge: true, sound: true);
+      return granted ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    try {
+      final bool? granted = await _notifications
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.requestNotificationsPermission();
+      if (granted != null) {
+        return granted;
+      }
+    } catch (_) {}
+  }
+
+  try {
+    final PermissionStatus status = await Permission.notification.request();
+    return _isNotificationPermissionGranted(status);
+  } catch (_) {
+    return false;
+  }
+}
+
+Future<bool> canScheduleExactAlarmsOnDevice() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    return true;
+  }
+  await _ensureInitialized();
+  try {
+    final bool? canSchedule = await _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.canScheduleExactNotifications();
+    return canSchedule ?? false;
+  } catch (_) {
+    return false;
+  }
+}
+
+Future<bool> requestExactAlarmPermissionOnDevice() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    return true;
+  }
+  await _ensureInitialized();
+  try {
+    final bool? granted = await _notifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.requestExactAlarmsPermission();
+    if (granted != null) {
+      return granted;
+    }
+  } catch (_) {}
+  return canScheduleExactAlarmsOnDevice();
+}
+
 Future<void> syncWeeklyReportNotificationSchedule({
   required bool enabled,
 }) async {
@@ -107,13 +209,9 @@ Future<void> syncBucketDdayNotificationSchedule({
   required int daysBefore,
 }) async {
   await _ensureInitialized();
-  final PermissionStatus permissionStatus =
-      await Permission.notification.status;
-  final bool hasPermission =
-      permissionStatus == PermissionStatus.granted ||
-      permissionStatus == PermissionStatus.provisional;
+  final bool hasPermission = await areNotificationsEnabledOnDevice();
   _logNotification(
-    "sync bucket dday enabled=$enabled daysBefore=$daysBefore permission=$permissionStatus effective=${enabled && hasPermission}",
+    "sync bucket dday enabled=$enabled daysBefore=$daysBefore notificationsEnabled=$hasPermission effective=${enabled && hasPermission}",
   );
   await _resyncBucketDdayNotifications(
     enabled: enabled && hasPermission,
@@ -172,16 +270,7 @@ Future<bool> _ensureNotificationPermissionOnFirstLaunch() async {
   final bool onboardingRequested =
       prefs.getBool(NotificationPrefsKeys.permissionOnboardingRequested) ??
       false;
-  PermissionStatus status;
-  try {
-    status = await Permission.notification.status;
-  } catch (_) {
-    status = PermissionStatus.denied;
-  }
-
-  final bool alreadyGranted =
-      status == PermissionStatus.granted ||
-      status == PermissionStatus.provisional;
+  final bool alreadyGranted = await areNotificationsEnabledOnDevice();
   if (alreadyGranted) {
     if (!onboardingRequested) {
       await prefs.setBool(
@@ -189,45 +278,22 @@ Future<bool> _ensureNotificationPermissionOnFirstLaunch() async {
         true,
       );
     }
-    _logNotification(
-      "permission already granted before onboarding request status=$status",
-    );
+    _logNotification("permission already granted before onboarding request");
     return true;
   }
 
   if (onboardingRequested) {
-    _logNotification(
-      "permission onboarding already requested once status=$status",
-    );
+    _logNotification("permission onboarding already requested once");
     return false;
   }
 
-  final bool granted = await _requestNotificationPermission();
+  final bool granted = await requestNotificationPermissionOnDevice();
   await prefs.setBool(
     NotificationPrefsKeys.permissionOnboardingRequested,
     true,
   );
   _logNotification("permission onboarding requested granted=$granted");
   return granted;
-}
-
-Future<bool> _requestNotificationPermission() async {
-  try {
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      final bool? granted = await _notifications
-          .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin
-          >()
-          ?.requestPermissions(alert: true, badge: true, sound: true);
-      return granted ?? false;
-    }
-
-    final PermissionStatus status = await Permission.notification.request();
-    return status == PermissionStatus.granted ||
-        status == PermissionStatus.provisional;
-  } catch (_) {
-    return false;
-  }
 }
 
 Future<void> _restoreSchedulesFromPrefs({
@@ -275,6 +341,56 @@ Future<void> _restoreSchedulesFromPrefs({
   );
 }
 
+bool _isNotificationPermissionGranted(PermissionStatus status) {
+  return status == PermissionStatus.granted ||
+      status == PermissionStatus.provisional;
+}
+
+Future<AndroidScheduleMode> _resolveAndroidScheduleMode() async {
+  final bool canScheduleExact = await canScheduleExactAlarmsOnDevice();
+  final AndroidScheduleMode mode = canScheduleExact
+      ? AndroidScheduleMode.exactAllowWhileIdle
+      : AndroidScheduleMode.inexactAllowWhileIdle;
+  _logNotification("android schedule mode=$mode exact=$canScheduleExact");
+  return mode;
+}
+
+Future<void> _zonedScheduleBestEffort({
+  required int id,
+  required String title,
+  required String body,
+  required tz.TZDateTime scheduledDate,
+  DateTimeComponents? matchDateTimeComponents,
+}) async {
+  final AndroidScheduleMode preferredMode = await _resolveAndroidScheduleMode();
+
+  Future<void> scheduleWithMode(AndroidScheduleMode mode) {
+    return _notifications.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduledDate,
+      _notificationDetails,
+      androidScheduleMode: mode,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: matchDateTimeComponents,
+    );
+  }
+
+  try {
+    await scheduleWithMode(preferredMode);
+  } catch (error) {
+    if (preferredMode != AndroidScheduleMode.exactAllowWhileIdle) {
+      rethrow;
+    }
+    _logNotification(
+      "exact scheduling failed for id=$id, retry with inexactAllowWhileIdle error=$error",
+    );
+    await scheduleWithMode(AndroidScheduleMode.inexactAllowWhileIdle);
+  }
+}
+
 Future<void> _scheduleDaily({required int hour, required int minute}) async {
   final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
   final tz.TZDateTime todayAtSelectedTime = tz.TZDateTime(
@@ -293,15 +409,11 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
     "schedule daily now=$now selected=$todayAtSelectedTime next=$repeatingSchedule sameMinute=$isSameMinuteSelection",
   );
 
-  await _notifications.zonedSchedule(
-    _dailyQuestionNotificationId,
-    "오늘의 질문이 도착했어요!",
-    "내일의 나를 만날 수 있는 소중한 질문 시간!",
-    repeatingSchedule,
-    _notificationDetails,
-    androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-    uiLocalNotificationDateInterpretation:
-        UILocalNotificationDateInterpretation.absoluteTime,
+  await _zonedScheduleBestEffort(
+    id: _dailyQuestionNotificationId,
+    title: "오늘의 질문이 도착했어요!",
+    body: "내일의 나를 만날 수 있는 소중한 질문 시간!",
+    scheduledDate: repeatingSchedule,
     matchDateTimeComponents: DateTimeComponents.time,
   );
 
@@ -310,15 +422,11 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
   if (isSameMinuteSelection && !todayAtSelectedTime.isAfter(now)) {
     final tz.TZDateTime catchupTime = now.add(const Duration(seconds: 5));
     _logNotification("schedule catch-up notification for $catchupTime");
-    await _notifications.zonedSchedule(
-      _dailyQuestionCatchupNotificationId,
-      "오늘의 질문이 도착했어요!",
-      "내일의 나를 만날 수 있는 소중한 질문 시간!",
-      catchupTime,
-      _notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+    await _zonedScheduleBestEffort(
+      id: _dailyQuestionCatchupNotificationId,
+      title: "오늘의 질문이 도착했어요!",
+      body: "내일의 나를 만날 수 있는 소중한 질문 시간!",
+      scheduledDate: catchupTime,
     );
   }
 }
@@ -337,15 +445,11 @@ Future<void> _scheduleWeeklyReportNotification() async {
     scheduled = scheduled.add(const Duration(days: 7));
   }
   _logNotification("schedule weekly report notification for $scheduled");
-  await _notifications.zonedSchedule(
-    _weeklyReportNotificationId,
-    "주간 리포트가 나왔어요",
-    "지난 7일 기록을 돌아보러 와보세요.",
-    scheduled,
-    _notificationDetails,
-    androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-    uiLocalNotificationDateInterpretation:
-        UILocalNotificationDateInterpretation.absoluteTime,
+  await _zonedScheduleBestEffort(
+    id: _weeklyReportNotificationId,
+    title: "주간 리포트가 나왔어요",
+    body: "지난 7일 기록을 돌아보러 와보세요.",
+    scheduledDate: scheduled,
     matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
   );
 }
@@ -405,15 +509,11 @@ Future<void> _resyncBucketDdayNotifications({
     _logNotification(
       "schedule bucket notification id=$notificationId title=${item.title} at=$scheduled",
     );
-    await _notifications.zonedSchedule(
-      notificationId,
-      "${item.title} 완료 D-$daysBefore일 전이에요!",
-      "실천하기 위한 계획을 세워볼까요?",
-      scheduled,
-      _notificationDetails,
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+    await _zonedScheduleBestEffort(
+      id: notificationId,
+      title: "${item.title} 완료 D-$daysBefore일 전이에요!",
+      body: "실천하기 위한 계획을 세워볼까요?",
+      scheduledDate: scheduled,
     );
     nextIdsRaw.add(notificationId.toString());
   }

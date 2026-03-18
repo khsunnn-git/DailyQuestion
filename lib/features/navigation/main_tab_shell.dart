@@ -43,6 +43,7 @@ class MainTabShell extends StatefulWidget {
 class _MainTabShellState extends State<MainTabShell> {
   late int _currentIndex = widget.initialIndex;
   StreamSubscription<Object?>? _authSubscription;
+  bool _isResolvingAuthState = true;
   bool _showAccountConnectPrompt = false;
 
   late final List<Widget> _pages = <Widget>[
@@ -58,7 +59,7 @@ class _MainTabShellState extends State<MainTabShell> {
     _authSubscription = AuthService.instance.authStateChanges.listen((_) {
       _refreshAccountConnectPrompt();
     });
-    _refreshAccountConnectPrompt();
+    unawaited(_restoreAuthState());
   }
 
   @override
@@ -67,7 +68,31 @@ class _MainTabShellState extends State<MainTabShell> {
     super.dispose();
   }
 
+  Future<void> _restoreAuthState() async {
+    await AuthService.instance.waitForRestoredUser();
+    if (!mounted) {
+      _isResolvingAuthState = false;
+      return;
+    }
+    setState(() {
+      _isResolvingAuthState = false;
+    });
+    _refreshAccountConnectPrompt();
+  }
+
   void _refreshAccountConnectPrompt() {
+    if (_isResolvingAuthState) {
+      if (!mounted) {
+        _showAccountConnectPrompt = false;
+        return;
+      }
+      if (_showAccountConnectPrompt) {
+        setState(() {
+          _showAccountConnectPrompt = false;
+        });
+      }
+      return;
+    }
     final bool shouldShow = !AuthService.instance.hasConnectedProvider;
     if (!mounted) {
       _showAccountConnectPrompt = shouldShow;

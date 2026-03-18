@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:flutter/material.dart";
 import "package:url_launcher/url_launcher.dart";
 
@@ -48,6 +50,37 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
   );
 
   int _profileRefreshSeed = 0;
+  StreamSubscription<Object?>? _authSubscription;
+  bool _isResolvingAuthState = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSubscription = AuthService.instance.authStateChanges.listen((_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {});
+    });
+    unawaited(_restoreAuthState());
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _restoreAuthState() async {
+    await AuthService.instance.waitForRestoredUser();
+    if (!mounted) {
+      _isResolvingAuthState = false;
+      return;
+    }
+    setState(() {
+      _isResolvingAuthState = false;
+    });
+  }
 
   Future<void> _openNicknameEdit() async {
     await Navigator.of(context).push(
@@ -206,11 +239,21 @@ class _MoreSettingsScreenState extends State<MoreSettingsScreen> {
   }
 
   List<_SettingsItem> _buildAccountItems() {
-    final bool hasConnectedProvider = AuthService.instance.hasConnectedProvider;
+    final bool hasConnectedProvider =
+        !_isResolvingAuthState && AuthService.instance.hasConnectedProvider;
     final _SettingsItem versionItem = const _SettingsItem(
       title: "앱 버전",
-      trailingText: "v.1.0 최신 버전",
+      trailingText: "v.1.0.14 최신 버전",
     );
+
+    if (_isResolvingAuthState) {
+      return <_SettingsItem>[
+        versionItem,
+        const _SettingsItem(title: "계정 연결", trailingText: "연결 상태 확인 중"),
+        _SettingsItem(title: "이용약관", onTap: _openTerms),
+        _SettingsItem(title: "개인정보처리방침", onTap: _openPrivacyPolicy),
+      ];
+    }
 
     if (hasConnectedProvider) {
       return <_SettingsItem>[

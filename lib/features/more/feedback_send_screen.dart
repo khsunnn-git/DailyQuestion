@@ -4,6 +4,7 @@ import "package:flutter/material.dart";
 import "dart:math" as math;
 
 import "../../design_system/design_system.dart";
+import "../auth/auth_service.dart";
 
 class FeedbackSendScreen extends StatefulWidget {
   const FeedbackSendScreen({super.key});
@@ -265,7 +266,9 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     final double rawWidth = MediaQuery.sizeOf(context).width;
-    final double frameWidth = rawWidth <= 0 ? _screenWidth : math.min(_screenWidth, rawWidth);
+    final double frameWidth = rawWidth <= 0
+        ? _screenWidth
+        : math.min(_screenWidth, rawWidth);
     return Scaffold(
       backgroundColor: brand.bg,
       body: SafeArea(
@@ -308,7 +311,10 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
+                      const SizedBox(
+                        width: AppSpacing.s24,
+                        height: AppSpacing.s24,
+                      ),
                     ],
                   ),
                 ),
@@ -335,7 +341,9 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: AppNeutralColors.white,
-                              borderRadius: BorderRadius.circular(AppSpacing.s8),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.s8,
+                              ),
                               border: Border.all(color: brand.c300),
                             ),
                             child: Row(
@@ -343,9 +351,10 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                                 Expanded(
                                   child: Text(
                                     _selectedCategory,
-                                    style: AppTypography.bodyMediumMedium.copyWith(
-                                      color: AppNeutralColors.grey900,
-                                    ),
+                                    style: AppTypography.bodyMediumMedium
+                                        .copyWith(
+                                          color: AppNeutralColors.grey900,
+                                        ),
                                   ),
                                 ),
                                 const Icon(
@@ -469,7 +478,9 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                     width: double.infinity,
                     height: AppSpacing.s56,
                     child: FilledButton(
-                      onPressed: _canSubmit && _isEmailValid ? _submitFeedback : null,
+                      onPressed: _canSubmit && _isEmailValid
+                          ? _submitFeedback
+                          : null,
                       style: FilledButton.styleFrom(
                         backgroundColor: _canSubmit ? brand.c500 : brand.c300,
                         foregroundColor: _canSubmit
@@ -515,12 +526,10 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
 }
 
 class _FeedbackRepository {
-  _FeedbackRepository({FirebaseFirestore? firestore, FirebaseAuth? auth})
-    : _firestore = firestore ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance;
+  _FeedbackRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
-  final FirebaseAuth _auth;
 
   Future<void> submit({
     required String category,
@@ -556,24 +565,13 @@ class _FeedbackRepository {
   }
 
   Future<User> _ensureSignedInUser() async {
-    final User? current = _auth.currentUser;
-    if (current != null) {
-      return current;
-    }
     try {
-      final UserCredential credential = await _auth.signInAnonymously();
-      final User? created = credential.user;
-      if (created != null) {
-        return created;
-      }
-    } on FirebaseAuthException catch (_) {
+      return await AuthService.instance.ensureSignedInUser();
+    } on AuthActionException catch (_) {
       throw const _FeedbackSubmitException(
         userMessage: "로그인이 필요해서 의견을 보내지 못했어요. 다시 시도해주세요.",
       );
     }
-    throw const _FeedbackSubmitException(
-      userMessage: "의견 정보를 준비하지 못했어요. 잠시 후 다시 시도해주세요.",
-    );
   }
 }
 

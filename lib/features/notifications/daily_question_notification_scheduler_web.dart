@@ -16,3 +16,11 @@ Future<void> syncBucketDdayNotificationSchedule({
 Future<void> syncWeeklyReportNotificationSchedule({
   required bool enabled,
 }) async {}
+
+Future<bool> areNotificationsEnabledOnDevice() async => false;
+
+Future<bool> requestNotificationPermissionOnDevice() async => false;
+
+Future<bool> canScheduleExactAlarmsOnDevice() async => true;
+
+Future<bool> requestExactAlarmPermissionOnDevice() async => true;

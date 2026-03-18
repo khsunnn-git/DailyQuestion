@@ -1,11 +1,15 @@
+import "dart:async";
+
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/foundation.dart";
 import "package:google_sign_in/google_sign_in.dart";
 
 import "social_auth_provider.dart";
+import "social_login_store.dart";
 
 const String _defaultGoogleServerClientId =
     "362336765894-ei7ne7l7drpm3o7vqsahvq82lvo5hi1f.apps.googleusercontent.com";
+const Duration _restoredSessionWaitDuration = Duration(seconds: 2);
 
 class AuthActionException implements Exception {
   const AuthActionException(this.userMessage);
@@ -25,16 +29,20 @@ class AuthService {
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   Future<User> ensureSignedInUser() async {
-    final User? user = currentUser;
-    if (user != null) {
-      return user;
-    }
-    final UserCredential credential = await _auth.signInAnonymously();
-    final User? signedInUser = credential.user;
-    if (signedInUser == null) {
+    try {
+      final User? user = await waitForRestoredUser();
+      if (user != null) {
+        return user;
+      }
+      final UserCredential credential = await _auth.signInAnonymously();
+      final User? signedInUser = credential.user;
+      if (signedInUser == null) {
+        throw const AuthActionException("사용자 정보를 준비하지 못했어요. 다시 시도해주세요.");
+      }
+      return signedInUser;
+    } on FirebaseAuthException catch (_) {
       throw const AuthActionException("사용자 정보를 준비하지 못했어요. 다시 시도해주세요.");
     }
-    return signedInUser;
   }
 
   SocialAuthProvider? get currentProvider {
@@ -88,13 +96,13 @@ class AuthService {
   }
 
   Future<UserCredential> signInWithProvider(SocialAuthProvider provider) async {
-    switch (provider) {
-      case SocialAuthProvider.google:
-        return _signInWithGoogle();
-      case SocialAuthProvider.kakao:
-      case SocialAuthProvider.naver:
-        throw AuthActionException("${provider.label} 로그인은 다음 단계에서 연결할 예정이에요.");
-    }
+    final UserCredential credential = switch (provider) {
+      SocialAuthProvider.google => await _signInWithGoogle(),
+      SocialAuthProvider.kakao || SocialAuthProvider.naver =>
+        throw AuthActionException("${provider.label} 로그인은 다음 단계에서 연결할 예정이에요."),
+    };
+    await SocialLoginStore.instance.saveRecentProvider(provider);
+    return credential;
   }
 
   Future<void> disconnectConnectedProvider() async {
@@ -112,6 +120,7 @@ class AuthService {
         }
       }
     }
+    await SocialLoginStore.instance.clearRecentProvider();
   }
 
   Future<void> clearCurrentSession() async {
@@ -122,6 +131,26 @@ class AuthService {
     if (currentUser != null) {
       await _auth.signOut();
     }
+    await SocialLoginStore.instance.clearRecentProvider();
+  }
+
+  Future<User?> waitForRestoredUser({
+    Duration timeout = _restoredSessionWaitDuration,
+  }) async {
+    final User? user = currentUser;
+    if (user != null) {
+      return user;
+    }
+
+    final SocialAuthProvider? recentProvider = await SocialLoginStore.instance
+        .readRecentProvider();
+    if (recentProvider == null) {
+      return _auth.currentUser;
+    }
+
+    // Give Firebase Auth a brief chance to restore a previously linked session
+    // before we fall back to creating a new anonymous user.
+    return _waitForRestoredAuthState(timeout: timeout);
   }
 
   Future<UserCredential> _signInWithGoogle() async {
@@ -185,6 +214,39 @@ class AuthService {
           : configuredServerClientId,
     );
     _googleInitialized = true;
+  }
+
+  Future<User?> _waitForRestoredAuthState({required Duration timeout}) async {
+    final User? user = _auth.currentUser;
+    if (user != null) {
+      return user;
+    }
+
+    final Completer<User?> completer = Completer<User?>();
+    late final StreamSubscription<User?> subscription;
+    Timer? timer;
+
+    void complete(User? value) {
+      if (!completer.isCompleted) {
+        completer.complete(value);
+      }
+    }
+
+    subscription = _auth.authStateChanges().listen((User? nextUser) {
+      if (nextUser != null) {
+        complete(nextUser);
+      }
+    });
+    timer = Timer(timeout, () {
+      complete(_auth.currentUser);
+    });
+
+    try {
+      return await completer.future;
+    } finally {
+      timer.cancel();
+      await subscription.cancel();
+    }
   }
 
   Future<UserCredential> _linkOrSignInWithCredential(

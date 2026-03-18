@@ -4,6 +4,7 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
+import "../auth/auth_service.dart";
 import "../moderation/public_record_moderation.dart";
 import "public_answer_retention.dart";
 
@@ -148,11 +149,7 @@ class PublicAnswerUploader {
   }
 
   Future<void> _ensureAnonymousSignIn() async {
-    final FirebaseAuth auth = FirebaseAuth.instance;
-    if (auth.currentUser != null) {
-      return;
-    }
-    await auth.signInAnonymously();
+    await AuthService.instance.ensureSignedInUser();
   }
 
   Future<String> _getOrCreateAnonId() async {

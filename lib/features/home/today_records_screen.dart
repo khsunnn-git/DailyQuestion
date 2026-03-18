@@ -7,6 +7,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
+import "../auth/auth_service.dart";
 import "home_screen.dart";
 import "../navigation/main_tab_shell.dart";
 import "../question/today_question_prompt_store.dart";
@@ -1100,12 +1101,10 @@ class _FullRecordCardState extends State<_FullRecordCard> {
 }
 
 class _UserReportRepository {
-  _UserReportRepository({FirebaseFirestore? firestore, FirebaseAuth? auth})
-    : _firestore = firestore ?? FirebaseFirestore.instance,
-      _auth = auth ?? FirebaseAuth.instance;
+  _UserReportRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
-  final FirebaseAuth _auth;
 
   Future<void> submit({
     required String reason,
@@ -1145,24 +1144,13 @@ class _UserReportRepository {
   }
 
   Future<User> _ensureSignedInUser() async {
-    final User? current = _auth.currentUser;
-    if (current != null) {
-      return current;
-    }
     try {
-      final UserCredential credential = await _auth.signInAnonymously();
-      final User? created = credential.user;
-      if (created != null) {
-        return created;
-      }
-    } on FirebaseAuthException catch (_) {
+      return await AuthService.instance.ensureSignedInUser();
+    } on AuthActionException catch (_) {
       throw const _ReportSubmitException(
         userMessage: "로그인이 필요해서 신고를 완료하지 못했어요. 다시 시도해주세요.",
       );
     }
-    throw const _ReportSubmitException(
-      userMessage: "신고 정보를 준비하지 못했어요. 잠시 후 다시 시도해주세요.",
-    );
   }
 }
 
