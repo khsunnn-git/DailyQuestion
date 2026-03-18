@@ -342,17 +342,6 @@ class _SocialLoginButton extends StatelessWidget {
     return null;
   }
 
-  String get _assetPath {
-    switch (provider) {
-      case SocialAuthProvider.kakao:
-        return "assets/images/login/ic_kakao.svg";
-      case SocialAuthProvider.naver:
-        return "assets/images/login/ic_naver.svg";
-      case SocialAuthProvider.google:
-        return "assets/images/login/ic_google.svg";
-    }
-  }
-
   Size get _iconSize {
     switch (provider) {
       case SocialAuthProvider.kakao:
@@ -378,11 +367,7 @@ class _SocialLoginButton extends StatelessWidget {
               valueColor: AlwaysStoppedAnimation<Color>(_textColor),
             ),
           )
-        : SizedBox(
-            width: _iconSize.width,
-            height: _iconSize.height,
-            child: SvgPicture.asset(_assetPath, fit: BoxFit.contain),
-          );
+        : _ProviderIcon(provider: provider, color: _textColor, size: _iconSize);
 
     return Opacity(
       opacity: disabled ? 0.72 : 1,
@@ -413,6 +398,66 @@ class _SocialLoginButton extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProviderIcon extends StatelessWidget {
+  const _ProviderIcon({
+    required this.provider,
+    required this.color,
+    required this.size,
+  });
+
+  final SocialAuthProvider provider;
+  final Color color;
+  final Size size;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (provider) {
+      case SocialAuthProvider.google:
+        return SizedBox(
+          width: size.width,
+          height: size.height,
+          child: SvgPicture.asset(
+            "assets/images/login/ic_google.svg",
+            fit: BoxFit.contain,
+          ),
+        );
+      case SocialAuthProvider.kakao:
+        return _ProviderTextIcon(label: "K", color: color, size: size);
+      case SocialAuthProvider.naver:
+        return _ProviderTextIcon(label: "N", color: color, size: size);
+    }
+  }
+}
+
+class _ProviderTextIcon extends StatelessWidget {
+  const _ProviderTextIcon({
+    required this.label,
+    required this.color,
+    required this.size,
+  });
+
+  final String label;
+  final Color color;
+  final Size size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size.width,
+      height: size.height,
+      child: Center(
+        child: Text(
+          label,
+          style: AppTypography.captionMedium.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),

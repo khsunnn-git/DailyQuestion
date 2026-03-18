@@ -15,7 +15,7 @@ npm i firebase-admin
 node scripts/generate_question_template.js
 ```
 
-생성 파일: `data/questions.template.json`
+생성 파일 예시: `data/questions.template.json`
 
 ## 3) 템플릿 수정
 
@@ -41,10 +41,22 @@ node scripts/upload_questions.js ./serviceAccountKey.json ./data/questions.templ
 
 ## 5) 질문 + 태깅 병합(권장)
 
-샘플 태깅 파일(`data/question_category_tagging_sample.json`)처럼 `dayOfYear` 기반 태깅 데이터를 질문 JSON에 합칩니다.
+`dayOfYear` 기반 태깅 데이터를 질문 JSON에 합칩니다.
+
+예시 형식:
+
+```json
+[
+  {
+    "dayOfYear": 1,
+    "primary": "감정",
+    "tags": ["감정", "회복", "자기인식"]
+  }
+]
+```
 
 ```bash
-node scripts/merge_question_tags.js ./data/questions_2026_single.json ./data/question_category_tagging_sample.json ./data/questions_2026_tagged.json
+node scripts/merge_question_tags.js ./data/questions.source.json ./data/my_question_tags.json ./data/questions_2026_tagged.json
 ```
 
 생성 파일(`questions_2026_tagged.json`)을 그대로 업로드하면 `primaryCategory`, `tags`가 함께 저장됩니다.
@@ -58,6 +70,8 @@ node scripts/upload_questions.js ./serviceAccountKey.json ./data/questions_2026_
 ```bash
 node scripts/upload_questions.js ./serviceAccountKey.json ./data/questions.template.json my_collection
 ```
+
+현재 리포지토리에는 최종 업로드용 데이터인 `data/questions_2026_tagged.json`만 유지합니다.
 
 ## 6) AI 리포트 백엔드 실행
 
