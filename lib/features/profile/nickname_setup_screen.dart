@@ -15,7 +15,7 @@ class NicknameSetupScreen extends StatefulWidget {
     this.isEditMode = false,
   });
 
-  final VoidCallback? onCompleted;
+  final void Function(BuildContext context)? onCompleted;
   final bool isEditMode;
 
   @override
@@ -37,8 +37,7 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
 
   String get _trimmedNickname => _nicknameController.text.trim();
   int get _nicknameLength => _trimmedNickname.length;
-  bool get _isKoreanOnly =>
-      nicknameValidationRegExp.hasMatch(_trimmedNickname);
+  bool get _isKoreanOnly => nicknameValidationRegExp.hasMatch(_trimmedNickname);
   bool get _isLocallyValid =>
       _trimmedNickname.isNotEmpty &&
       _isKoreanOnly &&
@@ -147,7 +146,8 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
     });
 
     try {
-      await UserProfilePrefs.setNickname(_trimmedNickname);
+      await UserProfilePrefs.setNickname(_trimmedNickname, syncRemote: false);
+      await UserProfilePrefs.syncCurrentUserProfileBestEffort();
     } catch (_) {
       if (!mounted) {
         return;
@@ -293,7 +293,9 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                                 counterText: "",
                                 suffixIcon: _isErrorState || _isSuccessState
                                     ? Padding(
-                                        padding: const EdgeInsets.only(right: 12),
+                                        padding: const EdgeInsets.only(
+                                          right: 12,
+                                        ),
                                         child: Icon(
                                           _isErrorState
                                               ? Icons.error_outline
@@ -365,8 +367,11 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                                       Expanded(
                                         child: Text(
                                           _supportingMessage,
-                                          style: AppInputTokens.supportingMdStyle
-                                              .copyWith(color: _supportingColor),
+                                          style: AppInputTokens
+                                              .supportingMdStyle
+                                              .copyWith(
+                                                color: _supportingColor,
+                                              ),
                                         ),
                                       ),
                                     ],

@@ -63,8 +63,8 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
     _loadHiddenRecordIds();
     _loadBlockedAuthors();
     _bindRecordsStream();
-    _loadQuestionText();
-    _startDateRefreshTimer();
+    unawaited(_loadQuestionText());
+    _scheduleDateRefreshTimer();
   }
 
   Future<void> _loadHiddenRecordIds() async {
@@ -239,13 +239,14 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
     return "${item.createdAt.millisecondsSinceEpoch}|${item.author}|${item.body}";
   }
 
-  void _startDateRefreshTimer() {
+  void _scheduleDateRefreshTimer() {
     _dateRefreshTimer?.cancel();
-    _dateRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    _dateRefreshTimer = Timer(durationUntilNextKstDateChange(), () {
       if (!mounted) {
         return;
       }
-      _refreshIfKstDateChanged();
+      unawaited(_refreshIfKstDateChanged());
+      _scheduleDateRefreshTimer();
     });
   }
 
@@ -265,7 +266,8 @@ class _TodayRecordsScreenState extends State<TodayRecordsScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshIfKstDateChanged();
+      unawaited(_refreshIfKstDateChanged());
+      _scheduleDateRefreshTimer();
     }
   }
 

@@ -1,4 +1,5 @@
 import "dart:async";
+import "dart:ui" as ui;
 
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
@@ -36,6 +37,8 @@ class HomeScreen extends StatelessWidget {
       "assets/images/home/home_deco_bubble_blue.png";
   static const String _inviteBannerAsset =
       "assets/images/home/home_banner_invite_fish_blue.png";
+  static const String _topWaterBackgroundAsset =
+      "assets/images/home/home_bg_water.png";
 
   static void openTodayQuestionAnswer(
     BuildContext context, {
@@ -163,16 +166,25 @@ class _TopQuestionPanel extends StatefulWidget {
 
 class _TopQuestionPanelState extends State<_TopQuestionPanel>
     with WidgetsBindingObserver {
-  Timer? _minuteTimer;
+  Timer? _dateRefreshTimer;
   String _lastKstDateKey = kstDateKeyNow();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    TodayQuestionPromptStore.instance.initialize();
-    _minuteTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      _refreshByKstDateChange();
+    unawaited(TodayQuestionPromptStore.instance.initialize());
+    _scheduleDateRefreshTimer();
+  }
+
+  void _scheduleDateRefreshTimer() {
+    _dateRefreshTimer?.cancel();
+    _dateRefreshTimer = Timer(durationUntilNextKstDateChange(), () {
+      unawaited(_refreshByKstDateChange());
+      if (!mounted) {
+        return;
+      }
+      _scheduleDateRefreshTimer();
     });
   }
 
@@ -191,78 +203,135 @@ class _TopQuestionPanelState extends State<_TopQuestionPanel>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshByKstDateChange();
+      unawaited(_refreshByKstDateChange());
+      _scheduleDateRefreshTimer();
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _minuteTimer?.cancel();
+    _dateRefreshTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return Container(
-      decoration: BoxDecoration(
-        color: brand.c100,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(40),
-          bottomRight: Radius.circular(40),
-        ),
-        boxShadow: AppElevation.level2,
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-      child: ValueListenableBuilder<List<TodayQuestionRecord>>(
-        valueListenable: TodayQuestionStore.instance,
-        builder:
-            (
-              BuildContext context,
-              List<TodayQuestionRecord> records,
-              Widget? child,
-            ) {
-              final bool hasRecord =
-                  records.isNotEmpty &&
-                  TodayQuestionStore.instance.hasRecordForTodayKst;
-              final int totalRecordCount = records.length;
-              return Column(
-                children: <Widget>[
-                  const SizedBox(height: 49),
-                  SizedBox(
-                    height: 65,
-                    child: Row(
-                      children: <Widget>[
-                        const SizedBox(width: 24, height: 24),
-                        Expanded(
-                          child: Text(
-                            "Daily Question",
-                            textAlign: TextAlign.center,
-                            style: AppTypography.headingXSmall.copyWith(
-                              color: AppNeutralColors.grey900,
+    const BorderRadius panelRadius = BorderRadius.only(
+      bottomLeft: Radius.circular(40),
+      bottomRight: Radius.circular(40),
+    );
+    return ValueListenableBuilder<List<TodayQuestionRecord>>(
+      valueListenable: TodayQuestionStore.instance,
+      builder:
+          (
+            BuildContext context,
+            List<TodayQuestionRecord> records,
+            Widget? child,
+          ) {
+            final bool hasRecord =
+                records.isNotEmpty &&
+                TodayQuestionStore.instance.hasRecordForTodayKst;
+            final int totalRecordCount = records.length;
+            return Container(
+              decoration: BoxDecoration(
+                color: brand.c100,
+                borderRadius: panelRadius,
+                boxShadow: AppElevation.level2,
+              ),
+              child: ClipRRect(
+                borderRadius: panelRadius,
+                child: Stack(
+                  children: <Widget>[
+                    if (hasRecord)
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        right: 0,
+                        height: 247,
+                        child: IgnorePointer(
+                          child: Opacity(
+                            opacity: 0.5,
+                            child: Image.asset(
+                              HomeScreen._topWaterBackgroundAsset,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.topCenter,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 24, height: 24),
-                      ],
+                      ),
+                    if (hasRecord)
+                      Positioned(
+                        left: -35,
+                        top: 125,
+                        width: 460,
+                        height: 460,
+                        child: IgnorePointer(
+                          child: Center(
+                            child: ImageFiltered(
+                              imageFilter: ui.ImageFilter.blur(
+                                sigmaX: 50,
+                                sigmaY: 50,
+                              ),
+                              child: Container(
+                                width: 260,
+                                height: 260,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: AppNeutralColors.white.withValues(
+                                    alpha: 0.72,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                      child: Column(
+                        children: <Widget>[
+                          const SizedBox(height: 49),
+                          SizedBox(
+                            height: 65,
+                            child: Row(
+                              children: <Widget>[
+                                const SizedBox(width: 24, height: 24),
+                                Expanded(
+                                  child: Text(
+                                    "Daily Question",
+                                    textAlign: TextAlign.center,
+                                    style: AppTypography.headingXSmall.copyWith(
+                                      color: AppNeutralColors.grey900,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 24, height: 24),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.s24),
+                          if (hasRecord) ...<Widget>[
+                            const _QuestionWrittenPreviewCard(),
+                            const SizedBox(height: AppSpacing.s8),
+                            _TopCharacterDecorations(
+                              bubbleColor: brand.c500,
+                              recordCount: totalRecordCount,
+                            ),
+                          ] else ...<Widget>[
+                            _QuestionBeforeRecordCard(
+                              recordCount: totalRecordCount,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.s24),
-                  if (hasRecord) ...<Widget>[
-                    const _QuestionWrittenPreviewCard(),
-                    const SizedBox(height: AppSpacing.s8),
-                    _TopCharacterDecorations(
-                      bubbleColor: brand.c500,
-                      recordCount: totalRecordCount,
-                    ),
-                  ] else ...<Widget>[
-                    _QuestionBeforeRecordCard(recordCount: totalRecordCount),
                   ],
-                ],
-              );
-            },
-      ),
+                ),
+              ),
+            );
+          },
     );
   }
 }
@@ -810,6 +879,7 @@ class _QuestionWrittenPreviewCard extends StatefulWidget {
 
 class _QuestionWrittenPreviewCardState
     extends State<_QuestionWrittenPreviewCard> {
+  static const double _cardHeight = 458;
   bool _showMoreMenu = false;
   bool _showAnswerScrollHint = false;
   List<String> _fallbackBucketTags = const <String>[];
@@ -1236,199 +1306,232 @@ class _QuestionWrittenPreviewCardState
                     );
                   },
             borderRadius: AppRadius.br24,
-            child: Container(
+            child: SizedBox(
               width: double.infinity,
-              height: 458,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
-              decoration: BoxDecoration(
-                color: AppNeutralColors.white,
+              height: _cardHeight,
+              child: ClipRRect(
                 borderRadius: AppRadius.br24,
-                boxShadow: AppElevation.level1,
-              ),
-              child: Column(
-                children: <Widget>[
-                  SizedBox(
-                    width: 286,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.s4,
-                      ),
-                      child: Row(
-                        children: <Widget>[
-                          IconButton(
-                            onPressed: () {
-                              if (!hasPastYearRecord) {
-                                _showHistoryDisabledToast();
-                                return;
-                              }
-                              _openQuestionHistory(
-                                entries: annualEntries,
-                                questionText: questionText,
-                              );
-                            },
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                              width: 24,
-                              height: 24,
-                            ),
-                            visualDensity: VisualDensity.compact,
-                            icon: Icon(
-                              Icons.history,
-                              size: AppSpacing.s24,
-                              color: hasPastYearRecord
-                                  ? brand.c500
-                                  : AppNeutralColors.grey300,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              currentDate,
-                              textAlign: TextAlign.center,
-                              style: AppTypography.bodyMediumSemiBold.copyWith(
-                                color: brand.c500,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: IconButton(
-                              onPressed: latest == null
-                                  ? null
-                                  : _toggleMoreMenu,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 24,
-                                height: 24,
-                              ),
-                              icon: const Icon(
-                                Icons.more_horiz,
-                                size: AppSpacing.s24,
-                                color: AppNeutralColors.grey300,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.s16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.s16,
-                    ),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: AppNeutralColors.grey50),
-                      ),
-                    ),
-                    child: Text(
-                      questionText,
-                      textAlign: TextAlign.center,
-                      style: AppTypography.headingMediumExtraBold.copyWith(
-                        color: AppNeutralColors.grey900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.s16),
-                  Expanded(
+                child: BackdropFilter(
+                  filter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+                  child: DecoratedBox(
+                    decoration: _buildCardDecoration(brand),
                     child: Stack(
                       children: <Widget>[
-                        Positioned.fill(
-                          child: SingleChildScrollView(
-                            controller: _answerScrollController,
-                            physics: const BouncingScrollPhysics(),
-                            child: Align(
-                              alignment: Alignment.topLeft,
-                              child: Padding(
-                                padding: const EdgeInsets.only(
-                                  right: AppSpacing.s4,
-                                  bottom: AppSpacing.s28,
-                                ),
-                                child: Text(
-                                  answerText,
-                                  textAlign: TextAlign.left,
-                                  style: AppTypography.bodyLargeRegular
-                                      .copyWith(
-                                        color: AppNeutralColors.grey800,
-                                      ),
-                                ),
-                              ),
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          right: 0,
+                          height: 112,
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: _buildCardHighlightDecoration(brand),
                             ),
                           ),
                         ),
-                        if (_showAnswerScrollHint)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            height: 48,
-                            child: IgnorePointer(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: <Color>[
-                                      AppNeutralColors.white.withValues(
-                                        alpha: 0,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 32,
+                            vertical: 32,
+                          ),
+                          child: Column(
+                            children: <Widget>[
+                              SizedBox(
+                                width: 286,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: AppSpacing.s4,
+                                  ),
+                                  child: Row(
+                                    children: <Widget>[
+                                      IconButton(
+                                        onPressed: () {
+                                          if (!hasPastYearRecord) {
+                                            _showHistoryDisabledToast();
+                                            return;
+                                          }
+                                          _openQuestionHistory(
+                                            entries: annualEntries,
+                                            questionText: questionText,
+                                          );
+                                        },
+                                        padding: EdgeInsets.zero,
+                                        constraints:
+                                            const BoxConstraints.tightFor(
+                                              width: 24,
+                                              height: 24,
+                                            ),
+                                        visualDensity: VisualDensity.compact,
+                                        icon: Icon(
+                                          Icons.history,
+                                          size: AppSpacing.s24,
+                                          color: hasPastYearRecord
+                                              ? brand.c500
+                                              : AppNeutralColors.grey300,
+                                        ),
                                       ),
-                                      AppNeutralColors.white.withValues(
-                                        alpha: 0.84,
+                                      Expanded(
+                                        child: Text(
+                                          currentDate,
+                                          textAlign: TextAlign.center,
+                                          style: AppTypography
+                                              .bodyMediumSemiBold
+                                              .copyWith(color: brand.c500),
+                                        ),
                                       ),
-                                      AppNeutralColors.white,
+                                      SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: IconButton(
+                                          onPressed: latest == null
+                                              ? null
+                                              : _toggleMoreMenu,
+                                          padding: EdgeInsets.zero,
+                                          constraints:
+                                              const BoxConstraints.tightFor(
+                                                width: 24,
+                                                height: 24,
+                                              ),
+                                          icon: const Icon(
+                                            Icons.more_horiz,
+                                            size: AppSpacing.s24,
+                                            color: AppNeutralColors.grey300,
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                               ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (visibleBucketTags.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.s16,
-                      ),
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 38,
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: visibleBucketTags
-                                .map(
-                                  (String tag) => Padding(
-                                    padding: const EdgeInsets.only(
-                                      right: AppSpacing.s6,
+                              const SizedBox(height: AppSpacing.s16),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: AppSpacing.s16,
+                                ),
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: AppNeutralColors.grey50,
                                     ),
-                                    child: Container(
-                                      height: 38,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: AppSpacing.s16,
+                                  ),
+                                ),
+                                child: Text(
+                                  questionText,
+                                  textAlign: TextAlign.center,
+                                  style: AppTypography.headingMediumExtraBold
+                                      .copyWith(
+                                        color: AppNeutralColors.grey900,
                                       ),
-                                      decoration: BoxDecoration(
-                                        color: brand.c100,
-                                        borderRadius: AppRadius.pill,
-                                        border: Border.all(color: brand.c200),
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.s16),
+                              Expanded(
+                                child: Stack(
+                                  children: <Widget>[
+                                    Positioned.fill(
+                                      child: SingleChildScrollView(
+                                        controller: _answerScrollController,
+                                        physics: const BouncingScrollPhysics(),
+                                        child: Align(
+                                          alignment: Alignment.topLeft,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(
+                                              right: AppSpacing.s4,
+                                              bottom: AppSpacing.s28,
+                                            ),
+                                            child: Text(
+                                              answerText,
+                                              textAlign: TextAlign.left,
+                                              style: AppTypography
+                                                  .bodyLargeRegular
+                                                  .copyWith(
+                                                    color: AppNeutralColors
+                                                        .grey800,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      alignment: Alignment.center,
-                                      child: Text(
-                                        "#$tag",
-                                        style: AppTypography.buttonSmall
-                                            .copyWith(color: brand.c500),
+                                    ),
+                                    if (_showAnswerScrollHint)
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 0,
+                                        height: 48,
+                                        child: IgnorePointer(
+                                          child: DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topCenter,
+                                                end: Alignment.bottomCenter,
+                                                colors: _answerScrollFadeColors(
+                                                  brand,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              if (visibleBucketTags.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: AppSpacing.s16,
+                                  ),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    height: 38,
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      child: Row(
+                                        children: visibleBucketTags
+                                            .map(
+                                              (String tag) => Padding(
+                                                padding: const EdgeInsets.only(
+                                                  right: AppSpacing.s6,
+                                                ),
+                                                child: Container(
+                                                  height: 38,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal:
+                                                            AppSpacing.s16,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: brand.c100,
+                                                    borderRadius:
+                                                        AppRadius.pill,
+                                                    border: Border.all(
+                                                      color: brand.c200,
+                                                    ),
+                                                  ),
+                                                  alignment: Alignment.center,
+                                                  child: Text(
+                                                    "#$tag",
+                                                    style: AppTypography
+                                                        .buttonSmall
+                                                        .copyWith(
+                                                          color: brand.c500,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                            .toList(growable: false),
                                       ),
                                     ),
                                   ),
-                                )
-                                .toList(growable: false),
+                                ),
+                            ],
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -1489,6 +1592,56 @@ class _QuestionWrittenPreviewCardState
       }
     }
     return toKst(record.createdAt);
+  }
+
+  BoxDecoration _buildCardDecoration(BrandScale brand) {
+    return BoxDecoration(
+      borderRadius: AppRadius.br24,
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: <Color>[
+          brand.c50.withValues(alpha: 0.68),
+          AppNeutralColors.white.withValues(alpha: 0.42),
+          brand.c100.withValues(alpha: 0.58),
+        ],
+        stops: const <double>[0, 0.44, 1],
+      ),
+      border: Border.all(color: brand.c50.withValues(alpha: 0.88), width: 1),
+      boxShadow: <BoxShadow>[
+        BoxShadow(
+          color: brand.c300.withValues(alpha: 0.16),
+          offset: const Offset(0, 6),
+          blurRadius: 14,
+          spreadRadius: -6,
+        ),
+      ],
+    );
+  }
+
+  BoxDecoration _buildCardHighlightDecoration(BrandScale brand) {
+    return BoxDecoration(
+      borderRadius: AppRadius.br24,
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: <Color>[
+          AppNeutralColors.white.withValues(alpha: 0.18),
+          brand.c50.withValues(alpha: 0.14),
+          brand.c100.withValues(alpha: 0.06),
+          Colors.transparent,
+        ],
+        stops: const <double>[0, 0.24, 0.58, 1],
+      ),
+    );
+  }
+
+  List<Color> _answerScrollFadeColors(BrandScale brand) {
+    return <Color>[
+      brand.c50.withValues(alpha: 0),
+      brand.c50.withValues(alpha: 0.28),
+      brand.c100.withValues(alpha: 0.64),
+    ];
   }
 }
 
@@ -1794,7 +1947,8 @@ class _TodayRecordSection extends StatefulWidget {
   State<_TodayRecordSection> createState() => _TodayRecordSectionState();
 }
 
-class _TodayRecordSectionState extends State<_TodayRecordSection> {
+class _TodayRecordSectionState extends State<_TodayRecordSection>
+    with WidgetsBindingObserver {
   static const double _recordCardWidth = 350;
   static const double _recordCardGap = 12;
   static const String _hiddenRecordsPrefsKey =
@@ -1809,22 +1963,42 @@ class _TodayRecordSectionState extends State<_TodayRecordSection> {
   @override
   void initState() {
     super.initState();
-    _dateRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleDateRefreshTimer();
+  }
+
+  void _scheduleDateRefreshTimer() {
+    _dateRefreshTimer?.cancel();
+    _dateRefreshTimer = Timer(durationUntilNextKstDateChange(), () {
       if (!mounted) {
         return;
       }
-      final String currentKey = kstDateKeyNow();
-      if (currentKey == _todayKey) {
-        return;
-      }
-      setState(() {
-        _todayKey = currentKey;
-      });
+      _refreshTodayKeyByDateChange();
+      _scheduleDateRefreshTimer();
+    });
+  }
+
+  void _refreshTodayKeyByDateChange() {
+    final String currentKey = kstDateKeyNow();
+    if (currentKey == _todayKey) {
+      return;
+    }
+    setState(() {
+      _todayKey = currentKey;
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshTodayKeyByDateChange();
+      _scheduleDateRefreshTimer();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _dateRefreshTimer?.cancel();
     _pageController?.dispose();
     super.dispose();
@@ -2183,26 +2357,38 @@ class _TodayMeSectionState extends State<_TodayMeSection>
   static const double _cardWidth = 350;
   static const double _cardGap = 12;
   static const double _cardShadowInset = 8;
+  static const double _cardsViewportWidth = 370;
 
   PageController? _pageController;
   double? _lastViewportFraction;
   Timer? _dateRefreshTimer;
   String _lastKstDateKey = kstDateKeyNow();
+  int _currentCardIndex = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     DailyCheckinStore.instance.initialize();
-    _dateRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      _refreshCheckinByDateChange();
+    _scheduleDateRefreshTimer();
+  }
+
+  void _scheduleDateRefreshTimer() {
+    _dateRefreshTimer?.cancel();
+    _dateRefreshTimer = Timer(durationUntilNextKstDateChange(), () {
+      unawaited(_refreshCheckinByDateChange());
+      if (!mounted) {
+        return;
+      }
+      _scheduleDateRefreshTimer();
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshCheckinByDateChange();
+      unawaited(_refreshCheckinByDateChange());
+      _scheduleDateRefreshTimer();
     }
   }
 
@@ -2266,121 +2452,136 @@ class _TodayMeSectionState extends State<_TodayMeSection>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text(
-          "오늘의 나",
-          style: AppTypography.headingSmall.copyWith(
-            color: AppNeutralColors.grey900,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.s2),
-        Text(
-          "매일 입력하면 더욱 자세한 리포트를 받으실 수 있어요",
-          style: AppTypography.bodySmallMedium.copyWith(
-            color: AppNeutralColors.grey400,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.s16),
-        ValueListenableBuilder<DailyCheckinRecord?>(
-          valueListenable: DailyCheckinStore.instance,
-          builder:
-              (
-                BuildContext context,
-                DailyCheckinRecord? checkin,
-                Widget? child,
-              ) {
-                return LayoutBuilder(
-                  builder: (BuildContext context, BoxConstraints constraints) {
-                    final double listWidth = constraints.maxWidth;
-                    final double viewportFraction =
-                        ((_cardWidth + _cardGap) / listWidth).clamp(0.0, 1.0);
-                    final PageController controller = _resolveController(
-                      viewportFraction,
-                    );
-                    final List<Widget> cards = <Widget>[
-                      _TodayMetricCard(
-                        kind: _TodayMetricCardKind.mood,
-                        highlightedWord: "기분",
-                        subtitle: "지속적인 하루 기분을 골라주세요",
-                        backgroundAsset:
-                            "assets/images/home/home_card_mood_bg_blue.png",
-                        fallbackColor: Color(0xFFD3EEFF),
-                        cardWidth: _cardWidth,
-                        options: _TodayMeSection._moodOptions,
-                        highlightColor: Color(0xFF017AF7),
-                        selectedBorderColor: Color(0xFF86CAFF),
-                        selectedIndex: checkin?.moodIndex,
-                        onOptionTap: (int index) {
-                          unawaited(
-                            DailyCheckinStore.instance.saveSelection(
-                              metric: DailyCheckinMetric.mood,
-                              selectedIndex: index,
-                            ),
-                          );
-                          _showSavedToast();
-                        },
+    return ValueListenableBuilder<DailyCheckinRecord?>(
+      valueListenable: DailyCheckinStore.instance,
+      builder:
+          (BuildContext context, DailyCheckinRecord? checkin, Widget? child) {
+            return LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                final double listWidth = constraints.maxWidth;
+                final double viewportWidth = _cardsViewportWidth > listWidth
+                    ? _cardsViewportWidth
+                    : listWidth;
+                final double viewportFraction =
+                    ((_cardWidth + _cardGap) / viewportWidth).clamp(0.0, 1.0);
+                final double contentLeadingInset =
+                    viewportWidth > (_cardWidth + _cardGap)
+                    ? (viewportWidth - (_cardWidth + _cardGap)) / 2
+                    : 0;
+                final PageController controller = _resolveController(
+                  viewportFraction,
+                );
+                final List<Widget> cards = <Widget>[
+                  _TodayMetricCard(
+                    kind: _TodayMetricCardKind.mood,
+                    titlePrefix: "",
+                    highlightedWord: "기분",
+                    titleSuffix: "은 어떤가요?",
+                    subtitle: "오늘 지속적인 하루 기분을 골라주세요",
+                    cardWidth: _cardWidth,
+                    options: _TodayMeSection._moodOptions,
+                    highlightColor: const Color(0xFF017AF7),
+                    selectedBackgroundColor: const Color(0xFFF8FDFF),
+                    selectedBorderColor: const Color(0xFF86CAFF),
+                    defaultBorderColor: const Color(0xFFE9F6FF),
+                    selectedIndex: checkin?.moodIndex,
+                    onOptionTap: (int index) {
+                      unawaited(
+                        DailyCheckinStore.instance.saveSelection(
+                          metric: DailyCheckinMetric.mood,
+                          selectedIndex: index,
+                        ),
+                      );
+                      _showSavedToast();
+                    },
+                  ),
+                  _TodayMetricCard(
+                    kind: _TodayMetricCardKind.energy,
+                    titlePrefix: "지금 ",
+                    highlightedWord: "에너지",
+                    titleSuffix: "는 어떤가요?",
+                    subtitle: "오늘 하루 컨디션 상태를 골라주세요",
+                    cardWidth: _cardWidth,
+                    options: _TodayMeSection._energyOptions,
+                    highlightColor: const Color(0xFFED87E5),
+                    selectedBackgroundColor: const Color(0xFFFDF7FF),
+                    selectedBorderColor: const Color(0xFFD9C8FF),
+                    defaultBorderColor: const Color(0xFFEEE1F3),
+                    selectedIndex: checkin?.energyIndex,
+                    onOptionTap: (int index) {
+                      unawaited(
+                        DailyCheckinStore.instance.saveSelection(
+                          metric: DailyCheckinMetric.energy,
+                          selectedIndex: index,
+                        ),
+                      );
+                      _showSavedToast();
+                    },
+                  ),
+                  _TodayMetricCard(
+                    kind: _TodayMetricCardKind.stress,
+                    titlePrefix: "지금 ",
+                    highlightedWord: "스트레스",
+                    titleSuffix: "는 어떤가요?",
+                    subtitle: "오늘 하루 머릿속은 어떤가요?",
+                    cardWidth: _cardWidth,
+                    options: _TodayMeSection._stressOptions,
+                    highlightColor: const Color(0xFFFF9F45),
+                    selectedBackgroundColor: const Color(0xFFFFFAF5),
+                    selectedBorderColor: const Color(0xFFFFD7B5),
+                    defaultBorderColor: const Color(0xFFFFF1E6),
+                    selectedIndex: checkin?.stressIndex,
+                    onOptionTap: (int index) {
+                      unawaited(
+                        DailyCheckinStore.instance.saveSelection(
+                          metric: DailyCheckinMetric.stress,
+                          selectedIndex: index,
+                        ),
+                      );
+                      _showSavedToast();
+                    },
+                  ),
+                ];
+                final bool hasCompletedAllMetrics =
+                    checkin?.moodIndex != null &&
+                    checkin?.energyIndex != null &&
+                    checkin?.stressIndex != null;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    if (!hasCompletedAllMetrics) ...<Widget>[
+                      Padding(
+                        padding: EdgeInsets.only(left: contentLeadingInset),
+                        child: _TodayMetricProgressBar(
+                          currentStep: _currentCardIndex + 1,
+                          totalSteps: cards.length,
+                        ),
                       ),
-                      _TodayMetricCard(
-                        kind: _TodayMetricCardKind.energy,
-                        highlightedWord: "에너지",
-                        subtitle: "지속적인 컨디션 상태를 골라주세요",
-                        backgroundAsset:
-                            "assets/images/home/home_card_energy_bg_lilac.png",
-                        fallbackColor: Color(0xFFD9C8FF),
-                        cardWidth: _cardWidth,
-                        options: _TodayMeSection._energyOptions,
-                        highlightColor: Color(0xFFED87E5),
-                        selectedBorderColor: Color(0xFFD9C8FF),
-                        selectedIndex: checkin?.energyIndex,
-                        onOptionTap: (int index) {
-                          unawaited(
-                            DailyCheckinStore.instance.saveSelection(
-                              metric: DailyCheckinMetric.energy,
-                              selectedIndex: index,
-                            ),
-                          );
-                          _showSavedToast();
-                        },
-                      ),
-                      _TodayMetricCard(
-                        kind: _TodayMetricCardKind.stress,
-                        highlightedWord: "스트레스",
-                        subtitle: "오늘 머릿속은 어떤가요?",
-                        backgroundAsset:
-                            "assets/images/home/home_card_stress_bg_orange.png",
-                        fallbackColor: Color(0xFFFFD7B5),
-                        cardWidth: _cardWidth,
-                        options: _TodayMeSection._stressOptions,
-                        highlightColor: Color(0xFFFF9F45),
-                        selectedBorderColor: Color(0xFFFFD7B5),
-                        selectedIndex: checkin?.stressIndex,
-                        onOptionTap: (int index) {
-                          unawaited(
-                            DailyCheckinStore.instance.saveSelection(
-                              metric: DailyCheckinMetric.stress,
-                              selectedIndex: index,
-                            ),
-                          );
-                          _showSavedToast();
-                        },
-                      ),
-                    ];
-                    return SizedBox(
-                      height: 394 + (_cardShadowInset * 2),
+                      const SizedBox(height: AppSpacing.s16),
+                    ],
+                    SizedBox(
+                      height: 425 + (_cardShadowInset * 2),
                       child: OverflowBox(
                         alignment: Alignment.topLeft,
-                        minWidth: listWidth,
-                        maxWidth: listWidth,
+                        minWidth: viewportWidth,
+                        maxWidth: viewportWidth,
                         child: SizedBox(
-                          width: listWidth,
+                          width: viewportWidth,
                           child: PageView.builder(
                             controller: controller,
                             scrollDirection: Axis.horizontal,
                             physics: const ClampingScrollPhysics(),
                             clipBehavior: Clip.none,
                             padEnds: true,
+                            onPageChanged: (int index) {
+                              if (_currentCardIndex == index) {
+                                return;
+                              }
+                              setState(() {
+                                _currentCardIndex = index;
+                              });
+                            },
                             itemCount: cards.length,
                             itemBuilder: (BuildContext context, int index) {
                               return Padding(
@@ -2391,18 +2592,28 @@ class _TodayMeSectionState extends State<_TodayMeSection>
                                       ? 0
                                       : _cardGap,
                                 ),
-                                child: cards[index],
+                                child: Align(
+                                  alignment: Alignment.topLeft,
+                                  child: cards[index],
+                                ),
                               );
                             },
                           ),
                         ),
                       ),
-                    );
-                  },
+                    ),
+                    if (hasCompletedAllMetrics) ...<Widget>[
+                      const SizedBox(height: AppSpacing.s16),
+                      Padding(
+                        padding: EdgeInsets.only(left: contentLeadingInset),
+                        child: _TodayMetricCompletionCard(checkin: checkin!),
+                      ),
+                    ],
+                  ],
                 );
               },
-        ),
-      ],
+            );
+          },
     );
   }
 }
@@ -2412,132 +2623,113 @@ enum _TodayMetricCardKind { mood, energy, stress }
 class _TodayMetricCard extends StatelessWidget {
   const _TodayMetricCard({
     required this.kind,
+    required this.titlePrefix,
     required this.highlightedWord,
+    required this.titleSuffix,
     required this.subtitle,
-    required this.backgroundAsset,
-    required this.fallbackColor,
     required this.cardWidth,
     required this.options,
     required this.highlightColor,
+    required this.selectedBackgroundColor,
     required this.selectedBorderColor,
+    required this.defaultBorderColor,
     required this.onOptionTap,
     this.selectedIndex,
   });
 
   final _TodayMetricCardKind kind;
+  final String titlePrefix;
   final String highlightedWord;
+  final String titleSuffix;
   final String subtitle;
-  final String backgroundAsset;
-  final Color fallbackColor;
   final double cardWidth;
   final List<String> options;
   final Color highlightColor;
+  final Color selectedBackgroundColor;
   final Color selectedBorderColor;
+  final Color defaultBorderColor;
   final int? selectedIndex;
   final ValueChanged<int> onOptionTap;
 
   @override
   Widget build(BuildContext context) {
-    final ({double width, double height, double opacity})
-    bgRect = switch (kind) {
-      _TodayMetricCardKind.mood => (width: 221, height: 250, opacity: 0.3),
-      _TodayMetricCardKind.energy => (width: 182, height: 276, opacity: 0.3),
-      _TodayMetricCardKind.stress => (width: 186, height: 282, opacity: 0.3),
-    };
-
     return Container(
       width: cardWidth,
-      height: 393,
+      height: 425,
       decoration: BoxDecoration(
+        color: AppNeutralColors.white,
         borderRadius: AppRadius.br16,
-        boxShadow: AppElevation.level2,
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x0F000000),
+            offset: Offset(0, 2),
+            blurRadius: 8,
+          ),
+        ],
       ),
       child: ClipRRect(
         borderRadius: AppRadius.br16,
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            ColoredBox(color: fallbackColor),
-            ColoredBox(color: Colors.white.withValues(alpha: 0.8)),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              width: bgRect.width,
-              height: bgRect.height,
-              child: Opacity(
-                opacity: bgRect.opacity,
-                child: Image.asset(
-                  backgroundAsset,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.red.withValues(alpha: 0.12),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.image_not_supported_outlined),
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            children: <Widget>[
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      RichText(
-                        text: TextSpan(
+                  RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      style: AppTypography.headingSmall.copyWith(
+                        color: AppNeutralColors.grey900,
+                      ),
+                      children: <TextSpan>[
+                        TextSpan(text: titlePrefix),
+                        TextSpan(
+                          text: highlightedWord,
                           style: AppTypography.headingSmall.copyWith(
-                            color: AppNeutralColors.grey900,
+                            color: highlightColor,
                           ),
-                          children: <TextSpan>[
-                            const TextSpan(text: "오늘 하루 "),
-                            TextSpan(
-                              text: highlightedWord,
-                              style: AppTypography.headingSmall.copyWith(
-                                color: highlightColor,
-                              ),
-                            ),
-                            const TextSpan(text: "는 어떤가요?"),
-                          ],
                         ),
-                      ),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.bodySmallMedium.copyWith(
-                          color: AppNeutralColors.grey400,
-                        ),
-                      ),
-                    ],
+                        TextSpan(text: titleSuffix),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: AppSpacing.s32),
-                  SizedBox(
-                    height: 243,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: List<Widget>.generate(options.length, (int i) {
-                        final bool isLast = i == options.length - 1;
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: isLast ? 0 : AppSpacing.s12,
-                          ),
-                          child: _ChoicePill(
-                            text: options[i],
-                            selected: selectedIndex == i,
-                            selectedBorderColor: selectedBorderColor,
-                            onTap: () => onOptionTap(i),
-                          ),
-                        );
-                      }),
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodySmallMedium.copyWith(
+                      color: AppNeutralColors.grey400,
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.s24),
+              SizedBox(
+                height: 288,
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List<Widget>.generate(options.length, (int i) {
+                    final bool isLast = i == options.length - 1;
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: isLast ? 0 : AppSpacing.s12,
+                      ),
+                      child: _ChoicePill(
+                        text: options[i],
+                        selected: selectedIndex == i,
+                        selectedBackgroundColor: selectedBackgroundColor,
+                        selectedBorderColor: selectedBorderColor,
+                        defaultBorderColor: defaultBorderColor,
+                        onTap: () => onOptionTap(i),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2548,54 +2740,202 @@ class _ChoicePill extends StatelessWidget {
   const _ChoicePill({
     required this.text,
     required this.onTap,
+    required this.selectedBackgroundColor,
     required this.selectedBorderColor,
+    required this.defaultBorderColor,
     this.selected = false,
   });
 
   final String text;
   final VoidCallback onTap;
+  final Color selectedBackgroundColor;
   final Color selectedBorderColor;
+  final Color defaultBorderColor;
   final bool selected;
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicWidth(
-      child: Material(
-        color: AppNeutralColors.white,
-        borderRadius: AppRadius.pill,
-        child: InkWell(
-          onTap: onTap,
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: selected ? selectedBackgroundColor : AppNeutralColors.white,
           borderRadius: AppRadius.pill,
-          child: Container(
-            height: 39,
-            padding: EdgeInsets.only(left: 24, right: selected ? 16 : 24),
-            decoration: BoxDecoration(
-              borderRadius: AppRadius.pill,
-              border: Border.all(
-                color: selected ? selectedBorderColor : const Color(0xFFF8FDFF),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Text(
-                  text,
-                  style: AppTypography.buttonSmall.copyWith(
-                    color: AppNeutralColors.grey800,
+          border: Border.all(
+            color: selected ? selectedBorderColor : defaultBorderColor,
+          ),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: AppRadius.pill,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: AppRadius.pill,
+            child: Container(
+              height: 48,
+              padding: EdgeInsets.only(left: 24, right: selected ? 16 : 24),
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: <Widget>[
+                  Text(
+                    text,
+                    style: AppTypography.buttonMedium.copyWith(
+                      color: AppNeutralColors.grey800,
+                    ),
                   ),
-                ),
-                if (selected) ...<Widget>[
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.check_rounded,
-                    size: 16,
-                    color: selectedBorderColor,
-                  ),
+                  if (selected) ...<Widget>[
+                    const Spacer(),
+                    Icon(
+                      Icons.check_rounded,
+                      size: 16,
+                      color: selectedBorderColor,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _TodayMetricProgressBar extends StatelessWidget {
+  const _TodayMetricProgressBar({
+    required this.currentStep,
+    required this.totalSteps,
+  });
+
+  final int currentStep;
+  final int totalSteps;
+
+  @override
+  Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
+    final double progress = totalSteps == 0 ? 0 : currentStep / totalSteps;
+    return SizedBox(
+      width: 350,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            "질문 $currentStep/$totalSteps",
+            style: AppTypography.captionSmall.copyWith(
+              color: AppNeutralColors.grey400,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s8),
+          ClipRRect(
+            borderRadius: AppRadius.pill,
+            child: SizedBox(
+              height: 6,
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  ColoredBox(color: brand.c100),
+                  FractionallySizedBox(
+                    widthFactor: progress.clamp(0.0, 1.0),
+                    alignment: Alignment.centerLeft,
+                    child: ColoredBox(color: brand.c400),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayMetricCompletionCard extends StatelessWidget {
+  const _TodayMetricCompletionCard({required this.checkin});
+
+  final DailyCheckinRecord checkin;
+
+  static const List<String> _rowQuestions = <String>[
+    "오늘 나의 기분은?",
+    "오늘 나의 에너지는?",
+    "오늘 나의 스트레스는?",
+  ];
+
+  String _optionLabel(List<String> options, int? index) {
+    if (index == null || index < 0 || index >= options.length) {
+      return "-";
+    }
+    return options[index];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
+    final List<String> answers = <String>[
+      _optionLabel(_TodayMeSection._moodOptions, checkin.moodIndex),
+      _optionLabel(_TodayMeSection._energyOptions, checkin.energyIndex),
+      _optionLabel(_TodayMeSection._stressOptions, checkin.stressIndex),
+    ];
+
+    return Container(
+      width: 350,
+      constraints: const BoxConstraints(minHeight: 161),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+      decoration: BoxDecoration(
+        color: brand.c100,
+        borderRadius: AppRadius.br16,
+        border: Border.all(color: brand.c400),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(
+            color: Color(0x0A000000),
+            offset: Offset(0, 2),
+            blurRadius: 4,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(Icons.check_rounded, size: 24, color: brand.c500),
+              const SizedBox(width: AppSpacing.s8),
+              Text(
+                "모든 감정 질문에 답변했습니다!",
+                style: AppTypography.heading2XSmall.copyWith(color: brand.c500),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.s16),
+          Column(
+            children: List<Widget>.generate(_rowQuestions.length, (int index) {
+              final bool isLast = index == _rowQuestions.length - 1;
+              return Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : 9),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        _rowQuestions[index],
+                        style: AppTypography.bodySmallSemiBold.copyWith(
+                          color: AppNeutralColors.grey700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s12),
+                    Text(
+                      answers[index],
+                      textAlign: TextAlign.right,
+                      style: AppTypography.bodySmallSemiBold.copyWith(
+                        color: AppNeutralColors.grey700,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }

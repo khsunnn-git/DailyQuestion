@@ -8,7 +8,11 @@ import "package:firebase_core/firebase_core.dart";
 import "app_bootstrap.dart";
 import "core/app_route_observer.dart";
 import "design_system/design_system.dart";
+import "features/auth/login_screen.dart";
+import "features/home/home_screen.dart";
 import "features/notifications/daily_question_notification_scheduler.dart";
+import "features/profile/initial_terms_consent_screen.dart";
+import "features/profile/nickname_complete_screen.dart";
 import "features/profile/nickname_setup_screen.dart";
 import "features/question/user_answer_backup_service.dart";
 import "features/report/weekly_report_store.dart";
@@ -60,6 +64,14 @@ class DailyQuestionApp extends StatefulWidget {
   const DailyQuestionApp({super.key});
 
   static const bool _forceNicknameSetupPreview = false;
+  static const String _debugPreviewScreen = String.fromEnvironment(
+    "DEBUG_PREVIEW_SCREEN",
+    defaultValue: "",
+  );
+  static const String _debugPreviewNickname = String.fromEnvironment(
+    "DEBUG_PREVIEW_NICKNAME",
+    defaultValue: "혜선",
+  );
   static const String _selectedCharacterName = "물고기";
   static const SystemUiOverlayStyle _systemUiStyle = SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -139,12 +151,62 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
           DailyQuestionApp._selectedCharacterName,
         ),
       ),
-      home: DailyQuestionApp._forceNicknameSetupPreview
-          ? const NicknameSetupScreen()
-          : SplashScreen(
-              firstDuration: Duration(milliseconds: 1400),
-              secondDuration: Duration(milliseconds: 1400),
-            ),
+      home: _buildInitialScreen(),
     );
+  }
+
+  Widget _buildInitialScreen() {
+    final String previewScreen =
+        DailyQuestionApp._debugPreviewScreen.trim().isEmpty
+        ? (kDebugMode ? "home" : "")
+        : DailyQuestionApp._debugPreviewScreen;
+    switch (_resolveDebugPreviewScreen(previewScreen)) {
+      case _DebugPreviewScreen.home:
+        return const HomeScreen();
+      case _DebugPreviewScreen.login:
+        return const LoginScreen(mode: LoginScreenMode.onboarding);
+      case _DebugPreviewScreen.termsConsent:
+        return const InitialTermsConsentScreen();
+      case _DebugPreviewScreen.nicknameSetup:
+        return const NicknameSetupScreen();
+      case _DebugPreviewScreen.nicknameComplete:
+        return const NicknameCompleteScreen(
+          nickname: DailyQuestionApp._debugPreviewNickname,
+        );
+      case _DebugPreviewScreen.none:
+        return DailyQuestionApp._forceNicknameSetupPreview
+            ? const NicknameSetupScreen()
+            : SplashScreen(
+                firstDuration: Duration(milliseconds: 1400),
+                secondDuration: Duration(milliseconds: 1400),
+              );
+    }
+  }
+}
+
+enum _DebugPreviewScreen {
+  none,
+  home,
+  login,
+  termsConsent,
+  nicknameSetup,
+  nicknameComplete,
+}
+
+_DebugPreviewScreen _resolveDebugPreviewScreen(String raw) {
+  switch (raw.trim().toLowerCase()) {
+    case "home":
+      return _DebugPreviewScreen.home;
+    case "login":
+      return _DebugPreviewScreen.login;
+    case "terms":
+    case "terms_consent":
+      return _DebugPreviewScreen.termsConsent;
+    case "nickname_setup":
+      return _DebugPreviewScreen.nicknameSetup;
+    case "nickname_complete":
+      return _DebugPreviewScreen.nicknameComplete;
+    default:
+      return _DebugPreviewScreen.none;
   }
 }

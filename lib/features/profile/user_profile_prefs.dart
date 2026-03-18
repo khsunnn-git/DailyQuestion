@@ -10,9 +10,14 @@ class UserProfilePrefs {
     return loadNickname();
   }
 
-  static Future<void> setNickname(String nickname) async {
+  static Future<void> setNickname(
+    String nickname, {
+    bool syncRemote = true,
+  }) async {
     await saveNickname(nickname);
-    unawaited(UserProfileRemoteService.instance.syncCurrentUserProfile());
+    if (syncRemote) {
+      unawaited(UserProfileRemoteService.instance.syncCurrentUserProfile());
+    }
   }
 
   static Future<bool> hasNickname() async {
@@ -24,8 +29,25 @@ class UserProfilePrefs {
     return loadInitialConsentAccepted();
   }
 
-  static Future<void> setInitialConsentAccepted(bool accepted) async {
+  static Future<void> setInitialConsentAccepted(
+    bool accepted, {
+    bool syncRemote = true,
+  }) async {
     await saveInitialConsentAccepted(accepted);
-    unawaited(UserProfileRemoteService.instance.syncCurrentUserProfile());
+    if (syncRemote) {
+      unawaited(UserProfileRemoteService.instance.syncCurrentUserProfile());
+    }
+  }
+
+  static Future<void> syncCurrentUserProfileBestEffort({
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    try {
+      await UserProfileRemoteService.instance.syncCurrentUserProfile().timeout(
+        timeout,
+      );
+    } catch (_) {
+      // Keep onboarding moving even if profile sync is temporarily unavailable.
+    }
   }
 }

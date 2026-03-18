@@ -5,13 +5,14 @@
 // gestures. You can also use WidgetTester to find child widgets in the widget
 // tree, read text, and verify that the values of widget properties are correct.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dailyquestion/main.dart';
+import 'package:dailyquestion/features/splash/splash_screen.dart';
 
 void main() {
   testWidgets('App renders splash initially', (WidgetTester tester) async {
-    await tester.pumpWidget(const DailyQuestionApp());
+    await tester.pumpWidget(MaterialApp(home: SplashScreen()));
 
     expect(find.text('오늘의 질문으로\n내일의 나를 만나는 시간'), findsOneWidget);
   });

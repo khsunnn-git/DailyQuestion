@@ -31,3 +31,11 @@ bool isSameKstDate(DateTime a, DateTime b) {
       aKst.month == bKst.month &&
       aKst.day == bKst.day;
 }
+
+Duration durationUntilNextKstDateChange({DateTime? from}) {
+  final DateTime reference = from ?? DateTime.now();
+  final DateTime kst = toKst(reference);
+  final DateTime nextKstDate = DateTime.utc(kst.year, kst.month, kst.day + 1);
+  final Duration remaining = nextKstDate.difference(kst);
+  return remaining.isNegative ? Duration.zero : remaining;
+}

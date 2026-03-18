@@ -87,8 +87,10 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute<void>(
               builder: (_) => NicknameSetupScreen(
-                onCompleted: () {
-                  Navigator.of(context).pushReplacement(MainTabShell.route());
+                onCompleted: (BuildContext completionContext) {
+                  Navigator.of(
+                    completionContext,
+                  ).pushReplacement(MainTabShell.route());
                 },
               ),
             ),
@@ -164,46 +166,34 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: brand.bg,
       body: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final double topSpacing = (constraints.maxHeight * 0.27).clamp(
-              144.0,
-              240.0,
-            );
-            final double titleSpacing = (constraints.maxHeight * 0.18).clamp(
-              108.0,
-              172.0,
-            );
-            final double bottomSpacing = (constraints.maxHeight * 0.12).clamp(
-              32.0,
-              80.0,
-            );
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20),
+          child: LayoutBuilder(
+            builder: (BuildContext context, BoxConstraints constraints) {
+              final double heroTopSpacing = (constraints.maxHeight * 0.30)
+                  .clamp(156.0, 248.0);
+              final double bottomSpacing = (constraints.maxHeight * 0.06).clamp(
+                28.0,
+                46.0,
+              );
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    SizedBox(height: topSpacing),
-                    const _LoginHeroSection(),
-                    SizedBox(height: titleSpacing),
-                    _SocialLoginPanel(
-                      activeProvider: _activeProvider,
-                      onTap: _handleSocialLogin,
-                    ),
-                    if (widget.mode == LoginScreenMode.onboarding) ...<Widget>[
-                      const SizedBox(height: AppSpacing.s28),
-                      _GuestContinueButton(onTap: _continueWithoutLogin),
-                    ],
-                    SizedBox(height: bottomSpacing),
-                  ],
-                ),
-              ),
-            );
-          },
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  SizedBox(height: heroTopSpacing),
+                  const _LoginHeroSection(),
+                  const Spacer(),
+                  _LoginBottomSection(
+                    mode: widget.mode,
+                    activeProvider: _activeProvider,
+                    onSocialLogin: _handleSocialLogin,
+                    onContinueWithoutLogin: _continueWithoutLogin,
+                  ),
+                  SizedBox(height: bottomSpacing),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -234,6 +224,63 @@ class _LoginHeroSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LoginBottomSection extends StatelessWidget {
+  const _LoginBottomSection({
+    required this.mode,
+    required this.activeProvider,
+    required this.onSocialLogin,
+    required this.onContinueWithoutLogin,
+  });
+
+  final LoginScreenMode mode;
+  final SocialAuthProvider? activeProvider;
+  final Future<void> Function(SocialAuthProvider provider) onSocialLogin;
+  final VoidCallback onContinueWithoutLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _SocialLoginPanel(activeProvider: activeProvider, onTap: onSocialLogin),
+        if (mode == LoginScreenMode.onboarding) ...<Widget>[
+          const SizedBox(height: AppSpacing.s12),
+          _GuestContinueButton(onTap: onContinueWithoutLogin),
+          const SizedBox(height: AppSpacing.s24),
+        ] else ...<Widget>[const SizedBox(height: AppSpacing.s24)],
+        const _LoginInfoSection(),
+      ],
+    );
+  }
+}
+
+class _LoginInfoSection extends StatelessWidget {
+  const _LoginInfoSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 54,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppNeutralColors.grey100)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(top: AppSpacing.s20),
+          child: Text(
+            "처음 로그인하면 별도 회원가입 없이 바로 시작됩니다.\n계정이 연동되면 기존 데이터들이 자동 백업됩니다.",
+            textAlign: TextAlign.center,
+            style: AppTypography.captionSmall.copyWith(
+              color: AppNeutralColors.grey800,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -382,20 +429,34 @@ class _GuestContinueButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.center,
+    return Center(
       child: TextButton(
         onPressed: onTap,
         style: TextButton.styleFrom(
-          foregroundColor: AppNeutralColors.grey700,
-          textStyle: AppTypography.buttonMedium,
+          minimumSize: const Size(183, 32),
+          maximumSize: const Size(183, 32),
+          fixedSize: const Size(183, 32),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.s16,
+            AppSpacing.s4,
+            AppSpacing.s4,
+            AppSpacing.s4,
+          ),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: AppNeutralColors.grey900,
+          textStyle: AppTypography.buttonSmall.copyWith(
+            color: AppNeutralColors.grey900,
+          ),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(AppSpacing.s16)),
+          ),
+          overlayColor: AppNeutralColors.grey100,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: const <Widget>[
             Text("로그인 없이 사용해보기"),
-            SizedBox(width: AppSpacing.s4),
-            Icon(Icons.chevron_right, size: 18),
+            Icon(Icons.keyboard_arrow_right, size: 24),
           ],
         ),
       ),

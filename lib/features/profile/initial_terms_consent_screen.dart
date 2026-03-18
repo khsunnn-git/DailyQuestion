@@ -47,7 +47,8 @@ class _InitialTermsConsentScreenState extends State<InitialTermsConsentScreen> {
     setState(() {
       _isSaving = true;
     });
-    await UserProfilePrefs.setInitialConsentAccepted(true);
+    await UserProfilePrefs.setInitialConsentAccepted(true, syncRemote: false);
+    await UserProfilePrefs.syncCurrentUserProfileBestEffort();
     if (!mounted) {
       return;
     }
@@ -148,7 +149,10 @@ class _InitialTermsConsentScreenState extends State<InitialTermsConsentScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.s24, height: AppSpacing.s24),
+                    const SizedBox(
+                      width: AppSpacing.s24,
+                      height: AppSpacing.s24,
+                    ),
                   ],
                 ),
               ),
