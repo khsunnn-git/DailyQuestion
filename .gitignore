@@ -22,6 +22,8 @@ devtools_options.yaml
 # Misc
 coverage/
 node_modules/
+release/*.apk
+release/*.aab
 
 # Firebase admin key
 serviceAccountKey.json
