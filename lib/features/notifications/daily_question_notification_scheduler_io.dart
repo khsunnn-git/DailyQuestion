@@ -24,7 +24,8 @@ const AndroidNotificationDetails _androidNotificationDetails =
       "daily_question_channel_v3",
       "오늘의 질문 알림",
       channelDescription: "오늘의 질문 알림을 매일 지정된 시간에 전송합니다.",
-      icon: "ic_noti_question",
+      // Android small icons need a solid alpha-only asset to render correctly.
+      icon: "ic_noti_question_small",
       importance: Importance.max,
       priority: Priority.high,
       playSound: true,

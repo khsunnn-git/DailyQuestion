@@ -189,6 +189,7 @@ class _ScoreCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
+    final bool hasCheckinData = snapshot.hasCheckinData;
     final ({String label, Color bg, Color fg}) sourceUi = _sourceBadge(
       report.source,
     );
@@ -213,12 +214,12 @@ class _ScoreCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
               Text(
-                "${report.weeklyScore}",
+                hasCheckinData ? "${report.weeklyScore}" : "—",
                 style: AppTypography.headingLarge.copyWith(color: brand.c500),
               ),
               const SizedBox(width: 4),
               Text(
-                "/ 5",
+                hasCheckinData ? "/ 5" : "미집계",
                 style: AppTypography.headingXSmall.copyWith(
                   color: AppNeutralColors.grey500,
                 ),
@@ -259,6 +260,15 @@ class _ScoreCard extends StatelessWidget {
               color: AppNeutralColors.grey600,
             ),
           ),
+          if (!hasCheckinData) ...<Widget>[
+            const SizedBox(height: AppSpacing.s4),
+            Text(
+              "감정 체크인 기록이 있는 날만 평균 점수에 반영돼요.",
+              style: AppTypography.captionSmall.copyWith(
+                color: AppNeutralColors.grey500,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -302,6 +312,7 @@ class _MetricChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasData = value > 0;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(
@@ -322,9 +333,11 @@ class _MetricChip extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              value.toStringAsFixed(1),
+              hasData ? value.toStringAsFixed(1) : "-",
               style: AppTypography.bodyMediumSemiBold.copyWith(
-                color: AppNeutralColors.grey900,
+                color: hasData
+                    ? AppNeutralColors.grey900
+                    : AppNeutralColors.grey500,
               ),
             ),
           ],

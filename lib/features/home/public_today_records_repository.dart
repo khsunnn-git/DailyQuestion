@@ -2,6 +2,7 @@ import "dart:async";
 
 import "package:cloud_firestore/cloud_firestore.dart";
 
+import "../question/public_answer_retention.dart";
 import "../moderation/public_record_moderation.dart";
 
 class PublicTodayRecord {
@@ -69,6 +70,27 @@ class PublicTodayRecordsRepository {
     records.sort((PublicTodayRecord a, PublicTodayRecord b) {
       return b.createdAt.compareTo(a.createdAt);
     });
+    return records;
+  }
+
+  Future<List<PublicTodayRecord>> fetchRecentDays({
+    int days = publicAnswerRetentionDays,
+    DateTime? now,
+  }) async {
+    final List<String> dateKeys = recentPublicAnswerDateKeys(
+      now: now,
+      days: days,
+    );
+    final List<List<PublicTodayRecord>> recordsByDate =
+        await Future.wait<List<PublicTodayRecord>>(
+          dateKeys.map(fetchByDateKey),
+        );
+    final List<PublicTodayRecord> records = recordsByDate
+        .expand((List<PublicTodayRecord> items) => items)
+        .toList(growable: false)
+      ..sort((PublicTodayRecord a, PublicTodayRecord b) {
+        return b.createdAt.compareTo(a.createdAt);
+      });
     return records;
   }
 

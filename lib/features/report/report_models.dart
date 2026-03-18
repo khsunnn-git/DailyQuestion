@@ -8,6 +8,7 @@ class ReportAnalyzePayload {
     required this.entriesCompact,
     required this.topKeywords,
     required this.representativeAnswers,
+    this.communityRecoveryIdeas = const <String>[],
   });
 
   final String period;
@@ -18,6 +19,7 @@ class ReportAnalyzePayload {
   final List<String> entriesCompact;
   final List<String> topKeywords;
   final List<String> representativeAnswers;
+  final List<String> communityRecoveryIdeas;
 
   factory ReportAnalyzePayload.fromJson(Map<String, dynamic> json) {
     return ReportAnalyzePayload(
@@ -29,6 +31,7 @@ class ReportAnalyzePayload {
       entriesCompact: _stringListOf(json["entries_compact"]),
       topKeywords: _stringListOf(json["top_keywords"]),
       representativeAnswers: _stringListOf(json["representative_answers"]),
+      communityRecoveryIdeas: _stringListOf(json["community_recovery_ideas"]),
     );
   }
 
@@ -42,6 +45,7 @@ class ReportAnalyzePayload {
       "entries_compact": entriesCompact,
       "top_keywords": topKeywords,
       "representative_answers": representativeAnswers,
+      "community_recovery_ideas": communityRecoveryIdeas,
     };
   }
 
@@ -82,6 +86,7 @@ class ReportAnalyzePayload {
 class WeeklyAiReport {
   const WeeklyAiReport({
     required this.summary,
+    this.emotionSummary = "",
     required this.insights,
     required this.actions,
     required this.weeklyScore,
@@ -90,6 +95,7 @@ class WeeklyAiReport {
   });
 
   final String summary;
+  final String emotionSummary;
   final List<String> insights;
   final List<String> actions;
   final int weeklyScore;
@@ -97,12 +103,16 @@ class WeeklyAiReport {
   final String source;
 
   factory WeeklyAiReport.fromJson(Map<String, dynamic> json) {
+    final String normalizedSummary = _normalizeSummaryText(
+      (json["summary"] as String?)?.trim() ?? "",
+    );
     return WeeklyAiReport(
-      summary: (json["summary"] as String?)?.trim().isNotEmpty == true
-          ? (json["summary"] as String).trim()
+      summary: normalizedSummary.isNotEmpty
+          ? normalizedSummary
           : "이번 주 기록을 바탕으로 리포트를 생성했어요.",
-      insights: _stringListOf(json["insights"]),
-      actions: _stringListOf(json["actions"]),
+      emotionSummary: (json["emotion_summary"] as String?)?.trim() ?? "",
+      insights: _normalizedInsights(json["insights"]),
+      actions: _normalizedActions(json["actions"]),
       weeklyScore: _asInt(json["weekly_score"]) ?? 0,
       monthlyScore: _asInt(json["monthly_score"]),
       source: (json["source"] as String?)?.trim().isNotEmpty == true
@@ -114,6 +124,7 @@ class WeeklyAiReport {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       "summary": summary,
+      "emotion_summary": emotionSummary,
       "insights": insights,
       "actions": actions,
       "weekly_score": weeklyScore,
@@ -131,6 +142,63 @@ class WeeklyAiReport {
         .map((String item) => item.trim())
         .where((String item) => item.isNotEmpty)
         .toList(growable: false);
+  }
+
+  static List<String> _normalizedInsights(Object? value) {
+    return _stringListOf(
+      value,
+    ).map(_normalizeInsightText).whereType<String>().toList(growable: false);
+  }
+
+  static List<String> _normalizedActions(Object? value) {
+    return _stringListOf(
+      value,
+    ).map(_normalizeActionText).whereType<String>().toList(growable: false);
+  }
+
+  static String _normalizeSummaryText(String value) {
+    String normalized = value.trim();
+    if (normalized.isEmpty) {
+      return normalized;
+    }
+    normalized = normalized.replaceAll(
+      "좋았던 순간과 힘들었던 순간이 분명하게 구분되는 한 주였습니다.",
+      "",
+    );
+    normalized = normalized.replaceAll(RegExp(r"\s+"), " ").trim();
+    return normalized;
+  }
+
+  static String? _normalizeInsightText(String value) {
+    final String normalized = value.trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    const List<String> blockedFragments = <String>[
+      "긍정 신호",
+      "부담 신호",
+      "최고 컨디션 데이터",
+      "저점 데이터",
+    ];
+    for (final String fragment in blockedFragments) {
+      if (normalized.contains(fragment)) {
+        return null;
+      }
+    }
+    return normalized;
+  }
+
+  static String? _normalizeActionText(String value) {
+    String normalized = value.trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    normalized = normalized.replaceFirst(
+      RegExp(r"^(다음\s*주\s*미션|다음\s*주\s*액션|다음\s*액션)\s*[:：-]?\s*"),
+      "",
+    );
+    normalized = normalized.trim();
+    return normalized.isEmpty ? null : normalized;
   }
 
   static int? _asInt(Object? value) {
@@ -170,19 +238,94 @@ class WeeklyAggregationSnapshot {
   final List<String> topKeywords;
   final double trendDelta;
 
+  bool get hasCheckinData =>
+      averageMood > 0 ||
+      averageEnergy > 0 ||
+      averageStress > 0 ||
+      payload.days.any(
+        (Map<String, Object?> day) =>
+            day["mood_score"] != null ||
+            day["energy_score"] != null ||
+            day["stress_score"] != null,
+      );
+
   factory WeeklyAggregationSnapshot.fromJson(Map<String, dynamic> json) {
+    final ReportAnalyzePayload payload = ReportAnalyzePayload.fromJson(
+      (json["payload"] as Map<String, dynamic>?) ?? const <String, dynamic>{},
+    );
+    Object? pickFirst(List<Object?> values) {
+      for (final Object? value in values) {
+        if (value != null) {
+          return value;
+        }
+      }
+      return null;
+    }
+
+    final List<String> decodedTopKeywords = ReportAnalyzePayload._stringListOf(
+      json["top_keywords"],
+    );
     return WeeklyAggregationSnapshot(
-      payload: ReportAnalyzePayload.fromJson(
-        (json["payload"] as Map<String, dynamic>?) ?? const <String, dynamic>{},
+      payload: payload,
+      weeklyScore:
+          _asInt(
+            pickFirst(<Object?>[
+              json["weekly_score"],
+              json["overall_score"],
+              payload.metrics["weekly_score"],
+              payload.metrics["overall_score"],
+            ]),
+          ) ??
+          0,
+      averageMood: _asDouble(
+        pickFirst(<Object?>[
+          json["average_mood"],
+          json["avg_mood"],
+          payload.metrics["average_mood"],
+          payload.metrics["avg_mood"],
+        ]),
       ),
-      weeklyScore: _asInt(json["weekly_score"]) ?? 0,
-      averageMood: _asDouble(json["average_mood"]),
-      averageEnergy: _asDouble(json["average_energy"]),
-      averageStress: _asDouble(json["average_stress"]),
-      recordedDays: _asInt(json["recorded_days"]) ?? 0,
-      targetDays: _asInt(json["target_days"]) ?? 7,
-      topKeywords: ReportAnalyzePayload._stringListOf(json["top_keywords"]),
-      trendDelta: _asDouble(json["trend_delta"]),
+      averageEnergy: _asDouble(
+        pickFirst(<Object?>[
+          json["average_energy"],
+          json["avg_energy"],
+          payload.metrics["average_energy"],
+          payload.metrics["avg_energy"],
+        ]),
+      ),
+      averageStress: _asDouble(
+        pickFirst(<Object?>[
+          json["average_stress"],
+          json["avg_stress"],
+          payload.metrics["average_stress"],
+          payload.metrics["avg_stress"],
+        ]),
+      ),
+      recordedDays:
+          _asInt(
+            pickFirst(<Object?>[
+              json["recorded_days"],
+              payload.metrics["recorded_days"],
+            ]),
+          ) ??
+          0,
+      targetDays:
+          _asInt(
+            pickFirst(<Object?>[
+              json["target_days"],
+              payload.metrics["target_days"],
+            ]),
+          ) ??
+          7,
+      topKeywords: decodedTopKeywords.isNotEmpty
+          ? decodedTopKeywords
+          : payload.topKeywords,
+      trendDelta: _asDouble(
+        pickFirst(<Object?>[
+          json["trend_delta"],
+          payload.metrics["trend_delta"],
+        ]),
+      ),
     );
   }
 

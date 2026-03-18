@@ -4,8 +4,8 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
-import "../../core/kst_date_time.dart";
 import "../moderation/public_record_moderation.dart";
+import "public_answer_retention.dart";
 
 class PublicAnswerPayload {
   const PublicAnswerPayload({
@@ -210,7 +210,6 @@ class PublicAnswerUploader {
 
   Future<void> _deletePastAnswersForAnon(String anonId) async {
     final FirebaseFirestore db = FirebaseFirestore.instance;
-    final String todayKey = kstDateKeyNow();
 
     final QuerySnapshot<Map<String, dynamic>> allMine = await db
         .collectionGroup("answers")
@@ -222,7 +221,8 @@ class PublicAnswerUploader {
     for (final QueryDocumentSnapshot<Map<String, dynamic>> doc
         in allMine.docs) {
       final String? questionDateKey = doc.data()["questionDateKey"] as String?;
-      if (questionDateKey != null && questionDateKey.compareTo(todayKey) < 0) {
+      if (questionDateKey != null &&
+          shouldDeletePublicAnswerDateKey(questionDateKey)) {
         staleRefs.add(doc.reference);
       }
     }

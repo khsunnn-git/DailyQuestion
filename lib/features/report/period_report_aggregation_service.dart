@@ -69,6 +69,21 @@ class PeriodReportAggregationService {
     "이번",
     "상태",
   };
+  static const Set<String> _blockedKeywordWords = <String>{
+    "이야기",
+    "얘기",
+    "다녀오기",
+    "돌아오기",
+    "보기",
+    "가기",
+    "오기",
+    "하기",
+    "해보기",
+    "보내기",
+    "지내기",
+    "나가기",
+    "들어가기",
+  };
   static const Set<String> _domainBoostWords = <String>{
     "행복",
     "기쁨",
@@ -317,6 +332,31 @@ class PeriodReportAggregationService {
     "타",
     "입",
   ];
+  static const List<String> _keywordTailReplacements = <String>["이야기", "다녀오기"];
+  static const List<String> _compoundActionSuffixes = <String>[
+    "보기",
+    "가기",
+    "오기",
+    "먹기",
+    "듣기",
+    "읽기",
+    "쓰기",
+    "마시기",
+    "타기",
+  ];
+  static const Set<String> _blockedCompoundActionPrefixes = <String>{
+    "다녀",
+    "돌아",
+    "보내",
+    "지내",
+    "들어",
+    "나가",
+    "해",
+    "해보",
+    "챙기",
+    "챙겨",
+    "놀러",
+  };
 
   static const List<String> _josaSuffixes = <String>[
     "으로부터",
@@ -724,8 +764,13 @@ class PeriodReportAggregationService {
         break;
       }
     }
+    value = _normalizeKeywordTail(value);
     if (!_isLikelyNoun(value)) {
-      return null;
+      final String? compoundAction = _normalizeCompoundActionNoun(value);
+      if (compoundAction == null) {
+        return null;
+      }
+      return compoundAction;
     }
     for (final String fragment in _verbLikeFragments) {
       if (value == fragment ||
@@ -734,12 +779,72 @@ class PeriodReportAggregationService {
         return null;
       }
     }
+    if (_blockedKeywordWords.contains(value)) {
+      return null;
+    }
     for (final String noise in <String>["계속", "많이", "말고", "돼요", "되요", "되고"]) {
       if (value.contains(noise)) {
         return null;
       }
     }
     return value;
+  }
+
+  String _normalizeKeywordTail(String value) {
+    if (_blockedKeywordWords.contains(value)) {
+      return value;
+    }
+    for (final String suffix in _keywordTailReplacements) {
+      if (value.length <= suffix.length + 1 || !value.endsWith(suffix)) {
+        continue;
+      }
+      final String prefix = value.substring(0, value.length - suffix.length);
+      if (_isMeaningfulKeywordStem(prefix)) {
+        return prefix;
+      }
+    }
+    return value;
+  }
+
+  String? _normalizeCompoundActionNoun(String value) {
+    if (_blockedKeywordWords.contains(value)) {
+      return null;
+    }
+    for (final String suffix in _compoundActionSuffixes) {
+      if (value.length <= suffix.length + 1 || !value.endsWith(suffix)) {
+        continue;
+      }
+      final String prefix = value.substring(0, value.length - suffix.length);
+      if (!_isMeaningfulKeywordStem(prefix)) {
+        continue;
+      }
+      final bool blocked = _blockedCompoundActionPrefixes.any(prefix.endsWith);
+      if (blocked) {
+        continue;
+      }
+      return value;
+    }
+    return null;
+  }
+
+  bool _isMeaningfulKeywordStem(String value) {
+    if (value.isEmpty ||
+        _stopWords.contains(value) ||
+        _lowInfoWords.contains(value) ||
+        _blockedKeywordWords.contains(value)) {
+      return false;
+    }
+    if (!_isLikelyNoun(value)) {
+      return false;
+    }
+    for (final String fragment in _verbLikeFragments) {
+      if (value == fragment ||
+          value.endsWith(fragment) ||
+          value.contains(fragment)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   String _extractLeadingNounCandidate(String value) {

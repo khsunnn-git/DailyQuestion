@@ -525,10 +525,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
   }) async {
     await prefs.setInt(_installDateKey, installDate.millisecondsSinceEpoch);
     await prefs.setInt(_installMonthKey, installMonth.millisecondsSinceEpoch);
-    await prefs.setInt(
-      _installDateSchemaVersionKey,
-      _installDateSchemaVersion,
-    );
+    await prefs.setInt(_installDateSchemaVersionKey, _installDateSchemaVersion);
   }
 
   DateTime _clampMonth(DateTime value, DateTime min, DateTime max) {
@@ -1893,18 +1890,25 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
 
   _WeeklyReportPendingProgress? _pendingWeeklyProgress() {
     final WeeklyReportWindow window = currentWeeklyReportWindow();
-    final DateTime today = DateTime(nowInKst().year, nowInKst().month, nowInKst().day);
+    final DateTime today = DateTime(
+      nowInKst().year,
+      nowInKst().month,
+      nowInKst().day,
+    );
     final DateTime startDate = window.currentProgressStartDate;
-    final DateTime maxEndDate = startDate.add(const Duration(days: 6));
-    final DateTime endDate = today.isBefore(maxEndDate) ? today : maxEndDate;
-    if (endDate.isBefore(startDate)) {
+    final DateTime slotEndDate = startDate.add(const Duration(days: 6));
+    final DateTime visibleEndDate = today.isBefore(slotEndDate)
+        ? today
+        : slotEndDate;
+    if (visibleEndDate.isBefore(startDate)) {
       return null;
     }
 
     final Set<String> dateKeys = TodayQuestionStore.instance.value
         .map(myRecordsDisplayDate)
         .where(
-          (DateTime date) => !date.isBefore(startDate) && !date.isAfter(endDate),
+          (DateTime date) =>
+              !date.isBefore(startDate) && !date.isAfter(visibleEndDate),
         )
         .map(
           (DateTime date) =>
@@ -1916,9 +1920,8 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
     }
     return _WeeklyReportPendingProgress(
       startDate: startDate,
-      endDate: endDate,
+      endDate: slotEndDate,
       nextGenerationDateTime: window.nextGenerationDateTime,
-      recordedDays: dateKeys.length,
     );
   }
 
@@ -1968,7 +1971,9 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
 
         final report = state.report!;
         final String summaryTitle = _weeklySummaryTitle(state);
-        final String insightBody = report.insights.join("\n");
+        final String insightBody = report.insights
+            .map((String insight) => "• $insight")
+            .join("\n");
         final String actionsBody = report.actions
             .map((String action) => "• $action")
             .join("\n");
@@ -1979,8 +1984,8 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
                 pending.startDate.isAfter(state.periodEndDate!));
         final String pendingMessage = pending == null
             ? ""
-            : "${_weeklyRangeLabel(pending.startDate, pending.endDate)} 기록 ${pending.recordedDays}일은 "
-                "${_nextGenerationLabel(pending.nextGenerationDateTime)}에 반영돼요.";
+            : "${_weeklyRangeLabel(pending.startDate, pending.endDate)} 기록은 "
+                  "${_nextGenerationLabel(pending.nextGenerationDateTime)}에 반영돼요.";
 
         if (state.isCompact) {
           return Column(
@@ -2322,13 +2327,11 @@ class _WeeklyReportPendingProgress {
     required this.startDate,
     required this.endDate,
     required this.nextGenerationDateTime,
-    required this.recordedDays,
   });
 
   final DateTime startDate;
   final DateTime endDate;
   final DateTime nextGenerationDateTime;
-  final int recordedDays;
 }
 
 class _StreakCardCopy {
@@ -3282,6 +3285,21 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "이번",
     "상태",
   };
+  static const Set<String> _blockedKeywordWords = <String>{
+    "이야기",
+    "얘기",
+    "다녀오기",
+    "돌아오기",
+    "보기",
+    "가기",
+    "오기",
+    "하기",
+    "해보기",
+    "보내기",
+    "지내기",
+    "나가기",
+    "들어가기",
+  };
   static const Set<String> _domainBoostWords = <String>{
     "행복",
     "기쁨",
@@ -3530,6 +3548,31 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "타",
     "입",
   ];
+  static const List<String> _keywordTailReplacements = <String>["이야기", "다녀오기"];
+  static const List<String> _compoundActionSuffixes = <String>[
+    "보기",
+    "가기",
+    "오기",
+    "먹기",
+    "듣기",
+    "읽기",
+    "쓰기",
+    "마시기",
+    "타기",
+  ];
+  static const Set<String> _blockedCompoundActionPrefixes = <String>{
+    "다녀",
+    "돌아",
+    "보내",
+    "지내",
+    "들어",
+    "나가",
+    "해",
+    "해보",
+    "챙기",
+    "챙겨",
+    "놀러",
+  };
 
   static const List<String> _josaSuffixes = <String>[
     "으로부터",
@@ -3632,12 +3675,9 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
             }
             return a.key.compareTo(b.key);
           });
-    final List<MapEntry<String, int>> repeated = sorted
-        .where((MapEntry<String, int> e) => e.value >= 2)
-        .toList();
-    final List<MapEntry<String, int>> effective = repeated.isNotEmpty
-        ? repeated
-        : sorted.take(3).toList();
+    final List<MapEntry<String, int>> effective = sorted
+        .take(_sliceColors.length)
+        .toList(growable: false);
     if (effective.isEmpty) {
       return const <_KeywordSlice>[];
     }
@@ -3733,8 +3773,13 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
         break;
       }
     }
+    value = _normalizeKeywordTail(value);
     if (!_isLikelyNoun(value)) {
-      return null;
+      final String? compoundAction = _normalizeCompoundActionNoun(value);
+      if (compoundAction == null) {
+        return null;
+      }
+      return compoundAction;
     }
     for (final String fragment in _verbLikeFragments) {
       if (value == fragment ||
@@ -3743,12 +3788,72 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
         return null;
       }
     }
+    if (_blockedKeywordWords.contains(value)) {
+      return null;
+    }
     for (final String noise in <String>["계속", "많이", "말고", "돼요", "되요", "되고"]) {
       if (value.contains(noise)) {
         return null;
       }
     }
     return value;
+  }
+
+  String _normalizeKeywordTail(String value) {
+    if (_blockedKeywordWords.contains(value)) {
+      return value;
+    }
+    for (final String suffix in _keywordTailReplacements) {
+      if (value.length <= suffix.length + 1 || !value.endsWith(suffix)) {
+        continue;
+      }
+      final String prefix = value.substring(0, value.length - suffix.length);
+      if (_isMeaningfulKeywordStem(prefix)) {
+        return prefix;
+      }
+    }
+    return value;
+  }
+
+  String? _normalizeCompoundActionNoun(String value) {
+    if (_blockedKeywordWords.contains(value)) {
+      return null;
+    }
+    for (final String suffix in _compoundActionSuffixes) {
+      if (value.length <= suffix.length + 1 || !value.endsWith(suffix)) {
+        continue;
+      }
+      final String prefix = value.substring(0, value.length - suffix.length);
+      if (!_isMeaningfulKeywordStem(prefix)) {
+        continue;
+      }
+      final bool blocked = _blockedCompoundActionPrefixes.any(prefix.endsWith);
+      if (blocked) {
+        continue;
+      }
+      return value;
+    }
+    return null;
+  }
+
+  bool _isMeaningfulKeywordStem(String value) {
+    if (value.isEmpty ||
+        _stopWords.contains(value) ||
+        _lowInfoWords.contains(value) ||
+        _blockedKeywordWords.contains(value)) {
+      return false;
+    }
+    if (!_isLikelyNoun(value)) {
+      return false;
+    }
+    for (final String fragment in _verbLikeFragments) {
+      if (value == fragment ||
+          value.endsWith(fragment) ||
+          value.contains(fragment)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   bool _isLikelyNoun(String token) {
@@ -3819,10 +3924,6 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
         final List<_KeywordSlice> slices = _buildKeywordSlices(records);
         final bool showNoKeywordDonut =
             monthlyRecordCount == 0 || slices.isEmpty;
-        final int total = math.max(
-          1,
-          slices.fold(0, (int acc, _KeywordSlice item) => acc + item.count),
-        );
 
         return Container(
           width: double.infinity,
@@ -3839,6 +3940,13 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                 "$selectedMonth월 키워드",
                 style: AppTypography.headingXSmall.copyWith(
                   color: AppNeutralColors.grey900,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.s4),
+              Text(
+                "이번 달 기록 $monthlyRecordCount건 기준",
+                style: AppTypography.captionMedium.copyWith(
+                  color: AppNeutralColors.grey500,
                 ),
               ),
               const SizedBox(height: AppSpacing.s16),
@@ -3882,8 +3990,6 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                 Column(
                   children: slices
                       .map((_KeywordSlice slice) {
-                        final String ratio = ((slice.count / total) * 100)
-                            .toStringAsFixed(0);
                         return Padding(
                           padding: const EdgeInsets.only(bottom: AppSpacing.s4),
                           child: Row(
@@ -3907,7 +4013,7 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                "$ratio%(${slice.count}건)",
+                                "${slice.count}건",
                                 style: AppTypography.bodySmallRegular.copyWith(
                                   color: AppNeutralColors.grey900,
                                 ),
@@ -3917,6 +4023,13 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                         );
                       })
                       .toList(growable: false),
+                ),
+                const SizedBox(height: AppSpacing.s8),
+                Text(
+                  "한 기록에서 여러 키워드가 함께 추출될 수 있어요.",
+                  style: AppTypography.captionSmall.copyWith(
+                    color: AppNeutralColors.grey500,
+                  ),
                 ),
               ],
             ],
