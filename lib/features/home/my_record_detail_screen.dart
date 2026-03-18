@@ -18,8 +18,11 @@ class MyRecordDetailScreen extends StatefulWidget {
 
 class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
   late final List<String> _bucketTags;
+  late final PageController _pageController;
+  late List<TodayQuestionRecord> _records;
   late String _answer;
   late bool _isPublic;
+  int _currentIndex = 0;
   bool _showMoreMenu = false;
   int? _selectedMoreMenuIndex;
   int? _armedDeleteTagIndex;
@@ -27,14 +30,17 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _bucketTags = widget.record.bucketTags.isNotEmpty
-        ? List<String>.from(widget.record.bucketTags)
-        : (widget.record.bucketTag == null ||
-              widget.record.bucketTag!.trim().isEmpty)
-        ? <String>[]
-        : <String>[widget.record.bucketTag!.trim()];
-    _answer = widget.record.answer;
-    _isPublic = widget.record.isPublic;
+    _bucketTags = <String>[];
+    _records = _initialRecords(widget.record);
+    _currentIndex = _resolveInitialIndex(_records, widget.record);
+    _pageController = PageController(initialPage: _currentIndex);
+    _syncVisibleRecord(_records[_currentIndex]);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   void _dismissMoreMenu() {
@@ -44,6 +50,70 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
     setState(() {
       _showMoreMenu = false;
       _selectedMoreMenuIndex = null;
+    });
+  }
+
+  List<TodayQuestionRecord> _initialRecords(TodayQuestionRecord seedRecord) {
+    final List<TodayQuestionRecord> records = List<TodayQuestionRecord>.from(
+      TodayQuestionStore.instance.value,
+    );
+    final bool containsSeed = records.any(
+      (TodayQuestionRecord item) => item.createdAt == seedRecord.createdAt,
+    );
+    if (!containsSeed) {
+      records.add(seedRecord);
+      records.sort((TodayQuestionRecord a, TodayQuestionRecord b) {
+        return b.createdAt.compareTo(a.createdAt);
+      });
+    }
+    return records.isEmpty ? <TodayQuestionRecord>[seedRecord] : records;
+  }
+
+  int _resolveInitialIndex(
+    List<TodayQuestionRecord> records,
+    TodayQuestionRecord target,
+  ) {
+    final int index = records.indexWhere(
+      (TodayQuestionRecord item) => item.createdAt == target.createdAt,
+    );
+    return index >= 0 ? index : 0;
+  }
+
+  TodayQuestionRecord get _currentRecord => _records[_currentIndex];
+
+  List<String> _resolvedBucketTags(TodayQuestionRecord record) {
+    if (record.bucketTags.isNotEmpty) {
+      return List<String>.from(record.bucketTags);
+    }
+    if (record.bucketTag == null || record.bucketTag!.trim().isEmpty) {
+      return <String>[];
+    }
+    return <String>[record.bucketTag!.trim()];
+  }
+
+  void _syncVisibleRecord(TodayQuestionRecord record) {
+    _bucketTags
+      ..clear()
+      ..addAll(_resolvedBucketTags(record));
+    _answer = record.answer;
+    _isPublic = record.isPublic;
+    _armedDeleteTagIndex = null;
+  }
+
+  void _updateCurrentRecord(TodayQuestionRecord nextRecord) {
+    _records[_currentIndex] = nextRecord;
+    _syncVisibleRecord(nextRecord);
+  }
+
+  void _handlePageChanged(int index) {
+    if (index < 0 || index >= _records.length || index == _currentIndex) {
+      return;
+    }
+    setState(() {
+      _currentIndex = index;
+      _showMoreMenu = false;
+      _selectedMoreMenuIndex = null;
+      _syncVisibleRecord(_records[index]);
     });
   }
 
@@ -96,13 +166,33 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
     if (index < 0 || index >= _bucketTags.length) {
       return;
     }
+    final TodayQuestionRecord currentRecord = _currentRecord;
     setState(() {
       _bucketTags.removeAt(index);
     });
     await TodayQuestionStore.instance.updateRecordBucketTags(
-      createdAt: widget.record.createdAt,
+      createdAt: currentRecord.createdAt,
       bucketTags: _bucketTags,
     );
+    setState(() {
+      _updateCurrentRecord(
+        TodayQuestionRecord(
+          createdAt: currentRecord.createdAt,
+          answer: _answer,
+          author: currentRecord.author,
+          bucketTag: _bucketTags.isEmpty ? null : _bucketTags.last,
+          bucketTags: List<String>.from(_bucketTags),
+          isPublic: _isPublic,
+          questionSlot: currentRecord.questionSlot,
+          questionDayOfYear: currentRecord.questionDayOfYear,
+          questionDateKey: currentRecord.questionDateKey,
+          questionText: currentRecord.questionText,
+          moodScore5: currentRecord.moodScore5,
+          energyScore5: currentRecord.energyScore5,
+          stressScore5: currentRecord.stressScore5,
+        ),
+      );
+    });
     _showBucketRemovedToast();
   }
 
@@ -126,16 +216,20 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
 
   Future<void> _openEditScreen() async {
     _dismissMoreMenu();
+    final TodayQuestionRecord currentRecord = _currentRecord;
     final TodayQuestionRecord seedRecord = TodayQuestionRecord(
-      createdAt: widget.record.createdAt,
+      createdAt: currentRecord.createdAt,
       answer: _answer,
-      author: widget.record.author,
+      author: currentRecord.author,
       bucketTag: _bucketTags.isEmpty ? null : _bucketTags.last,
       bucketTags: List<String>.from(_bucketTags),
       isPublic: _isPublic,
-      questionSlot: widget.record.questionSlot,
-      questionDateKey: widget.record.questionDateKey,
-      questionText: widget.record.questionText,
+      questionSlot: currentRecord.questionSlot,
+      questionDateKey: currentRecord.questionDateKey,
+      questionText: currentRecord.questionText,
+      moodScore5: currentRecord.moodScore5,
+      energyScore5: currentRecord.energyScore5,
+      stressScore5: currentRecord.stressScore5,
     );
 
     final TodayQuestionRecord? updatedRecord = await Navigator.of(context)
@@ -150,11 +244,7 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
       return;
     }
     setState(() {
-      _answer = updatedRecord.answer;
-      _isPublic = updatedRecord.isPublic;
-      _bucketTags
-        ..clear()
-        ..addAll(updatedRecord.bucketTags);
+      _updateCurrentRecord(updatedRecord);
     });
   }
 
@@ -240,7 +330,7 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
     }
 
     final bool removed = await TodayQuestionStore.instance.deleteRecord(
-      createdAt: widget.record.createdAt,
+      createdAt: _currentRecord.createdAt,
     );
     if (!mounted) {
       return;
@@ -256,16 +346,6 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final DateTime createdAt = _displayDateForRecord(widget.record);
-    final String createdDate =
-        "${createdAt.year.toString().padLeft(4, "0")}."
-        "${createdAt.month.toString().padLeft(2, "0")}."
-        "${createdAt.day.toString().padLeft(2, "0")}";
-    final String questionTitle =
-        (widget.record.questionText?.trim().isNotEmpty ?? false)
-        ? widget.record.questionText!.trim()
-        : "오늘의 질문";
-
     return Scaffold(
       backgroundColor: brand.bg,
       body: Padding(
@@ -273,122 +353,108 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
         child: Stack(
           children: <Widget>[
             Positioned.fill(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.s20,
-                  AppHeaderTokens.topInset,
-                  AppSpacing.s20,
-                  AppNavigationBar.totalHeight(context) + AppSpacing.s20,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    SizedBox(
-                      height: AppHeaderTokens.height,
-                      child: Row(
-                        children: <Widget>[
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: IconButton(
-                              onPressed: () => Navigator.of(context).maybePop(),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
+              child: PageView.builder(
+                controller: _pageController,
+                reverse: true,
+                onPageChanged: _handlePageChanged,
+                itemCount: _records.length,
+                itemBuilder: (BuildContext context, int index) {
+                  final TodayQuestionRecord record = _records[index];
+                  final DateTime createdAt = _displayDateForRecord(record);
+                  final String createdDate =
+                      "${createdAt.year.toString().padLeft(4, "0")}."
+                      "${createdAt.month.toString().padLeft(2, "0")}."
+                      "${createdAt.day.toString().padLeft(2, "0")}";
+                  final String questionTitle =
+                      (record.questionText?.trim().isNotEmpty ?? false)
+                      ? record.questionText!.trim()
+                      : "오늘의 질문";
+                  final bool isCurrentPage = index == _currentIndex;
+                  final List<String> pageBucketTags = isCurrentPage
+                      ? _bucketTags
+                      : _resolvedBucketTags(record);
+                  final String pageAnswer = isCurrentPage
+                      ? _answer
+                      : record.answer;
+
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.s20,
+                      AppHeaderTokens.topInset,
+                      AppSpacing.s20,
+                      AppNavigationBar.totalHeight(context) + AppSpacing.s20,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        SizedBox(
+                          height: AppHeaderTokens.height,
+                          child: Row(
+                            children: <Widget>[
+                              SizedBox(
                                 width: 24,
                                 height: 24,
+                                child: IconButton(
+                                  onPressed: () =>
+                                      Navigator.of(context).maybePop(),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 24,
+                                    height: 24,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.arrow_back,
+                                    color: AppNeutralColors.grey900,
+                                    size: 24,
+                                  ),
+                                ),
                               ),
-                              icon: const Icon(
-                                Icons.arrow_back,
-                                color: AppNeutralColors.grey900,
-                                size: 24,
+                              Expanded(
+                                child: Text(
+                                  createdDate,
+                                  textAlign: TextAlign.center,
+                                  style: AppTypography.headingXSmall.copyWith(
+                                    color: AppNeutralColors.grey900,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              createdDate,
-                              textAlign: TextAlign.center,
-                              style: AppTypography.headingXSmall.copyWith(
-                                color: AppNeutralColors.grey900,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: IconButton(
-                              onPressed: _toggleMoreMenu,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
+                              SizedBox(
                                 width: 24,
                                 height: 24,
+                                child: IconButton(
+                                  onPressed: isCurrentPage
+                                      ? _toggleMoreMenu
+                                      : null,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints.tightFor(
+                                    width: 24,
+                                    height: 24,
+                                  ),
+                                  visualDensity: VisualDensity.compact,
+                                  icon: Icon(
+                                    Icons.more_horiz,
+                                    color: isCurrentPage
+                                        ? AppNeutralColors.grey400
+                                        : Colors.transparent,
+                                    size: 24,
+                                  ),
+                                ),
                               ),
-                              visualDensity: VisualDensity.compact,
-                              icon: const Icon(
-                                Icons.more_horiz,
-                                color: AppNeutralColors.grey400,
-                                size: 24,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.s24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.s24,
-                      ),
-                      child: Container(
-                        width: 300,
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.s8,
-                          AppSpacing.s24,
-                          AppSpacing.s8,
-                          AppSpacing.s24,
-                        ),
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(color: AppNeutralColors.grey100),
+                            ],
                           ),
                         ),
-                        child: Text(
-                          questionTitle,
-                          textAlign: TextAlign.center,
-                          style: AppTypography.headingLarge.copyWith(
-                            color: AppNeutralColors.grey900,
+                        const SizedBox(height: AppSpacing.s24),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s24,
                           ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.s24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.s24,
-                      ),
-                      child: Container(
-                        constraints: const BoxConstraints(minHeight: 370),
-                        alignment: Alignment.topLeft,
-                        child: Text(
-                          _answer,
-                          style: AppTypography.bodyLargeRegular.copyWith(
-                            color: AppNeutralColors.grey800,
-                            height: 1.8,
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (_bucketTags.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: AppSpacing.s24),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s24,
-                        ),
-                        child: SizedBox(
-                          width: 300,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.s8,
+                            width: 300,
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.s8,
+                              AppSpacing.s24,
+                              AppSpacing.s8,
+                              AppSpacing.s24,
                             ),
                             decoration: const BoxDecoration(
                               border: Border(
@@ -398,88 +464,145 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                               ),
                             ),
                             child: Text(
-                              "버킷리스트",
-                              style: AppTypography.headingXSmall.copyWith(
+                              questionTitle,
+                              textAlign: TextAlign.center,
+                              style: AppTypography.headingLarge.copyWith(
                                 color: AppNeutralColors.grey900,
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.s8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s24,
-                        ),
-                        child: SizedBox(
-                          width: 300,
-                          child: Wrap(
-                            spacing: AppSpacing.s8,
-                            runSpacing: AppSpacing.s8,
-                            children: _bucketTags
-                                .asMap()
-                                .entries
-                                .map((MapEntry<int, String> entry) {
-                                  final int index = entry.key;
-                                  final String tag = entry.value;
-                                  return Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onLongPress: () => _armTagDelete(index),
-                                      onTap: () => _handleTagTap(index),
-                                      borderRadius: AppRadius.pill,
-                                      child: Container(
-                                        height: 38,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: AppSpacing.s12,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: brand.c500,
-                                          borderRadius: AppRadius.pill,
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: <Widget>[
-                                            Text(
-                                              "#$tag",
-                                              style: AppTypography.buttonSmall
-                                                  .copyWith(
-                                                    color:
-                                                        AppNeutralColors.white,
-                                                  ),
-                                            ),
-                                            if (_armedDeleteTagIndex ==
-                                                index) ...<Widget>[
-                                              const SizedBox(
-                                                width: AppSpacing.s6,
-                                              ),
-                                              Container(
-                                                width: 20,
-                                                height: 20,
-                                                decoration: const BoxDecoration(
-                                                  color: AppNeutralColors.white,
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Icon(
-                                                  Icons.close,
-                                                  size: 16,
-                                                  color: brand.c500,
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                })
-                                .toList(growable: false),
+                        const SizedBox(height: AppSpacing.s24),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s24,
+                          ),
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 370),
+                            alignment: Alignment.topLeft,
+                            child: Text(
+                              pageAnswer,
+                              style: AppTypography.bodyLargeRegular.copyWith(
+                                color: AppNeutralColors.grey800,
+                                height: 1.8,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
+                        if (pageBucketTags.isNotEmpty) ...<Widget>[
+                          const SizedBox(height: AppSpacing.s24),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s24,
+                            ),
+                            child: SizedBox(
+                              width: 300,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: AppSpacing.s8,
+                                ),
+                                decoration: const BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(
+                                      color: AppNeutralColors.grey100,
+                                    ),
+                                  ),
+                                ),
+                                child: Text(
+                                  "버킷리스트",
+                                  style: AppTypography.headingXSmall.copyWith(
+                                    color: AppNeutralColors.grey900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.s8),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s24,
+                            ),
+                            child: SizedBox(
+                              width: 300,
+                              child: Wrap(
+                                spacing: AppSpacing.s8,
+                                runSpacing: AppSpacing.s8,
+                                children: pageBucketTags
+                                    .asMap()
+                                    .entries
+                                    .map((MapEntry<int, String> entry) {
+                                      final int tagIndex = entry.key;
+                                      final String tag = entry.value;
+                                      return Material(
+                                        color: Colors.transparent,
+                                        child: InkWell(
+                                          onLongPress: isCurrentPage
+                                              ? () => _armTagDelete(tagIndex)
+                                              : null,
+                                          onTap: isCurrentPage
+                                              ? () => _handleTagTap(tagIndex)
+                                              : null,
+                                          borderRadius: AppRadius.pill,
+                                          child: Container(
+                                            height: 38,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: AppSpacing.s12,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: brand.c500,
+                                              borderRadius: AppRadius.pill,
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: <Widget>[
+                                                Text(
+                                                  "#$tag",
+                                                  style: AppTypography
+                                                      .buttonSmall
+                                                      .copyWith(
+                                                        color: AppNeutralColors
+                                                            .white,
+                                                      ),
+                                                ),
+                                                if (isCurrentPage &&
+                                                    _armedDeleteTagIndex ==
+                                                        tagIndex) ...<Widget>[
+                                                  const SizedBox(
+                                                    width: AppSpacing.s6,
+                                                  ),
+                                                  Container(
+                                                    width: 20,
+                                                    height: 20,
+                                                    decoration:
+                                                        const BoxDecoration(
+                                                          color:
+                                                              AppNeutralColors
+                                                                  .white,
+                                                          shape:
+                                                              BoxShape.circle,
+                                                        ),
+                                                    child: Icon(
+                                                      Icons.close,
+                                                      size: 16,
+                                                      color: brand.c500,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    })
+                                    .toList(growable: false),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
             if (_showMoreMenu)
