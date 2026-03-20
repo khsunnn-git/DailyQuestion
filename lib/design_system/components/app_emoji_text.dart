@@ -27,6 +27,7 @@ class AppEmojiText extends StatelessWidget {
   static const Color _emojiGreen = Color(0xFF4CAF50);
   static const Color _emojiSky = Color(0xFF7CC8FF);
   static const Color _emojiIndigo = Color(0xFF7986CB);
+  static const Color _emojiGold = Color(0xFFFFD54F);
 
   _EmojiGlyph? _emojiGlyph(String cluster) {
     switch (cluster) {
@@ -48,12 +49,16 @@ class AppEmojiText extends StatelessWidget {
         return const _EmojiGlyph(Icons.local_fire_department_rounded, _emojiOrange);
       case "❤️":
         return const _EmojiGlyph(Icons.favorite_rounded, _emojiRed);
+      case "💡":
+        return const _EmojiGlyph(Icons.lightbulb_rounded, _emojiGold);
       case "⭐":
         return const _EmojiGlyph(Icons.star_rounded, _emojiAmber);
       case "〰️":
         return const _EmojiGlyph(Icons.remove_rounded, _emojiGrey, sizeScale: 1.0);
       case "🌧️":
         return const _EmojiGlyph(Icons.cloud_rounded, _emojiSky);
+      case "🌱":
+        return const _EmojiGlyph(Icons.eco_rounded, _emojiGreen);
       case "⚡":
         return const _EmojiGlyph(Icons.bolt_rounded, _emojiAmber);
       case "☀️":
@@ -70,6 +75,33 @@ class AppEmojiText extends StatelessWidget {
         return const _EmojiGlyph(Icons.cloud_rounded, _emojiGrey);
       case "🌪️":
         return const _EmojiGlyph(Icons.air_rounded, _emojiGrey);
+      case "✅":
+      case "☑️":
+      case "✔️":
+        return const _EmojiGlyph(Icons.task_alt_rounded, _emojiGreen);
+      case "❓":
+      case "❔":
+        return const _EmojiGlyph(Icons.help_rounded, _emojiAmber);
+      case "💬":
+        return const _EmojiGlyph(Icons.chat_bubble_rounded, _emojiBlue);
+      case "📣":
+        return const _EmojiGlyph(Icons.campaign_rounded, _emojiOrange);
+      case "📝":
+        return const _EmojiGlyph(Icons.edit_note_rounded, _emojiBlue);
+      case "📌":
+        return const _EmojiGlyph(Icons.push_pin_rounded, _emojiRed);
+      case "📍":
+        return const _EmojiGlyph(Icons.location_on_rounded, _emojiRed);
+      case "📅":
+      case "📆":
+        return const _EmojiGlyph(Icons.calendar_month_rounded, _emojiBlue);
+      case "📖":
+      case "📘":
+        return const _EmojiGlyph(Icons.menu_book_rounded, _emojiBlue);
+      case "🎯":
+        return const _EmojiGlyph(Icons.gps_fixed_rounded, _emojiRed);
+      case "💪":
+        return const _EmojiGlyph(Icons.fitness_center_rounded, _emojiOrange);
       case "🪙":
         return const _EmojiGlyph(Icons.paid_rounded, _emojiAmber);
       case "🐟":
@@ -96,7 +128,8 @@ class AppEmojiText extends StatelessWidget {
     }
 
     for (final String cluster in text.characters) {
-      final _EmojiGlyph? glyph = _emojiGlyph(cluster);
+      final _EmojiGlyph? glyph =
+          _emojiGlyph(cluster) ?? _fallbackEmojiGlyph(cluster);
       if (glyph != null) {
         flushBuffer();
         spans.add(
@@ -116,6 +149,29 @@ class AppEmojiText extends StatelessWidget {
 
     flushBuffer();
     return spans;
+  }
+
+  _EmojiGlyph? _fallbackEmojiGlyph(String cluster) {
+    if (!_looksLikeEmojiCluster(cluster)) {
+      return null;
+    }
+    return const _EmojiGlyph(
+      Icons.auto_awesome_rounded,
+      _emojiAmber,
+      sizeScale: 1.0,
+    );
+  }
+
+  bool _looksLikeEmojiCluster(String cluster) {
+    for (final int rune in cluster.runes) {
+      if ((rune >= 0x2600 && rune <= 0x27BF) ||
+          (rune >= 0x1F000 && rune <= 0x1FAFF) ||
+          rune == 0xFE0F ||
+          rune == 0x200D) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @override

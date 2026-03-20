@@ -2296,7 +2296,7 @@ class _AiReportPreviewCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.s20),
-          Text(
+          AppEmojiText(
             body,
             style: AppTypography.bodyMediumRegular.copyWith(
               color: AppNeutralColors.grey900,

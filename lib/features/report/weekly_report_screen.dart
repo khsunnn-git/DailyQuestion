@@ -116,7 +116,7 @@ class _ReportContent extends StatelessWidget {
           _SectionCard(
             title: "요약",
             children: <Widget>[
-              Text(
+              AppEmojiText(
                 report.summary,
                 style: AppTypography.bodyMediumRegular.copyWith(
                   color: AppNeutralColors.grey800,
@@ -399,7 +399,7 @@ class _BulletText extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
+            child: AppEmojiText(
               text,
               style: AppTypography.bodyMediumRegular.copyWith(
                 color: AppNeutralColors.grey800,

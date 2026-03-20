@@ -153,7 +153,7 @@ class _ReportBody extends StatelessWidget {
         _Card(
           title: "요약",
           source: report.source,
-          body: Text(
+          body: AppEmojiText(
             report.summary,
             style: AppTypography.bodyMediumRegular.copyWith(
               color: AppNeutralColors.grey800,
@@ -320,7 +320,7 @@ class _Bullet extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
+            child: AppEmojiText(
               line,
               style: AppTypography.bodyMediumRegular.copyWith(
                 color: AppNeutralColors.grey800,
