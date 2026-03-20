@@ -175,7 +175,7 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
   Widget _buildInitialScreen() {
     final String previewScreen =
         DailyQuestionApp._debugPreviewScreen.trim().isEmpty
-        ? (kDebugMode ? "home" : "")
+        ? ""
         : DailyQuestionApp._debugPreviewScreen;
     switch (_resolveDebugPreviewScreen(previewScreen)) {
       case _DebugPreviewScreen.home:
