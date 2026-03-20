@@ -12,6 +12,7 @@ import "package:timezone/timezone.dart" as tz;
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../more/notification_prefs_keys.dart";
+import "notification_schedule_calculator.dart";
 
 const int _dailyQuestionNotificationId = 10001;
 const int _dailyQuestionCatchupNotificationId = 10002;
@@ -37,6 +38,8 @@ const DarwinNotificationDetails _darwinNotificationDetails =
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
+      presentBanner: true,
+      presentList: true,
     );
 
 const NotificationDetails _notificationDetails = NotificationDetails(
@@ -84,6 +87,13 @@ Future<bool> areNotificationsEnabledOnDevice() async {
     } catch (_) {}
   }
 
+  if (defaultTargetPlatform == TargetPlatform.iOS) {
+    final bool? enabled = await _areDarwinNotificationsEnabled();
+    if (enabled != null) {
+      return enabled;
+    }
+  }
+
   try {
     final PermissionStatus status = await Permission.notification.status;
     return _isNotificationPermissionGranted(status);
@@ -105,10 +115,16 @@ Future<bool> requestNotificationPermissionOnDevice() async {
             IOSFlutterLocalNotificationsPlugin
           >()
           ?.requestPermissions(alert: true, badge: true, sound: true);
-      return granted ?? false;
-    } catch (_) {
-      return false;
+      if (granted != null) {
+        return granted;
+      }
+    } catch (_) {}
+
+    final bool? enabled = await _areDarwinNotificationsEnabled();
+    if (enabled != null) {
+      return enabled;
     }
+    return false;
   }
 
   if (defaultTargetPlatform == TargetPlatform.android) {
@@ -233,6 +249,11 @@ Future<void> _ensureInitialized() async {
     requestAlertPermission: false,
     requestBadgePermission: false,
     requestSoundPermission: false,
+    defaultPresentAlert: true,
+    defaultPresentBadge: true,
+    defaultPresentSound: true,
+    defaultPresentBanner: true,
+    defaultPresentList: true,
   );
   const InitializationSettings initializationSettings = InitializationSettings(
     android: androidInit,
@@ -346,6 +367,25 @@ bool _isNotificationPermissionGranted(PermissionStatus status) {
       status == PermissionStatus.provisional;
 }
 
+Future<bool?> _areDarwinNotificationsEnabled() async {
+  try {
+    final NotificationsEnabledOptions? permissions = await _notifications
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >()
+        ?.checkPermissions();
+    if (permissions == null) {
+      return null;
+    }
+    return permissions.isEnabled ||
+        permissions.isAlertEnabled ||
+        permissions.isProvisionalEnabled;
+  } catch (error) {
+    _logNotification("failed to read iOS notification permissions: $error");
+    return null;
+  }
+}
+
 Future<AndroidScheduleMode> _resolveAndroidScheduleMode() async {
   final bool canScheduleExact = await canScheduleExactAlarmsOnDevice();
   final AndroidScheduleMode mode = canScheduleExact
@@ -402,9 +442,11 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
     minute,
   );
   final bool isSameMinuteSelection = now.hour == hour && now.minute == minute;
-  final tz.TZDateTime repeatingSchedule = todayAtSelectedTime.isAfter(now)
-      ? todayAtSelectedTime
-      : todayAtSelectedTime.add(const Duration(days: 1));
+  final tz.TZDateTime repeatingSchedule = nextDailyNotificationTime(
+    now: now,
+    hour: hour,
+    minute: minute,
+  );
   _logNotification(
     "schedule daily now=$now selected=$todayAtSelectedTime next=$repeatingSchedule sameMinute=$isSameMinuteSelection",
   );
@@ -492,14 +534,11 @@ Future<void> _resyncBucketDdayNotifications({
       continue;
     }
 
-    tz.TZDateTime scheduled = tz.TZDateTime(
-      tz.local,
-      dueDate.year,
-      dueDate.month,
-      dueDate.day,
-      9,
-      0,
-    ).subtract(Duration(days: daysBefore));
+    final tz.TZDateTime scheduled = bucketDdayNotificationTime(
+      location: tz.local,
+      dueDate: dueDate,
+      daysBefore: daysBefore,
+    );
     if (!scheduled.isAfter(now)) {
       continue;
     }

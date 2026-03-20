@@ -29,6 +29,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   bool _showDeviceNotificationBanner = true;
   bool _showExactAlarmBanner = false;
   bool _openingSystemSettings = false;
+  int _settingsInteractionVersion = 0;
   TimeOfDay _todayQuestionTime = const TimeOfDay(
     hour: NotificationPrefsKeys.defaultTodayQuestionHour,
     minute: NotificationPrefsKeys.defaultTodayQuestionMinute,
@@ -38,6 +39,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     if (kDebugMode) {
       debugPrint("[notification_settings] $message");
     }
+  }
+
+  void _markSettingsInteraction() {
+    _settingsInteractionVersion++;
   }
 
   @override
@@ -295,6 +300,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   Future<void> _loadNotificationSettings() async {
+    final int loadVersion = _settingsInteractionVersion;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final bool todayEnabled =
         prefs.getBool(NotificationPrefsKeys.todayQuestionEnabled) ??
@@ -314,7 +320,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       "load prefs todayEnabled=$todayEnabled time=${hour.toString().padLeft(2, "0")}:${minute.toString().padLeft(2, "0")} bucketEnabled=$bucketEnabled bucketDaysBefore=$bucketDdayDaysBefore",
     );
 
-    if (!mounted) {
+    if (!mounted || loadVersion != _settingsInteractionVersion) {
+      _logNotificationSettings(
+        "skip stale settings load loadVersion=$loadVersion currentVersion=$_settingsInteractionVersion",
+      );
       return;
     }
 
@@ -383,16 +392,21 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   Future<void> _handleTodayQuestionToggle(bool enabled) async {
+    _markSettingsInteraction();
     if (enabled) {
-      final bool granted = await _ensureNotificationPermission();
       if (!mounted) {
         return;
       }
       setState(() {
-        _todayQuestionEnabled = granted;
+        _todayQuestionEnabled = true;
       });
-      _logNotificationSettings("toggle today question enabled=$granted");
-      await _saveTodayQuestionEnabled(granted);
+      _logNotificationSettings("toggle today question enabled=true");
+      await _saveTodayQuestionEnabled(true);
+      await _selectTodayQuestionTime(syncAfterSelection: false);
+      final bool granted = await _ensureNotificationPermission();
+      if (!mounted) {
+        return;
+      }
       if (granted) {
         await _ensureExactAlarmPermissionIfNeeded();
       }
@@ -408,7 +422,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     await _syncNotificationSchedules();
   }
 
-  Future<void> _selectTodayQuestionTime() async {
+  Future<TimeOfDay?> _selectTodayQuestionTime({
+    bool syncAfterSelection = true,
+  }) async {
+    _markSettingsInteraction();
     bool isAm = _todayQuestionTime.hour < 12;
     int selectedHour12 = _todayQuestionTime.hourOfPeriod == 0
         ? 12
@@ -703,16 +720,22 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     );
 
     if (!mounted || picked == null) {
-      return;
+      return picked;
     }
     setState(() {
       _todayQuestionTime = picked;
     });
     await _saveTodayQuestionTime(picked);
-    await _syncNotificationSchedules();
+    if (syncAfterSelection) {
+      await _syncNotificationSchedules();
+    }
+    return picked;
   }
 
-  Future<void> _openBucketDdaySettingBottomSheet() async {
+  Future<int?> _openBucketDdaySettingBottomSheet({
+    bool syncAfterSelection = true,
+  }) async {
+    _markSettingsInteraction();
     const List<int> options = <int>[1, 3, 7, 14, 30];
     int selectedValue = options.contains(_bucketDdayDaysBefore)
         ? _bucketDdayDaysBefore
@@ -775,48 +798,47 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     );
 
     if (!mounted || selected == null) {
-      return;
+      return selected;
     }
     setState(() {
       _bucketDdayDaysBefore = selected;
     });
     await _saveBucketDdayDaysBefore(selected);
-    await _syncNotificationSchedules();
+    if (syncAfterSelection) {
+      await _syncNotificationSchedules();
+    }
+    return selected;
   }
 
   Future<void> _handleBucketDdayToggle(bool enabled) async {
+    _markSettingsInteraction();
     if (enabled) {
-      final bool granted = await _ensureNotificationPermission();
       if (!mounted) {
         return;
       }
-      if (!granted) {
-        setState(() {
-          _bucketDdayEnabled = false;
-        });
-        _logNotificationSettings("toggle bucket dday enabled=false");
-        await _saveBucketDdayEnabled(false);
-        await _syncNotificationSchedules();
-        return;
-      }
-      await _ensureExactAlarmPermissionIfNeeded();
-    }
-
-    setState(() {
-      _bucketDdayEnabled = enabled;
-      if (enabled && _bucketDdayDaysBefore <= 0) {
-        _bucketDdayDaysBefore =
-            NotificationPrefsKeys.defaultBucketDdayDaysBefore;
-      }
-    });
-    await _saveBucketDdayEnabled(enabled);
-
-    if (enabled) {
+      setState(() {
+        _bucketDdayEnabled = true;
+        if (_bucketDdayDaysBefore <= 0) {
+          _bucketDdayDaysBefore =
+              NotificationPrefsKeys.defaultBucketDdayDaysBefore;
+        }
+      });
+      _logNotificationSettings("toggle bucket dday enabled=true");
+      await _saveBucketDdayEnabled(true);
       await _saveBucketDdayDaysBefore(_bucketDdayDaysBefore);
-      await _openBucketDdaySettingBottomSheet();
+      await _openBucketDdaySettingBottomSheet(syncAfterSelection: false);
+      final bool granted = await _ensureNotificationPermission();
+      if (granted) {
+        await _ensureExactAlarmPermissionIfNeeded();
+      }
       await _syncNotificationSchedules();
       return;
     }
+
+    setState(() {
+      _bucketDdayEnabled = false;
+    });
+    await _saveBucketDdayEnabled(false);
 
     await _syncNotificationSchedules();
   }
