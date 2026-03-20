@@ -3,6 +3,7 @@ import "dart:async";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
 import "package:flutter/foundation.dart";
+import "package:flutter_localizations/flutter_localizations.dart";
 import "package:firebase_core/firebase_core.dart";
 
 import "app_bootstrap.dart";
@@ -63,6 +64,7 @@ Future<void> _initializeFirebaseSafely() async {
 class DailyQuestionApp extends StatefulWidget {
   const DailyQuestionApp({super.key});
 
+  static const Locale _appLocale = Locale("ko");
   static const bool _forceNicknameSetupPreview = false;
   static const String _debugPreviewScreen = String.fromEnvironment(
     "DEBUG_PREVIEW_SCREEN",
@@ -140,6 +142,9 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorObservers: <NavigatorObserver>[appRouteObserver],
+      locale: DailyQuestionApp._appLocale,
+      supportedLocales: const <Locale>[DailyQuestionApp._appLocale],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       builder: (BuildContext context, Widget? child) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: DailyQuestionApp._systemUiStyle,
