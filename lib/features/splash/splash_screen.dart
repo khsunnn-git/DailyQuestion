@@ -175,7 +175,7 @@ class _SplashIcon extends StatelessWidget {
           width: 157,
           height: 82,
           child: Image.asset(
-            "assets/images/splash/splash_logo_daily_question.png",
+            "assets/images/splash/splash_logo_daily_question.webp",
             fit: BoxFit.contain,
             errorBuilder: (_, error, stackTrace) => const Text(
               "Daily\nQuestion",
@@ -207,7 +207,7 @@ class _SplashQuestionIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Image.asset(
-      "assets/images/splash/splash_img_question.png",
+      "assets/images/splash/splash_img_question.webp",
       fit: BoxFit.contain,
       errorBuilder: (_, error, stackTrace) => SvgPicture.asset(
         "assets/images/splash/splash_icon_question.svg",

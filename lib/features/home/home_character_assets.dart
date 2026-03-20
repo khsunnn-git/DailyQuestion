@@ -6,9 +6,9 @@ class HomeCharacterAssets {
   const HomeCharacterAssets._();
 
   static const String levelUpConfettiLeft =
-      "assets/images/home/level_up/congrat_left.png";
+      "assets/images/home/level_up/congrat_left.webp";
   static const String levelUpConfettiRight =
-      "assets/images/home/level_up/congrat_right.png";
+      "assets/images/home/level_up/congrat_right.webp";
 
   static String assetFor(
     HomeCharacterType type,
@@ -26,17 +26,17 @@ class HomeCharacterAssets {
   static String _fishAssetForLevel(HomeFishGrowthLevel growthLevel) {
     return switch (growthLevel) {
       HomeFishGrowthLevel.level1 =>
-        "assets/images/home/characters/fish/level_1.png",
+        "assets/images/home/characters/fish/level_1.webp",
       HomeFishGrowthLevel.level2 =>
-        "assets/images/home/characters/fish/level_2.png",
+        "assets/images/home/characters/fish/level_2.webp",
       HomeFishGrowthLevel.level3 =>
-        "assets/images/home/characters/fish/level_3.png",
+        "assets/images/home/characters/fish/level_3.webp",
       HomeFishGrowthLevel.level4 =>
-        "assets/images/home/characters/fish/level_4.png",
+        "assets/images/home/characters/fish/level_4.webp",
       HomeFishGrowthLevel.level5 =>
-        "assets/images/home/characters/fish/level_5.png",
+        "assets/images/home/characters/fish/level_5.webp",
       HomeFishGrowthLevel.level6 =>
-        "assets/images/home/characters/fish/level_6.png",
+        "assets/images/home/characters/fish/level_6.webp",
     };
   }
 

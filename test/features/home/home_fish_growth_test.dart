@@ -32,25 +32,25 @@ void main() {
         HomeCharacterType.fish,
         HomeFishGrowthLevel.level1,
       ),
-      "assets/images/home/characters/fish/level_1.png",
+      "assets/images/home/characters/fish/level_1.webp",
     );
     expect(
       HomeCharacterAssets.assetFor(
         HomeCharacterType.fish,
         HomeFishGrowthLevel.level6,
       ),
-      "assets/images/home/characters/fish/level_6.png",
+      "assets/images/home/characters/fish/level_6.webp",
     );
   });
 
   test("resolves fish assets directly from the cumulative record count", () {
     expect(
       HomeCharacterAssets.assetForRecordCount(HomeCharacterType.fish, 0),
-      "assets/images/home/characters/fish/level_1.png",
+      "assets/images/home/characters/fish/level_1.webp",
     );
     expect(
       HomeCharacterAssets.assetForRecordCount(HomeCharacterType.fish, 17),
-      "assets/images/home/characters/fish/level_4.png",
+      "assets/images/home/characters/fish/level_4.webp",
     );
   });
 

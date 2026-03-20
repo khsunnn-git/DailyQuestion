@@ -14,9 +14,9 @@ class BucketSaveSuccessScreen extends StatefulWidget {
   });
 
   static const String successAsset =
-      "assets/images/bucket/bucketlist_save_success.png";
+      "assets/images/bucket/bucketlist_save_success.webp";
   static const String completionAsset =
-      "assets/images/bucket/bucketlist_complete_success.png";
+      "assets/images/bucket/bucketlist_complete_success.webp";
 
   final String title;
   final String? subtitle;

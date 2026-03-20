@@ -92,7 +92,7 @@ class NicknameCompleteScreen extends StatelessWidget {
                     width: 130,
                     height: 130,
                     child: Image.asset(
-                      "assets/images/signup/signup_complete_illustration.png",
+                      "assets/images/signup/signup_complete_illustration.webp",
                       fit: BoxFit.contain,
                     ),
                   ),

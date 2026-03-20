@@ -30,15 +30,15 @@ class HomeScreen extends StatelessWidget {
   final bool showNavigationBar;
 
   static const String _decoSeaweedAsset =
-      "assets/images/home/home_deco_seaweed_blue.png";
+      "assets/images/home/home_deco_seaweed_blue.webp";
   static const String _decoCrabAsset =
-      "assets/images/home/home_deco_crab_blue.png";
+      "assets/images/home/home_deco_crab_blue.webp";
   static const String _decoBubbleAsset =
-      "assets/images/home/home_deco_bubble_blue.png";
+      "assets/images/home/home_deco_bubble_blue.webp";
   static const String _inviteBannerAsset =
-      "assets/images/home/home_banner_invite_fish_blue.png";
+      "assets/images/home/home_banner_invite_fish_blue.webp";
   static const String _topWaterBackgroundAsset =
-      "assets/images/home/home_bg_water.png";
+      "assets/images/home/home_bg_water.webp";
 
   static void openTodayQuestionAnswer(
     BuildContext context, {

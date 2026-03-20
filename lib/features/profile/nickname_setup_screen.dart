@@ -258,7 +258,7 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                       width: 100,
                       height: 100,
                       child: Image.asset(
-                        "assets/images/signup/signup_nickname_profile_fish.png",
+                        "assets/images/signup/signup_nickname_profile_fish.webp",
                         fit: BoxFit.cover,
                       ),
                     ),

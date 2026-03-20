@@ -20,7 +20,7 @@ class StreakCompletionScreen extends StatefulWidget {
 
 class _StreakCompletionScreenState extends State<StreakCompletionScreen> {
   static const String _celebrationImageAsset =
-      "assets/images/question/streak_celebration.png";
+      "assets/images/question/streak_celebration.webp";
   Timer? _autoCloseTimer;
 
   @override
@@ -81,142 +81,137 @@ class _StreakCompletionScreenState extends State<StreakCompletionScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: IconButton(
-                        onPressed: _close,
-                        icon: const Icon(
-                          Icons.arrow_back,
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: _close,
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s24),
+                GestureDetector(
+                  onTap: () {},
+                  child: Column(
+                    children: <Widget>[
+                      Image.asset(
+                        _celebrationImageAsset,
+                        width: 150,
+                        height: 150,
+                        fit: BoxFit.contain,
+                        errorBuilder:
+                            (_, Object error, StackTrace? stackTrace) =>
+                                Container(
+                                  width: 150,
+                                  height: 150,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: AppNeutralColors.grey100,
+                                    borderRadius: AppRadius.br16,
+                                  ),
+                                  child: Text(
+                                    "이미지 로드 실패",
+                                    style: AppTypography.captionMedium.copyWith(
+                                      color: AppNeutralColors.grey600,
+                                    ),
+                                  ),
+                                ),
+                      ),
+                      const SizedBox(height: AppSpacing.s24),
+                      Text(
+                        "연속 ${widget.streakDays}번째 기록 완료!",
+                        textAlign: TextAlign.center,
+                        style: AppTypography.headingLarge.copyWith(
                           color: AppNeutralColors.grey900,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: AppSpacing.s24),
-                    GestureDetector(
-                      onTap: () {},
-                      child: Column(
-                        children: <Widget>[
-                          Image.asset(
-                            _celebrationImageAsset,
-                            width: 150,
-                            height: 150,
-                            fit: BoxFit.contain,
-                            errorBuilder:
-                                (_, Object error, StackTrace? stackTrace) =>
-                                    Container(
-                                      width: 150,
-                                      height: 150,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: AppNeutralColors.grey100,
-                                        borderRadius: AppRadius.br16,
-                                      ),
-                                      child: Text(
-                                        "이미지 로드 실패",
-                                        style: AppTypography.captionMedium
-                                            .copyWith(
-                                              color: AppNeutralColors.grey600,
-                                            ),
-                                      ),
-                                    ),
-                          ),
-                          const SizedBox(height: AppSpacing.s24),
-                          Text(
-                            "연속 ${widget.streakDays}번째 기록 완료!",
-                            textAlign: TextAlign.center,
-                            style: AppTypography.headingLarge.copyWith(
-                              color: AppNeutralColors.grey900,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.s8),
-                          Text(
-                            _buildSubtitle(),
-                            textAlign: TextAlign.center,
-                            style: AppTypography.bodyLargeMedium.copyWith(
-                              color: AppNeutralColors.grey600,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.s24),
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(AppSpacing.s32),
-                            decoration: BoxDecoration(
-                              color: AppNeutralColors.white,
-                              borderRadius: AppRadius.br16,
-                              boxShadow: AppElevation.level1,
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: List<Widget>.generate(7, (int index) {
-                                final bool completed =
-                                    index < widget.weeklyCompleted.length &&
-                                    widget.weeklyCompleted[index];
-                                return Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    Text(
-                                      weekdays[index],
-                                      style: AppTypography.bodySmallMedium
-                                          .copyWith(
-                                            color: AppNeutralColors.grey900,
-                                          ),
-                                    ),
-                                    const SizedBox(height: AppSpacing.s8),
-                                    Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: BoxDecoration(
-                                        color: completed
-                                            ? AppSemanticColors.success500
-                                            : AppNeutralColors.grey100,
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                        border: completed
-                                            ? Border.all(
-                                                color: AppSemanticColors
-                                                    .success600,
-                                              )
-                                            : null,
-                                      ),
-                                      alignment: Alignment.center,
-                                      child: completed
-                                          ? const Icon(
-                                              Icons.star_rounded,
-                                              size: 20,
-                                              color: AppNeutralColors.white,
-                                            )
-                                          : null,
-                                    ),
-                                  ],
-                                );
-                              }),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.s24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 60,
-                            child: FilledButton(
-                              onPressed: _close,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: brand.c500,
-                                shape: const StadiumBorder(),
-                                overlayColor: Colors.transparent,
-                                splashFactory: NoSplash.splashFactory,
-                              ),
-                              child: Text(
-                                "확인",
-                                style: AppTypography.buttonMedium.copyWith(
-                                  color: AppNeutralColors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: AppSpacing.s8),
+                      Text(
+                        _buildSubtitle(),
+                        textAlign: TextAlign.center,
+                        style: AppTypography.bodyLargeMedium.copyWith(
+                          color: AppNeutralColors.grey600,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: AppSpacing.s24),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppSpacing.s32),
+                        decoration: BoxDecoration(
+                          color: AppNeutralColors.white,
+                          borderRadius: AppRadius.br16,
+                          boxShadow: AppElevation.level1,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List<Widget>.generate(7, (int index) {
+                            final bool completed =
+                                index < widget.weeklyCompleted.length &&
+                                widget.weeklyCompleted[index];
+                            return Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                Text(
+                                  weekdays[index],
+                                  style: AppTypography.bodySmallMedium.copyWith(
+                                    color: AppNeutralColors.grey900,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.s8),
+                                Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: completed
+                                        ? AppSemanticColors.success500
+                                        : AppNeutralColors.grey100,
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: completed
+                                        ? Border.all(
+                                            color: AppSemanticColors.success600,
+                                          )
+                                        : null,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: completed
+                                      ? const Icon(
+                                          Icons.star_rounded,
+                                          size: 20,
+                                          color: AppNeutralColors.white,
+                                        )
+                                      : null,
+                                ),
+                              ],
+                            );
+                          }),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.s24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 60,
+                        child: FilledButton(
+                          onPressed: _close,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: brand.c500,
+                            shape: const StadiumBorder(),
+                            overlayColor: Colors.transparent,
+                            splashFactory: NoSplash.splashFactory,
+                          ),
+                          child: Text(
+                            "확인",
+                            style: AppTypography.buttonMedium.copyWith(
+                              color: AppNeutralColors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),

@@ -27,13 +27,13 @@ class MyRecordsScreen extends StatefulWidget {
   final bool showNavigationBar;
 
   static const String _recordHeroDecoAsset =
-      "assets/images/record/my_record_hero_deco.png";
+      "assets/images/record/my_record_hero_deco.webp";
   static const String _profileInsightAsset =
-      "assets/images/record/profile_insight.png";
+      "assets/images/record/profile_insight.webp";
   static const String _profileInterestAsset =
-      "assets/images/record/profile_interest.png";
+      "assets/images/record/profile_interest.webp";
   static const String _profileBucketlistAsset =
-      "assets/images/record/profile_bucketlist.png";
+      "assets/images/record/profile_bucketlist.webp";
 
   static const String _defaultQuestion = "오늘 가장 기억에 남는 순간은 무엇인가요?";
   static const String _unansweredMessage = "아직 열어보지 않은 질문입니다.";

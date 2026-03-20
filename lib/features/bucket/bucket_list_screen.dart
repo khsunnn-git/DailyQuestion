@@ -27,7 +27,7 @@ class BucketListScreen extends StatefulWidget {
 class _BucketListScreenState extends State<BucketListScreen>
     with SingleTickerProviderStateMixin {
   static const String _emptyBucketAsset =
-      "assets/images/bucket/bucketlist_empty_state_note.png";
+      "assets/images/bucket/bucketlist_empty_state_note.webp";
   static const String _allCategoryName = "ALL";
   static const Color _allCategoryColor = AppNeutralColors.grey100;
   int _selectedTabIndex = 0;
