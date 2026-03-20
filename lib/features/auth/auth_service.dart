@@ -11,6 +11,40 @@ const String _defaultGoogleServerClientId =
     "362336765894-ei7ne7l7drpm3o7vqsahvq82lvo5hi1f.apps.googleusercontent.com";
 const Duration _restoredSessionWaitDuration = Duration(seconds: 2);
 
+Future<T?> restoreUserFromRecentProvider<T>({
+  required T? currentUser,
+  required Future<SocialAuthProvider?> Function() readRecentProvider,
+  required Future<T?> Function(Duration timeout) waitForRestoredAuthState,
+  required Future<String?> Function() attemptRestoreGoogleIdToken,
+  required Future<T?> Function(String idToken) signInWithGoogleIdToken,
+  Duration timeout = _restoredSessionWaitDuration,
+}) async {
+  if (currentUser != null) {
+    return currentUser;
+  }
+
+  final SocialAuthProvider? recentProvider = await readRecentProvider();
+  if (recentProvider == null) {
+    return null;
+  }
+
+  final T? restoredUser = await waitForRestoredAuthState(timeout);
+  if (restoredUser != null) {
+    return restoredUser;
+  }
+
+  if (recentProvider != SocialAuthProvider.google) {
+    return null;
+  }
+
+  final String? googleIdToken = await attemptRestoreGoogleIdToken();
+  if (googleIdToken == null || googleIdToken.trim().isEmpty) {
+    return null;
+  }
+
+  return signInWithGoogleIdToken(googleIdToken);
+}
+
 class AuthActionException implements Exception {
   const AuthActionException(this.userMessage);
 
@@ -137,20 +171,16 @@ class AuthService {
   Future<User?> waitForRestoredUser({
     Duration timeout = _restoredSessionWaitDuration,
   }) async {
-    final User? user = currentUser;
-    if (user != null) {
-      return user;
-    }
-
-    final SocialAuthProvider? recentProvider = await SocialLoginStore.instance
-        .readRecentProvider();
-    if (recentProvider == null) {
-      return _auth.currentUser;
-    }
-
-    // Give Firebase Auth a brief chance to restore a previously linked session
-    // before we fall back to creating a new anonymous user.
-    return _waitForRestoredAuthState(timeout: timeout);
+    return restoreUserFromRecentProvider<User>(
+      currentUser: currentUser,
+      readRecentProvider: SocialLoginStore.instance.readRecentProvider,
+      waitForRestoredAuthState: (Duration waitTimeout) {
+        return _waitForRestoredAuthState(timeout: waitTimeout);
+      },
+      attemptRestoreGoogleIdToken: _attemptRestoreGoogleIdToken,
+      signInWithGoogleIdToken: _signInWithRestoredGoogleIdToken,
+      timeout: timeout,
+    );
   }
 
   Future<UserCredential> _signInWithGoogle() async {
@@ -214,6 +244,68 @@ class AuthService {
           : configuredServerClientId,
     );
     _googleInitialized = true;
+  }
+
+  Future<String?> _attemptRestoreGoogleIdToken() async {
+    if (kIsWeb) {
+      return null;
+    }
+    try {
+      await _ensureGoogleInitialized();
+      final Future<GoogleSignInAccount?>? restoreAttempt = GoogleSignIn.instance
+          .attemptLightweightAuthentication();
+      if (restoreAttempt == null) {
+        return null;
+      }
+      final GoogleSignInAccount? googleUser = await restoreAttempt;
+      return googleUser?.authentication.idToken?.trim();
+    } on GoogleSignInException catch (error) {
+      if (kDebugMode) {
+        debugPrint("[auth] Google lightweight restore failed: ${error.code}");
+        if ((error.description ?? "").isNotEmpty) {
+          debugPrint(
+            "[auth] Google lightweight restore details: ${error.description}",
+          );
+        }
+      }
+      return null;
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint("[auth] Google lightweight restore failed: $error");
+      }
+      return null;
+    }
+  }
+
+  Future<User?> _signInWithRestoredGoogleIdToken(String idToken) async {
+    final String normalizedToken = idToken.trim();
+    if (normalizedToken.isEmpty) {
+      return null;
+    }
+
+    try {
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        idToken: normalizedToken,
+      );
+      final UserCredential userCredential = await _linkOrSignInWithCredential(
+        credential,
+      );
+      return userCredential.user;
+    } on FirebaseAuthException catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          "[auth] Firebase restore with Google credential failed: ${error.code}",
+        );
+      }
+      return null;
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          "[auth] Firebase restore with Google credential failed: $error",
+        );
+      }
+      return null;
+    }
   }
 
   Future<User?> _waitForRestoredAuthState({required Duration timeout}) async {

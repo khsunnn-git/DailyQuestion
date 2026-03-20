@@ -13,10 +13,12 @@ class NicknameSetupScreen extends StatefulWidget {
     super.key,
     this.onCompleted,
     this.isEditMode = false,
+    this.initialNicknameLoader,
   });
 
   final void Function(BuildContext context)? onCompleted;
   final bool isEditMode;
+  final Future<String?> Function()? initialNicknameLoader;
 
   @override
   State<NicknameSetupScreen> createState() => _NicknameSetupScreenState();
@@ -178,7 +180,9 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
   }
 
   Future<void> _loadInitialNickname() async {
-    final String? saved = await UserProfilePrefs.getNickname();
+    final Future<String?> Function() loadInitialNickname =
+        widget.initialNicknameLoader ?? UserProfilePrefs.getNickname;
+    final String? saved = await loadInitialNickname();
     if (!mounted) {
       return;
     }
@@ -194,7 +198,10 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
 
   void _routeBack() {
     if (widget.isEditMode) {
-      Navigator.of(context).maybePop();
+      final NavigatorState navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
       return;
     }
     Navigator.of(context).pushAndRemoveUntil(
@@ -211,6 +218,216 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
       const Color(0xA3FFFFFF),
       _main600,
     );
+    final Widget screen = Scaffold(
+      backgroundColor: AppNeutralColors.white,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: <Widget>[
+            AppHeader(
+              title: "닉네임 설정",
+              trailing: null,
+              onLeadingPressed: _routeBack,
+            ),
+            const SizedBox(height: 32),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20),
+              child: Column(
+                children: <Widget>[
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.s8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        widget.isEditMode
+                            ? "나를 표현할 새로운\n닉네임을 적어주세요!"
+                            : "나를 표현할\n닉네임을 적어주세요!",
+                        style: TextStyle(
+                          fontFamily: AppFontFamily.suit,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          height: 1.4,
+                          color: AppNeutralColors.grey900,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s24),
+                  ClipOval(
+                    child: SizedBox(
+                      width: 100,
+                      height: 100,
+                      child: Image.asset(
+                        "assets/images/signup/signup_nickname_profile_fish.png",
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s16),
+                  SizedBox(
+                    width: 350,
+                    child: Column(
+                      children: <Widget>[
+                        SizedBox(
+                          height: 58,
+                          child: TextField(
+                            controller: _nicknameController,
+                            focusNode: _nicknameFocusNode,
+                            autofocus: true,
+                            keyboardType: TextInputType.name,
+                            inputFormatters: nicknameInputFormatters(
+                              maxLength: _maxNicknameLength,
+                            ),
+                            style: AppInputTokens.mdTextStyle.copyWith(
+                              color: AppNeutralColors.grey900,
+                            ),
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _saveNickname(),
+                            decoration: InputDecoration(
+                              hintText: "닉네임을 입력해주세요.",
+                              hintStyle: AppInputTokens.mdTextStyle.copyWith(
+                                color: AppNeutralColors.grey400,
+                              ),
+                              counterText: "",
+                              suffixIcon: _isErrorState || _isSuccessState
+                                  ? Padding(
+                                      padding: const EdgeInsets.only(right: 12),
+                                      child: Icon(
+                                        _isErrorState
+                                            ? Icons.error_outline
+                                            : Icons.check,
+                                        size: 24,
+                                        color: _isErrorState
+                                            ? AppSemanticColors.error500
+                                            : _main500,
+                                      ),
+                                    )
+                                  : null,
+                              suffixIconConstraints: const BoxConstraints(
+                                minWidth: 36,
+                                minHeight: 24,
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.s16,
+                                vertical: AppSpacing.s16,
+                              ),
+                              filled: true,
+                              fillColor: AppNeutralColors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: AppInputTokens.radius,
+                                borderSide: BorderSide(
+                                  color: _fieldBorderColor,
+                                ),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: AppInputTokens.radius,
+                                borderSide: BorderSide(
+                                  color: _fieldBorderColor,
+                                ),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: AppInputTokens.radius,
+                                borderSide: BorderSide(
+                                  color: _fieldBorderColor,
+                                  width: 1.4,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.s6),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s12,
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Row(
+                                  children: <Widget>[
+                                    if (_isErrorState || _isSuccessState)
+                                      Padding(
+                                        padding: EdgeInsets.only(
+                                          right: AppInputTokens.supportingGap,
+                                        ),
+                                        child: Icon(
+                                          _isErrorState
+                                              ? Icons.error_outline
+                                              : Icons.check,
+                                          size: 20,
+                                          color: _isErrorState
+                                              ? AppSemanticColors.error500
+                                              : _main500,
+                                        ),
+                                      ),
+                                    Expanded(
+                                      child: Text(
+                                        _supportingMessage,
+                                        style: AppInputTokens.supportingMdStyle
+                                            .copyWith(color: _supportingColor),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                "($_nicknameLength/$_maxNicknameLength)",
+                                style: AppInputTokens.supportingMdStyle
+                                    .copyWith(color: _supportingColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Spacer(),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                child: SizedBox(
+                  width: 350,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: _canSave ? _saveNickname : null,
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      backgroundColor: _main500,
+                      disabledBackgroundColor: disabledButtonColor,
+                      foregroundColor: AppNeutralColors.white,
+                      disabledForegroundColor: _main100,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: AppInputTokens.radius,
+                      ),
+                      textStyle: AppTypography.buttonLarge,
+                    ),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppNeutralColors.white,
+                            ),
+                          )
+                        : Text(widget.isEditMode ? "완료" : "다음"),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (widget.isEditMode) {
+      return screen;
+    }
 
     return PopScope<void>(
       canPop: false,
@@ -220,217 +437,7 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
         }
         _routeBack();
       },
-      child: Scaffold(
-        backgroundColor: AppNeutralColors.white,
-        body: SafeArea(
-          bottom: false,
-          child: Column(
-            children: <Widget>[
-              AppHeader(
-                title: "닉네임 설정",
-                trailing: null,
-                onLeadingPressed: _routeBack,
-              ),
-              const SizedBox(height: 32),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20),
-                child: Column(
-                  children: <Widget>[
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: AppSpacing.s8),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          widget.isEditMode
-                              ? "나를 표현할 새로운\n닉네임을 적어주세요!"
-                              : "나를 표현할\n닉네임을 적어주세요!",
-                          style: TextStyle(
-                            fontFamily: AppFontFamily.suit,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            height: 1.4,
-                            color: AppNeutralColors.grey900,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.s24),
-                    ClipOval(
-                      child: SizedBox(
-                        width: 100,
-                        height: 100,
-                        child: Image.asset(
-                          "assets/images/signup/signup_nickname_profile_fish.png",
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.s16),
-                    SizedBox(
-                      width: 350,
-                      child: Column(
-                        children: <Widget>[
-                          SizedBox(
-                            height: 58,
-                            child: TextField(
-                              controller: _nicknameController,
-                              focusNode: _nicknameFocusNode,
-                              autofocus: true,
-                              keyboardType: TextInputType.name,
-                              inputFormatters: nicknameInputFormatters(
-                                maxLength: _maxNicknameLength,
-                              ),
-                              style: AppInputTokens.mdTextStyle.copyWith(
-                                color: AppNeutralColors.grey900,
-                              ),
-                              textInputAction: TextInputAction.done,
-                              onSubmitted: (_) => _saveNickname(),
-                              decoration: InputDecoration(
-                                hintText: "닉네임을 입력해주세요.",
-                                hintStyle: AppInputTokens.mdTextStyle.copyWith(
-                                  color: AppNeutralColors.grey400,
-                                ),
-                                counterText: "",
-                                suffixIcon: _isErrorState || _isSuccessState
-                                    ? Padding(
-                                        padding: const EdgeInsets.only(
-                                          right: 12,
-                                        ),
-                                        child: Icon(
-                                          _isErrorState
-                                              ? Icons.error_outline
-                                              : Icons.check,
-                                          size: 24,
-                                          color: _isErrorState
-                                              ? AppSemanticColors.error500
-                                              : _main500,
-                                        ),
-                                      )
-                                    : null,
-                                suffixIconConstraints: const BoxConstraints(
-                                  minWidth: 36,
-                                  minHeight: 24,
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.s16,
-                                  vertical: AppSpacing.s16,
-                                ),
-                                filled: true,
-                                fillColor: AppNeutralColors.white,
-                                border: OutlineInputBorder(
-                                  borderRadius: AppInputTokens.radius,
-                                  borderSide: BorderSide(
-                                    color: _fieldBorderColor,
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: AppInputTokens.radius,
-                                  borderSide: BorderSide(
-                                    color: _fieldBorderColor,
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: AppInputTokens.radius,
-                                  borderSide: BorderSide(
-                                    color: _fieldBorderColor,
-                                    width: 1.4,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: AppSpacing.s6),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.s12,
-                            ),
-                            child: Row(
-                              children: <Widget>[
-                                Expanded(
-                                  child: Row(
-                                    children: <Widget>[
-                                      if (_isErrorState || _isSuccessState)
-                                        Padding(
-                                          padding: EdgeInsets.only(
-                                            right: AppInputTokens.supportingGap,
-                                          ),
-                                          child: Icon(
-                                            _isErrorState
-                                                ? Icons.error_outline
-                                                : Icons.check,
-                                            size: 20,
-                                            color: _isErrorState
-                                                ? AppSemanticColors.error500
-                                                : _main500,
-                                          ),
-                                        ),
-                                      Expanded(
-                                        child: Text(
-                                          _supportingMessage,
-                                          style: AppInputTokens
-                                              .supportingMdStyle
-                                              .copyWith(
-                                                color: _supportingColor,
-                                              ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Text(
-                                  "($_nicknameLength/$_maxNicknameLength)",
-                                  style: AppInputTokens.supportingMdStyle
-                                      .copyWith(color: _supportingColor),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: SizedBox(
-                    width: 350,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _canSave ? _saveNickname : null,
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        shadowColor: Colors.transparent,
-                        backgroundColor: _main500,
-                        disabledBackgroundColor: disabledButtonColor,
-                        foregroundColor: AppNeutralColors.white,
-                        disabledForegroundColor: _main100,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppInputTokens.radius,
-                        ),
-                        textStyle: AppTypography.buttonLarge,
-                      ),
-                      child: _isSaving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: AppNeutralColors.white,
-                              ),
-                            )
-                          : Text(widget.isEditMode ? "완료" : "다음"),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      child: screen,
     );
   }
 }
