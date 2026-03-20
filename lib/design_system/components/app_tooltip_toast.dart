@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 
+import "app_emoji_text.dart";
 import "../tokens/app_tooltip_toast_tokens.dart";
 
 class AppToastMessage extends StatelessWidget {
@@ -23,7 +24,7 @@ class AppToastMessage extends StatelessWidget {
           borderRadius: AppToastTokens.radius,
           boxShadow: AppToastTokens.shadow,
         ),
-        child: Text(
+        child: AppEmojiText(
           text,
           textAlign: TextAlign.center,
           style: AppToastTokens.textStyle.copyWith(
@@ -88,7 +89,7 @@ class AppTooltipBubble extends StatelessWidget {
         color: AppTooltipTokens.background,
         borderRadius: AppTooltipTokens.radius,
       ),
-      child: Text(
+      child: AppEmojiText(
         text,
         style: AppTooltipTokens.textStyle.copyWith(
           color: AppTooltipTokens.textColor,
@@ -139,7 +140,7 @@ class AppSpeechBubble extends StatelessWidget {
         borderRadius: AppSpeechBubbleTokens.radius,
         boxShadow: _primary ? null : AppSpeechBubbleTokens.whiteShadow,
       ),
-      child: Text(
+      child: AppEmojiText(
         text,
         style: AppSpeechBubbleTokens.textStyle.copyWith(color: textColor),
       ),

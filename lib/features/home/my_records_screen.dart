@@ -1638,20 +1638,20 @@ class _StreakCard extends StatelessWidget {
   }) {
     if (!hasRecords) {
       return const _StreakCardCopy(
-        title: "설레이는 첫 날!❤️\n함께 기록해볼까요?",
+        title: "설레이는 첫 날!\n함께 기록해볼까요?",
         body: "오늘부터 쌓아가는 하루의 하나 질문으로\n스스로에 대해 알아가봐요!",
       );
     }
     if (missingDays <= 0) {
       return _StreakCardCopy(
-        title: "벌써 $streak번째 날이에요!\n너무 멋져요!🔥",
+        title: "벌써 $streak번째 날이에요!\n너무 멋져요!",
         body: "연속기록을 이어가면 \n월말에 리포트를 받아볼 수 있어요!",
       );
     }
     if (missingDays == 1) {
       return const _StreakCardCopy(
         title: "오늘도 내 생각을 적어볼까요?",
-        body: "하루하루 당신의 생각을 기다리고 있어요! 🥰",
+        body: "하루하루 당신의 생각을 기다리고 있어요 ✨",
       );
     }
     if (missingDays >= 7) {
@@ -1734,14 +1734,14 @@ class _StreakCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
+              AppEmojiText(
                 copy.title,
                 style: AppTypography.headingLarge.copyWith(
                   color: AppNeutralColors.grey900,
                 ),
               ),
               const SizedBox(height: AppSpacing.s4),
-              Text(
+              AppEmojiText(
                 copy.body,
                 style: AppTypography.bodySmallRegular.copyWith(
                   color: AppNeutralColors.grey600,

@@ -2,6 +2,7 @@ export "components/app_badge_tag.dart";
 export "components/app_bottom_sheet_list_item.dart";
 export "components/app_card.dart";
 export "components/app_dropdown.dart";
+export "components/app_emoji_text.dart";
 export "components/app_loading_indicator.dart";
 export "components/app_header.dart";
 export "components/app_input.dart";

@@ -130,6 +130,7 @@ class _SplashScreenState extends State<SplashScreen> {
                         "오늘의 질문으로\n내일의 나를 만나는 시간",
                         style: TextStyle(
                           fontFamily: AppFontFamily.suit,
+                          fontFamilyFallback: AppFontFamily.emojiFallback,
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
                           height: 1.4,
@@ -181,6 +182,7 @@ class _SplashIcon extends StatelessWidget {
               "Daily\nQuestion",
               style: TextStyle(
                 fontFamily: AppFontFamily.suit,
+                fontFamilyFallback: AppFontFamily.emojiFallback,
                 color: AppAccentColors.sky,
                 fontSize: 56,
                 height: 0.88,
@@ -228,6 +230,7 @@ class _SplashQuestionFallback extends StatelessWidget {
         "?",
         style: TextStyle(
           fontFamily: AppFontFamily.suit,
+          fontFamilyFallback: AppFontFamily.emojiFallback,
           fontSize: 90,
           fontWeight: FontWeight.w800,
           color: AppAccentColors.sky,

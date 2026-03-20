@@ -25,6 +25,7 @@ abstract final class AppItemCardTokens {
 
   static const TextStyle priceStyle = TextStyle(
     fontFamily: AppFontFamily.suit,
+    fontFamilyFallback: AppFontFamily.emojiFallback,
     fontSize: 12,
     fontWeight: FontWeight.w600,
     height: 1.5,
@@ -33,6 +34,7 @@ abstract final class AppItemCardTokens {
 
   static const TextStyle nameStyle = TextStyle(
     fontFamily: AppFontFamily.suit,
+    fontFamilyFallback: AppFontFamily.emojiFallback,
     fontSize: 12,
     fontWeight: FontWeight.w600,
     height: 1.5,

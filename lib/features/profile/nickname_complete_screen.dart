@@ -57,6 +57,7 @@ class NicknameCompleteScreen extends StatelessWidget {
                           text: TextSpan(
                             style: const TextStyle(
                               fontFamily: AppFontFamily.suit,
+                              fontFamilyFallback: AppFontFamily.emojiFallback,
                               fontSize: 28,
                               fontWeight: FontWeight.w800,
                               height: 1.4,
@@ -76,9 +77,10 @@ class NicknameCompleteScreen extends StatelessWidget {
                         const Text(
                           "어서오세요!",
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: AppFontFamily.suit,
-                            fontSize: 28,
+                        style: TextStyle(
+                          fontFamily: AppFontFamily.suit,
+                          fontFamilyFallback: AppFontFamily.emojiFallback,
+                          fontSize: 28,
                             fontWeight: FontWeight.w800,
                             height: 1.4,
                             color: AppNeutralColors.grey900,

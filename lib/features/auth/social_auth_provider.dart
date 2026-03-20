@@ -1,4 +1,4 @@
-enum SocialAuthProvider { kakao, naver, google }
+enum SocialAuthProvider { kakao, naver, google, apple }
 
 extension SocialAuthProviderX on SocialAuthProvider {
   String get id {
@@ -9,6 +9,8 @@ extension SocialAuthProviderX on SocialAuthProvider {
         return "naver";
       case SocialAuthProvider.google:
         return "google";
+      case SocialAuthProvider.apple:
+        return "apple";
     }
   }
 
@@ -20,6 +22,8 @@ extension SocialAuthProviderX on SocialAuthProvider {
         return "네이버";
       case SocialAuthProvider.google:
         return "구글";
+      case SocialAuthProvider.apple:
+        return "애플";
     }
   }
 
@@ -33,6 +37,8 @@ extension SocialAuthProviderX on SocialAuthProvider {
     switch (this) {
       case SocialAuthProvider.google:
         return "google.com";
+      case SocialAuthProvider.apple:
+        return "apple.com";
       case SocialAuthProvider.kakao:
       case SocialAuthProvider.naver:
         return "";
@@ -48,6 +54,8 @@ SocialAuthProvider? socialAuthProviderFromId(String? raw) {
       return SocialAuthProvider.naver;
     case "google":
       return SocialAuthProvider.google;
+    case "apple":
+      return SocialAuthProvider.apple;
     default:
       return null;
   }
@@ -57,6 +65,8 @@ SocialAuthProvider? socialAuthProviderFromFirebaseProviderId(String? raw) {
   switch (raw?.trim()) {
     case "google.com":
       return SocialAuthProvider.google;
+    case "apple.com":
+      return SocialAuthProvider.apple;
     default:
       return null;
   }

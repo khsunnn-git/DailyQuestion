@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 
+import "app_emoji_text.dart";
 import "../tokens/app_item_tokens.dart";
 
 class AppItemCard extends StatelessWidget {
@@ -52,7 +53,10 @@ class AppItemCard extends StatelessWidget {
                   height: AppItemCardTokens.coinIconSize,
                   child:
                       coinIcon ??
-                      const FittedBox(fit: BoxFit.contain, child: Text("🪙")),
+                      const FittedBox(
+                        fit: BoxFit.contain,
+                        child: AppEmojiText("🪙"),
+                      ),
                 ),
                 Text(
                   price,

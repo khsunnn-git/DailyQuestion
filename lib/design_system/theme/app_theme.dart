@@ -59,6 +59,7 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: AppFontFamily.suit,
+      fontFamilyFallback: AppFontFamily.emojiFallback,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: brand.bg,
       cardColor: AppNeutralColors.white,

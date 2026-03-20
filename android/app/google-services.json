@@ -45,6 +45,14 @@
             {
               "client_id": "362336765894-ei7ne7l7drpm3o7vqsahvq82lvo5hi1f.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "362336765894-ieckmi58806t8gvbmeq1l2343iakfvk8.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.hyesun.dailyquestion",
+                "app_store_id": "6760876920"
+              }
             }
           ]
         }

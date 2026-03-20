@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:flutter/foundation.dart";
 import "package:flutter_svg/flutter_svg.dart";
 
 import "../../design_system/design_system.dart";
@@ -291,12 +292,16 @@ class _SocialLoginPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool useAppleLogin = !kIsWeb;
+    final SocialAuthProvider provider =
+        useAppleLogin ? SocialAuthProvider.apple : SocialAuthProvider.google;
+
     return Column(
       children: <Widget>[
         _SocialLoginButton(
-          provider: SocialAuthProvider.google,
-          isLoading: activeProvider == SocialAuthProvider.google,
-          onTap: () => onTap(SocialAuthProvider.google),
+          provider: provider,
+          isLoading: activeProvider == provider,
+          onTap: () => onTap(provider),
         ),
       ],
     );
@@ -322,6 +327,8 @@ class _SocialLoginButton extends StatelessWidget {
         return const Color(0xFF04C75B);
       case SocialAuthProvider.google:
         return AppNeutralColors.white;
+      case SocialAuthProvider.apple:
+        return AppNeutralColors.grey900;
     }
   }
 
@@ -331,6 +338,8 @@ class _SocialLoginButton extends StatelessWidget {
       case SocialAuthProvider.google:
         return AppNeutralColors.grey800;
       case SocialAuthProvider.naver:
+        return AppNeutralColors.white;
+      case SocialAuthProvider.apple:
         return AppNeutralColors.white;
     }
   }
@@ -350,6 +359,8 @@ class _SocialLoginButton extends StatelessWidget {
         return const Size(14.7, 14.7);
       case SocialAuthProvider.google:
         return const Size(18, 18.258);
+      case SocialAuthProvider.apple:
+        return const Size(14.602, 18);
     }
   }
 
@@ -425,6 +436,15 @@ class _ProviderIcon extends StatelessWidget {
           height: size.height,
           child: SvgPicture.asset(
             "assets/images/login/ic_google.svg",
+            fit: BoxFit.contain,
+          ),
+        );
+      case SocialAuthProvider.apple:
+        return SizedBox(
+          width: size.width,
+          height: size.height,
+          child: SvgPicture.asset(
+            "assets/images/login/ic_apple.svg",
             fit: BoxFit.contain,
           ),
         );

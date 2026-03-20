@@ -244,6 +244,7 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                             : "나를 표현할\n닉네임을 적어주세요!",
                         style: TextStyle(
                           fontFamily: AppFontFamily.suit,
+                          fontFamilyFallback: AppFontFamily.emojiFallback,
                           fontSize: 24,
                           fontWeight: FontWeight.w800,
                           height: 1.4,

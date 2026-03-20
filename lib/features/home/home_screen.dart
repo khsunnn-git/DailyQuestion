@@ -594,7 +594,10 @@ class _HomeLevelUpOverlay extends StatelessWidget {
                           fit: BoxFit.contain,
                           errorBuilder: (_, error, stackTrace) {
                             return const Center(
-                              child: Text("🐟", style: TextStyle(fontSize: 80)),
+                              child: AppEmojiText(
+                                "🐟",
+                                style: TextStyle(fontSize: 80),
+                              ),
                             );
                           },
                         ),
@@ -647,7 +650,10 @@ class _HomeHeroFishImage extends StatelessWidget {
           fit: BoxFit.contain,
           errorBuilder: (_, error, stackTrace) {
             return Center(
-              child: Text("🐟", style: TextStyle(fontSize: fallbackFontSize)),
+              child: AppEmojiText(
+                "🐟",
+                style: TextStyle(fontSize: fallbackFontSize),
+              ),
             );
           },
         ),
@@ -1154,7 +1160,7 @@ class _QuestionWrittenPreviewCardState
       ..hideCurrentSnackBar()
       ..showSnackBar(
         const SnackBar(
-          content: Center(child: AppToastMessage(text: "😳이 질문은 아직 쌓이지 않았어요")),
+          content: Center(child: AppToastMessage(text: "앗, 이 질문은 아직 쌓이지 않았어요")),
           behavior: SnackBarBehavior.floating,
           duration: Duration(seconds: 2),
           backgroundColor: Colors.transparent,
@@ -1927,7 +1933,7 @@ class _RecordStreakBar extends StatelessWidget {
       ),
       child: Column(
         children: <Widget>[
-          Text(
+          AppEmojiText(
             "🔥연속 $streak일째 기록 중",
             textAlign: TextAlign.center,
             style: AppTypography.bodySmallSemiBold.copyWith(
@@ -2252,7 +2258,7 @@ class _TodayRecordEmptyCard extends StatelessWidget {
                 height: 64,
                 fit: BoxFit.contain,
                 errorBuilder: (_, error, stackTrace) {
-                  return const Text("🐟", style: TextStyle(fontSize: 32));
+                  return const AppEmojiText("🐟", style: TextStyle(fontSize: 32));
                 },
               ),
               const SizedBox(height: AppSpacing.s8),
@@ -2327,25 +2333,25 @@ class _TodayMeSection extends StatefulWidget {
   const _TodayMeSection();
 
   static const List<String> _moodOptions = <String>[
-    "매우 좋아요😀",
-    "좋아요😊",
-    "보통이에요😐",
-    "나빠요🙁",
-    "매우 나빠요😫",
+    "매우 좋아요 ✨",
+    "좋아요 ⭐",
+    "보통이에요 〰️",
+    "나빠요 🌧️",
+    "매우 나빠요 ⚡",
   ];
   static const List<String> _energyOptions = <String>[
-    "에너지가 넘쳐요😀",
-    "꽤 괜찮아요😊",
-    "평소와 같아요😐",
-    "조금 지쳤어요🙁",
-    "방전 직전이에요😫",
+    "에너지가 넘쳐요 ⚡",
+    "꽤 괜찮아요 ☀️",
+    "평소와 같아요 〰️",
+    "조금 지쳤어요 🌙",
+    "방전 직전이에요 🪫",
   ];
   static const List<String> _stressOptions = <String>[
-    "편안해요😀",
-    "가벼운 편이에요😊",
-    "보통이에요😐",
-    "조금 있어요🙁",
-    "한계에요😫",
+    "편안해요 🌿",
+    "가벼운 편이에요 🍃",
+    "보통이에요 〰️",
+    "조금 있어요 🌫️",
+    "한계에요 🌪️",
   ];
 
   @override
@@ -2777,7 +2783,7 @@ class _ChoicePill extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Row(
                 children: <Widget>[
-                  Text(
+                  AppEmojiText(
                     text,
                     style: AppTypography.buttonMedium.copyWith(
                       color: AppNeutralColors.grey800,
@@ -2923,7 +2929,7 @@ class _TodayMetricCompletionCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.s12),
-                    Text(
+                    AppEmojiText(
                       answers[index],
                       textAlign: TextAlign.right,
                       style: AppTypography.bodySmallSemiBold.copyWith(
@@ -2979,7 +2985,7 @@ class _InviteFriendsBanner extends StatelessWidget {
                 width: 94,
                 height: 58,
                 child: Center(
-                  child: Text("🐟", style: TextStyle(fontSize: 30)),
+                  child: AppEmojiText("🐟", style: TextStyle(fontSize: 30)),
                 ),
               );
             },

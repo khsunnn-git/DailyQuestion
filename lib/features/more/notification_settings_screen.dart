@@ -896,7 +896,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: <Widget>[
-                              Text(
+                              AppEmojiText(
                                 "🔔 기기 알림이 꺼져 있어요!",
                                 style: AppTypography.heading2XSmall.copyWith(
                                   color: AppNeutralColors.grey900,

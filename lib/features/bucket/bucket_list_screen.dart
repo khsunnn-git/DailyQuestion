@@ -1135,7 +1135,7 @@ class _BucketTabChip extends StatelessWidget {
           border: selected ? Border.all(color: brand.c500) : null,
           boxShadow: AppElevation.level1,
         ),
-        child: Text(
+        child: AppEmojiText(
           label,
           style: AppTypography.bodySmallSemiBold.copyWith(
             color: selected ? brand.c500 : AppNeutralColors.grey600,

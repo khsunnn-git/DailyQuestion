@@ -372,7 +372,7 @@ class _BucketCategoryEmptyScreenState extends State<BucketCategoryEmptyScreen> {
                               ),
                               if (showColorToast)
                                 const AppToastMessage(
-                                  text: "카테고리 색상을 추가해주세요😀",
+                                  text: "카테고리 색상을 추가해주세요 ✨",
                                 ),
                             ],
                           ),

@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 
+import "app_emoji_text.dart";
 import "../tokens/app_badge_tag_tokens.dart";
 import "../tokens/app_card_tokens.dart";
 import "../tokens/app_colors.dart";
@@ -8,7 +9,7 @@ import "../tokens/app_spacing.dart";
 class AppDailyStreakCheckCard extends StatelessWidget {
   const AppDailyStreakCheckCard({
     super.key,
-    this.title = "앗,😮\n어제 질문이 비어 있어요!",
+    this.title = "앗!\n어제 질문이 비어 있어요!",
     this.description = "어제의 질문도 작성하면 연속 기록을\n이어갈 수 있어요!",
     required this.weekdays,
     required this.states,
@@ -33,7 +34,7 @@ class AppDailyStreakCheckCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
+          AppEmojiText(
             title,
             style: AppCardTokens.dailyTitleStyle.copyWith(
               color: AppNeutralColors.grey900,

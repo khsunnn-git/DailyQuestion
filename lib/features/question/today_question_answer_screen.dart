@@ -1003,7 +1003,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                             ),
                             elevation: const WidgetStatePropertyAll<double>(0),
                           ),
-                          child: Text(
+                          child: AppEmojiText(
                             _polishUsedCount >= 3
                                 ? "✨ 문장다듬기를 모두 사용하셨어요."
                                 : "✨ 문장을 매끄럽게 다듬어줄까요?",

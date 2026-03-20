@@ -9,6 +9,7 @@ import "package:firebase_core/firebase_core.dart";
 import "app_bootstrap.dart";
 import "core/app_route_observer.dart";
 import "design_system/design_system.dart";
+import "firebase_options.dart";
 import "features/auth/login_screen.dart";
 import "features/home/home_screen.dart";
 import "features/notifications/daily_question_notification_scheduler.dart";
@@ -18,6 +19,8 @@ import "features/profile/nickname_setup_screen.dart";
 import "features/question/user_answer_backup_service.dart";
 import "features/report/weekly_report_store.dart";
 import "features/splash/splash_screen.dart";
+
+const Duration _firebaseInitializationTimeout = Duration(seconds: 4);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -52,8 +55,17 @@ Future<void> _initializeAppDependenciesSafely() async {
 
 Future<void> _initializeFirebaseSafely() async {
   try {
-    await Firebase.initializeApp();
-  } catch (_) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).timeout(_firebaseInitializationTimeout);
+  } catch (error, stackTrace) {
+    if (kDebugMode) {
+      debugPrint("[main] Firebase.initializeApp failed: $error");
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    if (error is TimeoutException) {
+      return;
+    }
     if (!kIsWeb) {
       rethrow;
     }

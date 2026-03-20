@@ -132,6 +132,7 @@ class AuthService {
   Future<UserCredential> signInWithProvider(SocialAuthProvider provider) async {
     final UserCredential credential = switch (provider) {
       SocialAuthProvider.google => await _signInWithGoogle(),
+      SocialAuthProvider.apple => await _signInWithApple(),
       SocialAuthProvider.kakao || SocialAuthProvider.naver =>
         throw AuthActionException("${provider.label} 로그인은 다음 단계에서 연결할 예정이에요."),
     };
@@ -225,6 +226,15 @@ class AuthService {
         }
       }
       throw _mapGoogleSignInError(error);
+    } on FirebaseAuthException catch (error) {
+      throw _mapFirebaseAuthError(error);
+    }
+  }
+
+  Future<UserCredential> _signInWithApple() async {
+    final AppleAuthProvider provider = AppleAuthProvider()..addScope("email");
+    try {
+      return await _linkOrSignInWithProvider(provider);
     } on FirebaseAuthException catch (error) {
       throw _mapFirebaseAuthError(error);
     }
@@ -357,6 +367,24 @@ class AuthService {
       }
     }
     return _auth.signInWithCredential(credential);
+  }
+
+  Future<UserCredential> _linkOrSignInWithProvider(
+    AuthProvider provider,
+  ) async {
+    final User? current = currentUser;
+    if (current != null && current.isAnonymous) {
+      try {
+        return await current.linkWithProvider(provider);
+      } on FirebaseAuthException catch (error) {
+        if (error.code == "credential-already-in-use" ||
+            error.code == "provider-already-linked") {
+          return _auth.signInWithProvider(provider);
+        }
+        rethrow;
+      }
+    }
+    return _auth.signInWithProvider(provider);
   }
 
   Future<UserCredential> _linkOrSignInWithPopup(
