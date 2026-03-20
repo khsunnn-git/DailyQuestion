@@ -1,5 +1,7 @@
 import "package:shared_preferences/shared_preferences.dart";
 
+import "user_profile_events.dart";
+
 const String _nicknameKey = "user_nickname";
 const String _initialConsentKey = "initial_consent_accepted";
 
@@ -19,6 +21,7 @@ Future<void> saveNickname(String nickname) async {
   }
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   await prefs.setString(_nicknameKey, normalized);
+  UserProfileEvents.notifyNicknameChanged();
 }
 
 Future<bool> loadInitialConsentAccepted() async {

@@ -11,6 +11,7 @@ import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
 import "my_records_visibility.dart";
 import "../navigation/main_tab_shell.dart";
+import "../profile/user_profile_events.dart";
 import "../profile/user_profile_prefs.dart";
 import "home_screen.dart";
 import "../more/more_settings_screen.dart";
@@ -249,6 +250,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
     _selectedMonth = now.month;
     _maxMonth = DateTime(now.year, now.month);
     TodayQuestionStore.instance.addListener(_handleRecordsChanged);
+    UserProfileEvents.nicknameRevision.addListener(_handleNicknameChanged);
     _loadInstallMonth();
     _loadNickname();
   }
@@ -256,6 +258,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
   @override
   void dispose() {
     TodayQuestionStore.instance.removeListener(_handleRecordsChanged);
+    UserProfileEvents.nicknameRevision.removeListener(_handleNicknameChanged);
     super.dispose();
   }
 
@@ -460,6 +463,10 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
 
   void _handleRecordsChanged() {
     unawaited(_syncVisibleStartDateWithRecords());
+  }
+
+  void _handleNicknameChanged() {
+    unawaited(_loadNickname());
   }
 
   Future<void> _syncVisibleStartDateWithRecords() async {

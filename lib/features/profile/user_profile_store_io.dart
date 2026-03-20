@@ -2,6 +2,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "../../data/local_db/entities/user_profile_entity.dart";
 import "../../data/local_db/local_database.dart";
+import "user_profile_events.dart";
 
 const String _nicknameKey = "nickname";
 const String _legacyNicknamePrefKey = "user_nickname";
@@ -42,6 +43,7 @@ Future<void> saveNickname(String nickname) async {
   await isar.writeTxn(() async {
     await isar.userProfileEntitys.putByKey(entity);
   });
+  UserProfileEvents.notifyNicknameChanged();
 }
 
 Future<bool> loadInitialConsentAccepted() async {
