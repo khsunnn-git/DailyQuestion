@@ -36,5 +36,39 @@ tz.TZDateTime bucketDdayNotificationTime({
     dueDate.year,
     dueDate.month,
     dueDate.day,
+    12,
   ).subtract(Duration(days: daysBefore));
+}
+
+tz.TZDateTime bucketDueDateNotificationTime({
+  required tz.Location location,
+  required DateTime dueDate,
+}) {
+  return tz.TZDateTime(location, dueDate.year, dueDate.month, dueDate.day, 12);
+}
+
+tz.TZDateTime? nextBucketNotificationTime({
+  required tz.Location location,
+  required DateTime dueDate,
+  required int daysBefore,
+  required tz.TZDateTime now,
+}) {
+  final tz.TZDateTime ddayReminder = bucketDdayNotificationTime(
+    location: location,
+    dueDate: dueDate,
+    daysBefore: daysBefore,
+  );
+  if (ddayReminder.isAfter(now)) {
+    return ddayReminder;
+  }
+
+  final tz.TZDateTime dueDateReminder = bucketDueDateNotificationTime(
+    location: location,
+    dueDate: dueDate,
+  );
+  if (dueDateReminder.isAfter(now)) {
+    return dueDateReminder;
+  }
+
+  return null;
 }

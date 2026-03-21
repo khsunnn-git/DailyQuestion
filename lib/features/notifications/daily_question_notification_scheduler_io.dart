@@ -534,23 +534,31 @@ Future<void> _resyncBucketDdayNotifications({
       continue;
     }
 
-    final tz.TZDateTime scheduled = bucketDdayNotificationTime(
+    final tz.TZDateTime? scheduled = nextBucketNotificationTime(
       location: tz.local,
       dueDate: dueDate,
       daysBefore: daysBefore,
+      now: now,
     );
-    if (!scheduled.isAfter(now)) {
+    if (scheduled == null) {
       continue;
     }
+    final tz.TZDateTime dueDateReminder = bucketDueDateNotificationTime(
+      location: tz.local,
+      dueDate: dueDate,
+    );
+    final bool isDueDateFallback = scheduled.isAtSameMomentAs(dueDateReminder);
 
     final int notificationId =
         _bucketDdayNotificationBaseId + (item.id % 100000000).toInt();
     _logNotification(
-      "schedule bucket notification id=$notificationId title=${item.title} at=$scheduled",
+      "schedule bucket notification id=$notificationId title=${item.title} at=$scheduled fallback=$isDueDateFallback",
     );
     await _zonedScheduleBestEffort(
       id: notificationId,
-      title: "${item.title} 완료 D-$daysBefore일 전이에요!",
+      title: isDueDateFallback
+          ? "${item.title} 완료 예정일이에요!"
+          : "${item.title} 완료 D-$daysBefore일 전이에요!",
       body: "실천하기 위한 계획을 세워볼까요?",
       scheduledDate: scheduled,
     );

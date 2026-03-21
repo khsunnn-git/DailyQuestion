@@ -1,3 +1,4 @@
+import "dart:async";
 import "dart:ui" show ImageFilter;
 
 import "package:flutter/material.dart";
@@ -37,6 +38,9 @@ class _BucketListScreenState extends State<BucketListScreen>
   bool _isLoading = true;
   late final AnimationController _floatingController;
   late final Animation<double> _floatingOffset;
+  StreamSubscription<void>? _bucketItemsSubscription;
+  StreamSubscription<void>? _bucketCategoriesSubscription;
+  int _persistedDataRequestId = 0;
 
   @override
   void initState() {
@@ -48,11 +52,14 @@ class _BucketListScreenState extends State<BucketListScreen>
     _floatingOffset = Tween<double>(begin: -6, end: 6).animate(
       CurvedAnimation(parent: _floatingController, curve: Curves.easeInOut),
     );
-    _loadPersistedData();
+    unawaited(_watchPersistedDataChanges());
+    unawaited(_loadPersistedData(syncNotifications: true));
   }
 
   @override
   void dispose() {
+    _bucketItemsSubscription?.cancel();
+    _bucketCategoriesSubscription?.cancel();
     _floatingController.dispose();
     super.dispose();
   }
@@ -149,7 +156,25 @@ class _BucketListScreenState extends State<BucketListScreen>
     return <_BucketEntry>[];
   }
 
-  Future<void> _loadPersistedData() async {
+  Future<void> _watchPersistedDataChanges() async {
+    final isar = await LocalDatabase.instance.isar;
+    if (!mounted) {
+      return;
+    }
+    // The bucket tab lives inside an IndexedStack, so it stays mounted while
+    // writers in other tabs update the local DB.
+    _bucketItemsSubscription = isar.bucketItemEntitys.watchLazy().listen((_) {
+      unawaited(_loadPersistedData(syncNotifications: true));
+    });
+    _bucketCategoriesSubscription = isar.bucketCategoryEntitys
+        .watchLazy()
+        .listen((_) {
+          unawaited(_loadPersistedData());
+        });
+  }
+
+  Future<void> _loadPersistedData({bool syncNotifications = false}) async {
+    final int requestId = ++_persistedDataRequestId;
     final isar = await LocalDatabase.instance.isar;
     final List<BucketCategoryEntity> persistedCategories = await isar
         .bucketCategoryEntitys
@@ -169,7 +194,7 @@ class _BucketListScreenState extends State<BucketListScreen>
     final List<BucketCategorySelection> categories = _sanitizeCustomCategories(
       rawCategories,
     );
-    if (!mounted) {
+    if (!mounted || requestId != _persistedDataRequestId) {
       return;
     }
     final List<_BucketEntry> entries =
@@ -187,7 +212,9 @@ class _BucketListScreenState extends State<BucketListScreen>
     if (!_sameCategorySet(rawCategories, categories)) {
       await _saveCategories(categories: categories);
     }
-    await _syncBucketDdayNotificationsFromPrefs();
+    if (syncNotifications) {
+      await _syncBucketDdayNotificationsFromPrefs();
+    }
   }
 
   Future<void> _saveCategories({
