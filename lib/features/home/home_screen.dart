@@ -3,6 +3,7 @@ import "dart:ui" as ui;
 
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
+import "package:flutter/services.dart";
 import "package:isar/isar.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -37,6 +38,8 @@ class HomeScreen extends StatelessWidget {
       "assets/images/home/home_deco_bubble_blue.webp";
   static const String _inviteBannerAsset =
       "assets/images/home/home_banner_invite_fish_blue.webp";
+  static const String _iosInviteStoreUrl =
+      "https://apps.apple.com/kr/app/dailyquestion/id6760876920";
   static const String _topWaterBackgroundAsset =
       "assets/images/home/home_bg_water.webp";
 
@@ -2950,47 +2953,83 @@ class _TodayMetricCompletionCard extends StatelessWidget {
 class _InviteFriendsBanner extends StatelessWidget {
   const _InviteFriendsBanner();
 
+  bool _isIos(BuildContext context) =>
+      Theme.of(context).platform == TargetPlatform.iOS;
+
+  Future<void> _copyInviteLink(BuildContext context) async {
+    if (!_isIos(context)) {
+      return;
+    }
+
+    await Clipboard.setData(
+      const ClipboardData(text: HomeScreen._iosInviteStoreUrl),
+    );
+
+    if (!context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Center(child: AppToastMessage(text: "친구 초대 링크가 복사되었어요")),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 76),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-      decoration: BoxDecoration(
-        color: brand.c100,
+    final bool isIos = _isIos(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: isIos ? () => _copyInviteLink(context) : null,
         borderRadius: AppRadius.br16,
-        boxShadow: AppElevation.level1,
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              "친구를 초대해\n기록을 함께 나눠보세요!",
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.heading2XSmall.copyWith(
-                color: AppNeutralColors.grey900,
-              ),
-            ),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 76),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+          decoration: BoxDecoration(
+            color: brand.c100,
+            borderRadius: AppRadius.br16,
+            boxShadow: AppElevation.level1,
           ),
-          const SizedBox(width: AppSpacing.s8),
-          Image.asset(
-            HomeScreen._inviteBannerAsset,
-            width: 94,
-            height: 58,
-            fit: BoxFit.contain,
-            errorBuilder: (_, error, stackTrace) {
-              return const SizedBox(
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  "친구를 초대해\n기록을 함께 나눠보세요!",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.heading2XSmall.copyWith(
+                    color: AppNeutralColors.grey900,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s8),
+              Image.asset(
+                HomeScreen._inviteBannerAsset,
                 width: 94,
                 height: 58,
-                child: Center(
-                  child: AppEmojiText("🐟", style: TextStyle(fontSize: 30)),
-                ),
-              );
-            },
+                fit: BoxFit.contain,
+                errorBuilder: (_, error, stackTrace) {
+                  return const SizedBox(
+                    width: 94,
+                    height: 58,
+                    child: Center(
+                      child: AppEmojiText("🐟", style: TextStyle(fontSize: 30)),
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
