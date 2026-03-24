@@ -1,4 +1,4 @@
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 
 part "user_profile_entity.g.dart";
 

@@ -1,7 +1,7 @@
 import "dart:math";
 // ignore_for_file: use_null_aware_elements
 
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/daily_checkin_entity.dart";

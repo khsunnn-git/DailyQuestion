@@ -2,7 +2,7 @@ import "dart:async";
 import "dart:math";
 
 import "package:flutter/foundation.dart";
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/answer_record_entity.dart";

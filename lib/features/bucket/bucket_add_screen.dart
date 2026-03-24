@@ -1,5 +1,5 @@
 import "package:flutter/material.dart";
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";

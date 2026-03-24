@@ -1,3 +1,4 @@
+import "package:isar_community/isar.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "../../data/local_db/entities/user_profile_entity.dart";
@@ -7,27 +8,31 @@ import "user_profile_events.dart";
 const String _nicknameKey = "nickname";
 const String _legacyNicknamePrefKey = "user_nickname";
 const String _initialConsentPrefKey = "initial_consent_accepted";
+const Duration _isarNicknameAccessTimeout = Duration(seconds: 2);
 
 Future<String?> loadNickname() async {
-  final isar = await LocalDatabase.instance.isar;
-  final UserProfileEntity? stored = await isar.userProfileEntitys.getByKey(
-    _nicknameKey,
-  );
-
-  final String? dbNickname = stored?.value.trim();
-  if (dbNickname != null && dbNickname.isNotEmpty) {
-    return dbNickname;
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final Isar? isar = await _openIsarForNicknameOrNull();
+  if (isar != null) {
+    final UserProfileEntity? stored = await isar.userProfileEntitys.getByKey(
+      _nicknameKey,
+    );
+    final String? dbNickname = stored?.value.trim();
+    if (dbNickname != null && dbNickname.isNotEmpty) {
+      await prefs.setString(_legacyNicknamePrefKey, dbNickname);
+      return dbNickname;
+    }
   }
 
-  final SharedPreferences prefs = await SharedPreferences.getInstance();
   final String? legacyNickname = prefs
       .getString(_legacyNicknamePrefKey)
       ?.trim();
   if (legacyNickname == null || legacyNickname.isEmpty) {
     return null;
   }
-  await saveNickname(legacyNickname);
-  await prefs.remove(_legacyNicknamePrefKey);
+  if (isar != null) {
+    await _persistNicknameToIsar(isar, legacyNickname);
+  }
   return legacyNickname;
 }
 
@@ -36,13 +41,13 @@ Future<void> saveNickname(String nickname) async {
   if (normalized.isEmpty) {
     return;
   }
-  final isar = await LocalDatabase.instance.isar;
-  final UserProfileEntity entity = UserProfileEntity()
-    ..key = _nicknameKey
-    ..value = normalized;
-  await isar.writeTxn(() async {
-    await isar.userProfileEntitys.putByKey(entity);
-  });
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_legacyNicknamePrefKey, normalized);
+
+  final Isar? isar = await _openIsarForNicknameOrNull();
+  if (isar != null) {
+    await _persistNicknameToIsar(isar, normalized);
+  }
   UserProfileEvents.notifyNicknameChanged();
 }
 
@@ -54,4 +59,21 @@ Future<bool> loadInitialConsentAccepted() async {
 Future<void> saveInitialConsentAccepted(bool accepted) async {
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   await prefs.setBool(_initialConsentPrefKey, accepted);
+}
+
+Future<Isar?> _openIsarForNicknameOrNull() async {
+  try {
+    return await LocalDatabase.instance.isar.timeout(_isarNicknameAccessTimeout);
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> _persistNicknameToIsar(Isar isar, String nickname) async {
+  final UserProfileEntity entity = UserProfileEntity()
+    ..key = _nicknameKey
+    ..value = nickname;
+  await isar.writeTxn(() async {
+    await isar.userProfileEntitys.putByKey(entity);
+  });
 }

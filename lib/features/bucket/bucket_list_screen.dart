@@ -2,7 +2,7 @@ import "dart:async";
 import "dart:ui" show ImageFilter;
 
 import "package:flutter/material.dart";
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "../../data/local_db/entities/bucket_category_entity.dart";

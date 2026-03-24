@@ -1,4 +1,4 @@
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "../../data/local_db/entities/answer_record_entity.dart";

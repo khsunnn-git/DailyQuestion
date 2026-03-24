@@ -23,11 +23,7 @@ const DailyCheckinEntitySchema = CollectionSchema(
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'dateKey': PropertySchema(
-      id: 1,
-      name: r'dateKey',
-      type: IsarType.string,
-    ),
+    r'dateKey': PropertySchema(id: 1, name: r'dateKey', type: IsarType.string),
     r'energyIndex': PropertySchema(
       id: 2,
       name: r'energyIndex',
@@ -47,8 +43,9 @@ const DailyCheckinEntitySchema = CollectionSchema(
       id: 5,
       name: r'updatedAt',
       type: IsarType.dateTime,
-    )
+    ),
   },
+
   estimateSize: _dailyCheckinEntityEstimateSize,
   serialize: _dailyCheckinEntitySerialize,
   deserialize: _dailyCheckinEntityDeserialize,
@@ -65,16 +62,17 @@ const DailyCheckinEntitySchema = CollectionSchema(
           name: r'dateKey',
           type: IndexType.hash,
           caseSensitive: true,
-        )
+        ),
       ],
-    )
+    ),
   },
   links: {},
   embeddedSchemas: {},
+
   getId: _dailyCheckinEntityGetId,
   getLinks: _dailyCheckinEntityGetLinks,
   attach: _dailyCheckinEntityAttach,
-  version: '3.1.0+1',
+  version: '3.3.2',
 );
 
 int _dailyCheckinEntityEstimateSize(
@@ -147,12 +145,16 @@ Id _dailyCheckinEntityGetId(DailyCheckinEntity object) {
 }
 
 List<IsarLinkBase<dynamic>> _dailyCheckinEntityGetLinks(
-    DailyCheckinEntity object) {
+  DailyCheckinEntity object,
+) {
   return [];
 }
 
 void _dailyCheckinEntityAttach(
-    IsarCollection<dynamic> col, Id id, DailyCheckinEntity object) {
+  IsarCollection<dynamic> col,
+  Id id,
+  DailyCheckinEntity object,
+) {
   object.id = id;
 }
 
@@ -174,7 +176,8 @@ extension DailyCheckinEntityByIndex on IsarCollection<DailyCheckinEntity> {
   }
 
   Future<List<DailyCheckinEntity?>> getAllByDateKey(
-      List<String> dateKeyValues) {
+    List<String> dateKeyValues,
+  ) {
     final values = dateKeyValues.map((e) => [e]).toList();
     return getAllByIndex(r'dateKey', values);
   }
@@ -206,8 +209,10 @@ extension DailyCheckinEntityByIndex on IsarCollection<DailyCheckinEntity> {
     return putAllByIndex(r'dateKey', objects);
   }
 
-  List<Id> putAllByDateKeySync(List<DailyCheckinEntity> objects,
-      {bool saveLinks = true}) {
+  List<Id> putAllByDateKeySync(
+    List<DailyCheckinEntity> objects, {
+    bool saveLinks = true,
+  }) {
     return putAllByIndexSync(r'dateKey', objects, saveLinks: saveLinks);
   }
 }
@@ -224,17 +229,14 @@ extension DailyCheckinEntityQueryWhereSort
 extension DailyCheckinEntityQueryWhere
     on QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QWhereClause> {
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterWhereClause>
-      idEqualTo(Id id) {
+  idEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: id,
-        upper: id,
-      ));
+      return query.addWhereClause(IdWhereClause.between(lower: id, upper: id));
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterWhereClause>
-      idNotEqualTo(Id id) {
+  idNotEqualTo(Id id) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
@@ -257,7 +259,7 @@ extension DailyCheckinEntityQueryWhere
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterWhereClause>
-      idGreaterThan(Id id, {bool include = false}) {
+  idGreaterThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.greaterThan(lower: id, includeLower: include),
@@ -266,7 +268,7 @@ extension DailyCheckinEntityQueryWhere
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterWhereClause>
-      idLessThan(Id id, {bool include = false}) {
+  idLessThan(Id id, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
       return query.addWhereClause(
         IdWhereClause.lessThan(upper: id, includeUpper: include),
@@ -275,63 +277,72 @@ extension DailyCheckinEntityQueryWhere
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterWhereClause>
-      idBetween(
+  idBetween(
     Id lowerId,
     Id upperId, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IdWhereClause.between(
-        lower: lowerId,
-        includeLower: includeLower,
-        upper: upperId,
-        includeUpper: includeUpper,
-      ));
+      return query.addWhereClause(
+        IdWhereClause.between(
+          lower: lowerId,
+          includeLower: includeLower,
+          upper: upperId,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterWhereClause>
-      dateKeyEqualTo(String dateKey) {
+  dateKeyEqualTo(String dateKey) {
     return QueryBuilder.apply(this, (query) {
-      return query.addWhereClause(IndexWhereClause.equalTo(
-        indexName: r'dateKey',
-        value: [dateKey],
-      ));
+      return query.addWhereClause(
+        IndexWhereClause.equalTo(indexName: r'dateKey', value: [dateKey]),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterWhereClause>
-      dateKeyNotEqualTo(String dateKey) {
+  dateKeyNotEqualTo(String dateKey) {
     return QueryBuilder.apply(this, (query) {
       if (query.whereSort == Sort.asc) {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'dateKey',
-              lower: [],
-              upper: [dateKey],
-              includeUpper: false,
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'dateKey',
-              lower: [dateKey],
-              includeLower: false,
-              upper: [],
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'dateKey',
+                lower: [],
+                upper: [dateKey],
+                includeUpper: false,
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'dateKey',
+                lower: [dateKey],
+                includeLower: false,
+                upper: [],
+              ),
+            );
       } else {
         return query
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'dateKey',
-              lower: [dateKey],
-              includeLower: false,
-              upper: [],
-            ))
-            .addWhereClause(IndexWhereClause.between(
-              indexName: r'dateKey',
-              lower: [],
-              upper: [dateKey],
-              includeUpper: false,
-            ));
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'dateKey',
+                lower: [dateKey],
+                includeLower: false,
+                upper: [],
+              ),
+            )
+            .addWhereClause(
+              IndexWhereClause.between(
+                indexName: r'dateKey',
+                lower: [],
+                upper: [dateKey],
+                includeUpper: false,
+              ),
+            );
       }
     });
   }
@@ -340,109 +351,111 @@ extension DailyCheckinEntityQueryWhere
 extension DailyCheckinEntityQueryFilter
     on QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QFilterCondition> {
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      createdAtEqualTo(DateTime value) {
+  createdAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'createdAt', value: value),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      createdAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  createdAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      createdAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  createdAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'createdAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'createdAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      createdAtBetween(
+  createdAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'createdAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'createdAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  dateKeyEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'dateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'dateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'dateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyLessThan(
+  dateKeyGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'dateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'dateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyBetween(
+  dateKeyLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'dateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
+  dateKeyBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -450,418 +463,415 @@ extension DailyCheckinEntityQueryFilter
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'dateKey',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'dateKey',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  dateKeyStartsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'dateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'dateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
+  dateKeyEndsWith(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'dateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'dateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyContains(String value, {bool caseSensitive = true}) {
+  dateKeyContains(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'dateKey',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'dateKey',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyMatches(String pattern, {bool caseSensitive = true}) {
+  dateKeyMatches(String pattern, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'dateKey',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'dateKey',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyIsEmpty() {
+  dateKeyIsEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'dateKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'dateKey', value: ''),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      dateKeyIsNotEmpty() {
+  dateKeyIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'dateKey',
-        value: '',
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'dateKey', value: ''),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      energyIndexIsNull() {
+  energyIndexIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'energyIndex',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'energyIndex'),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      energyIndexIsNotNull() {
+  energyIndexIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'energyIndex',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'energyIndex'),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      energyIndexEqualTo(int? value) {
+  energyIndexEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'energyIndex',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'energyIndex', value: value),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      energyIndexGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
+  energyIndexGreaterThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'energyIndex',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'energyIndex',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      energyIndexLessThan(
-    int? value, {
-    bool include = false,
-  }) {
+  energyIndexLessThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'energyIndex',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'energyIndex',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      energyIndexBetween(
+  energyIndexBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'energyIndex',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'energyIndex',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      idEqualTo(Id value) {
+  idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'id', value: value),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      idGreaterThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idGreaterThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      idLessThan(
-    Id value, {
-    bool include = false,
-  }) {
+  idLessThan(Id value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'id',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'id',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      idBetween(
+  idBetween(
     Id lower,
     Id upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'id',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'id',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      moodIndexIsNull() {
+  moodIndexIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'moodIndex',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'moodIndex'),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      moodIndexIsNotNull() {
+  moodIndexIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'moodIndex',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'moodIndex'),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      moodIndexEqualTo(int? value) {
+  moodIndexEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'moodIndex',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'moodIndex', value: value),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      moodIndexGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
+  moodIndexGreaterThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'moodIndex',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'moodIndex',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      moodIndexLessThan(
-    int? value, {
-    bool include = false,
-  }) {
+  moodIndexLessThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'moodIndex',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'moodIndex',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      moodIndexBetween(
+  moodIndexBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'moodIndex',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'moodIndex',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      stressIndexIsNull() {
+  stressIndexIsNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNull(
-        property: r'stressIndex',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'stressIndex'),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      stressIndexIsNotNull() {
+  stressIndexIsNotNull() {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(const FilterCondition.isNotNull(
-        property: r'stressIndex',
-      ));
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'stressIndex'),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      stressIndexEqualTo(int? value) {
+  stressIndexEqualTo(int? value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'stressIndex',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'stressIndex', value: value),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      stressIndexGreaterThan(
-    int? value, {
-    bool include = false,
-  }) {
+  stressIndexGreaterThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'stressIndex',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'stressIndex',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      stressIndexLessThan(
-    int? value, {
-    bool include = false,
-  }) {
+  stressIndexLessThan(int? value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'stressIndex',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'stressIndex',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      stressIndexBetween(
+  stressIndexBetween(
     int? lower,
     int? upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'stressIndex',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'stressIndex',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      updatedAtEqualTo(DateTime value) {
+  updatedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'updatedAt', value: value),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      updatedAtGreaterThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtGreaterThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      updatedAtLessThan(
-    DateTime value, {
-    bool include = false,
-  }) {
+  updatedAtLessThan(DateTime value, {bool include = false}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'updatedAt',
-        value: value,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'updatedAt',
+          value: value,
+        ),
+      );
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterFilterCondition>
-      updatedAtBetween(
+  updatedAtBetween(
     DateTime lower,
     DateTime upper, {
     bool includeLower = true,
     bool includeUpper = true,
   }) {
     return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'updatedAt',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-      ));
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'updatedAt',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+        ),
+      );
     });
   }
 }
@@ -875,84 +885,84 @@ extension DailyCheckinEntityQueryLinks
 extension DailyCheckinEntityQuerySortBy
     on QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QSortBy> {
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByCreatedAt() {
+  sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByCreatedAtDesc() {
+  sortByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByDateKey() {
+  sortByDateKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dateKey', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByDateKeyDesc() {
+  sortByDateKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dateKey', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByEnergyIndex() {
+  sortByEnergyIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'energyIndex', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByEnergyIndexDesc() {
+  sortByEnergyIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'energyIndex', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByMoodIndex() {
+  sortByMoodIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moodIndex', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByMoodIndexDesc() {
+  sortByMoodIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moodIndex', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByStressIndex() {
+  sortByStressIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stressIndex', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByStressIndexDesc() {
+  sortByStressIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stressIndex', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByUpdatedAt() {
+  sortByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      sortByUpdatedAtDesc() {
+  sortByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
@@ -962,98 +972,98 @@ extension DailyCheckinEntityQuerySortBy
 extension DailyCheckinEntityQuerySortThenBy
     on QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QSortThenBy> {
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByCreatedAt() {
+  thenByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByCreatedAtDesc() {
+  thenByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByDateKey() {
+  thenByDateKey() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dateKey', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByDateKeyDesc() {
+  thenByDateKeyDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'dateKey', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByEnergyIndex() {
+  thenByEnergyIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'energyIndex', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByEnergyIndexDesc() {
+  thenByEnergyIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'energyIndex', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenById() {
+  thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByIdDesc() {
+  thenByIdDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByMoodIndex() {
+  thenByMoodIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moodIndex', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByMoodIndexDesc() {
+  thenByMoodIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'moodIndex', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByStressIndex() {
+  thenByStressIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stressIndex', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByStressIndexDesc() {
+  thenByStressIndexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'stressIndex', Sort.desc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByUpdatedAt() {
+  thenByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.asc);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QAfterSortBy>
-      thenByUpdatedAtDesc() {
+  thenByUpdatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'updatedAt', Sort.desc);
     });
@@ -1063,42 +1073,42 @@ extension DailyCheckinEntityQuerySortThenBy
 extension DailyCheckinEntityQueryWhereDistinct
     on QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QDistinct> {
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QDistinct>
-      distinctByCreatedAt() {
+  distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QDistinct>
-      distinctByDateKey({bool caseSensitive = true}) {
+  distinctByDateKey({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'dateKey', caseSensitive: caseSensitive);
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QDistinct>
-      distinctByEnergyIndex() {
+  distinctByEnergyIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'energyIndex');
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QDistinct>
-      distinctByMoodIndex() {
+  distinctByMoodIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'moodIndex');
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QDistinct>
-      distinctByStressIndex() {
+  distinctByStressIndex() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'stressIndex');
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DailyCheckinEntity, QDistinct>
-      distinctByUpdatedAt() {
+  distinctByUpdatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'updatedAt');
     });
@@ -1114,7 +1124,7 @@ extension DailyCheckinEntityQueryProperty
   }
 
   QueryBuilder<DailyCheckinEntity, DateTime, QQueryOperations>
-      createdAtProperty() {
+  createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdAt');
     });
@@ -1127,7 +1137,7 @@ extension DailyCheckinEntityQueryProperty
   }
 
   QueryBuilder<DailyCheckinEntity, int?, QQueryOperations>
-      energyIndexProperty() {
+  energyIndexProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'energyIndex');
     });
@@ -1140,14 +1150,14 @@ extension DailyCheckinEntityQueryProperty
   }
 
   QueryBuilder<DailyCheckinEntity, int?, QQueryOperations>
-      stressIndexProperty() {
+  stressIndexProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'stressIndex');
     });
   }
 
   QueryBuilder<DailyCheckinEntity, DateTime, QQueryOperations>
-      updatedAtProperty() {
+  updatedAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'updatedAt');
     });

@@ -3,7 +3,7 @@ import "dart:async";
 import "package:flutter/foundation.dart";
 import "package:flutter_local_notifications/flutter_local_notifications.dart";
 import "package:flutter_timezone/flutter_timezone.dart";
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 import "package:permission_handler/permission_handler.dart";
 import "package:shared_preferences/shared_preferences.dart";
 import "package:timezone/data/latest.dart" as tz_data;
@@ -61,8 +61,7 @@ void _logNotification(String message) {
 Future<void> initializeDailyQuestionNotificationScheduler() async {
   _logNotification("initialize scheduler");
   await _ensureInitialized();
-  final bool hasNotificationPermission =
-      await _ensureNotificationPermissionOnFirstLaunch();
+  final bool hasNotificationPermission = await areNotificationsEnabledOnDevice();
   await _restoreSchedulesFromPrefs(
     hasNotificationPermission: hasNotificationPermission,
   );
@@ -280,41 +279,6 @@ Future<void> _configureLocalTimeZone() async {
       _logNotification("timezone fallback to UTC");
     }
   }
-}
-
-Future<bool> _ensureNotificationPermissionOnFirstLaunch() async {
-  if (kIsWeb) {
-    return false;
-  }
-
-  final SharedPreferences prefs = await SharedPreferences.getInstance();
-  final bool onboardingRequested =
-      prefs.getBool(NotificationPrefsKeys.permissionOnboardingRequested) ??
-      false;
-  final bool alreadyGranted = await areNotificationsEnabledOnDevice();
-  if (alreadyGranted) {
-    if (!onboardingRequested) {
-      await prefs.setBool(
-        NotificationPrefsKeys.permissionOnboardingRequested,
-        true,
-      );
-    }
-    _logNotification("permission already granted before onboarding request");
-    return true;
-  }
-
-  if (onboardingRequested) {
-    _logNotification("permission onboarding already requested once");
-    return false;
-  }
-
-  final bool granted = await requestNotificationPermissionOnDevice();
-  await prefs.setBool(
-    NotificationPrefsKeys.permissionOnboardingRequested,
-    true,
-  );
-  _logNotification("permission onboarding requested granted=$granted");
-  return granted;
 }
 
 Future<void> _restoreSchedulesFromPrefs({

@@ -1,4 +1,4 @@
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 
 part "answer_record_entity.g.dart";
 

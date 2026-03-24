@@ -2,7 +2,7 @@ import "dart:async";
 
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";

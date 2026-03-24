@@ -1,4 +1,4 @@
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 
 part "bucket_item_entity.g.dart";
 

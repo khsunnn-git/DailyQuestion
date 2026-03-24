@@ -5,7 +5,7 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/foundation.dart";
 import "package:flutter/widgets.dart";
-import "package:isar/isar.dart";
+import "package:isar_community/isar.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/answer_record_entity.dart";
