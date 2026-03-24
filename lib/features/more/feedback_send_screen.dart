@@ -371,7 +371,7 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                           controller: _messageController,
                           focusNode: _messageFocusNode,
                           height: AppInputTokens.textAreaBottomSheetHeight,
-                          hintText: "무엇이든 가볍게 적어보세요",
+                          hintText: "불편한 점이 있다면 무엇이든 말해주세요",
                           backgroundColor: AppNeutralColors.white,
                           borderColor: brand.c300,
                         ),
@@ -422,7 +422,7 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
                               isDense: true,
                               isCollapsed: true,
                               contentPadding: EdgeInsets.zero,
-                              hintText: "Daily@question.com",
+                              hintText: "daily@question.com",
                               hintStyle: AppTypography.bodySmallMedium.copyWith(
                                 color: AppNeutralColors.grey300,
                               ),

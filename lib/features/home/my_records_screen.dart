@@ -29,10 +29,6 @@ class MyRecordsScreen extends StatefulWidget {
 
   static const String _recordHeroDecoAsset =
       "assets/images/record/my_record_hero_deco.webp";
-  static const String _profileInsightAsset =
-      "assets/images/record/profile_insight.webp";
-  static const String _profileInterestAsset =
-      "assets/images/record/profile_interest.webp";
   static const String _profileBucketlistAsset =
       "assets/images/record/profile_bucketlist.webp";
 
@@ -2003,7 +1999,7 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
               ],
               const SizedBox(height: AppSpacing.s16),
               _AiReportPreviewCard(
-                iconAsset: MyRecordsScreen._profileInsightAsset,
+                iconData: Icons.auto_graph_rounded,
                 title: summaryTitle,
                 body: report.summary,
               ),
@@ -2027,13 +2023,13 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
             ],
             const SizedBox(height: AppSpacing.s16),
             _AiReportPreviewCard(
-              iconAsset: MyRecordsScreen._profileInsightAsset,
+              iconData: Icons.auto_graph_rounded,
               title: summaryTitle,
               body: report.summary,
             ),
             const SizedBox(height: AppSpacing.s12),
             _AiReportPreviewCard(
-              iconAsset: MyRecordsScreen._profileInterestAsset,
+              iconData: Icons.lightbulb_rounded,
               title: "인사이트",
               body: insightBody,
             ),
@@ -2128,13 +2124,13 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
         ] else ...<Widget>[
           const SizedBox(height: AppSpacing.s16),
           _AiReportPreviewCard(
-            iconAsset: MyRecordsScreen._profileInsightAsset,
+            iconData: Icons.auto_graph_rounded,
             title: data.summaryTitle,
             body: data.summaryBody,
           ),
           const SizedBox(height: AppSpacing.s12),
           _AiReportPreviewCard(
-            iconAsset: MyRecordsScreen._profileInterestAsset,
+            iconData: Icons.lightbulb_rounded,
             title: "인사이트",
             body: data.insightBody,
           ),
@@ -2243,12 +2239,14 @@ class _AiPeriodChip extends StatelessWidget {
 
 class _AiReportPreviewCard extends StatelessWidget {
   const _AiReportPreviewCard({
-    required this.iconAsset,
+    this.iconAsset,
+    this.iconData,
     required this.title,
     required this.body,
-  });
+  }) : assert(iconAsset != null || iconData != null);
 
-  final String iconAsset;
+  final String? iconAsset;
+  final IconData? iconData;
   final String title;
   final String body;
 
@@ -2275,7 +2273,9 @@ class _AiReportPreviewCard extends StatelessWidget {
                   color: brand.c100,
                   shape: BoxShape.circle,
                 ),
-                child: Image.asset(iconAsset, width: 50, height: 50),
+                child: iconData != null
+                    ? Icon(iconData, color: brand.c500, size: 28)
+                    : Image.asset(iconAsset!, width: 50, height: 50),
               ),
               const SizedBox(width: AppSpacing.s20),
               Expanded(
@@ -3277,6 +3277,11 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "우리",
     "요즘",
     "지금",
+    "그래",
+    "그래도",
+    "그래서",
+    "근데",
+    "하지만",
   };
   static const Set<String> _lowInfoWords = <String>{
     "사람",
@@ -3306,6 +3311,11 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     "지내기",
     "나가기",
     "들어가기",
+    "그래",
+    "그래도",
+    "그래서",
+    "근데",
+    "하지만",
   };
   static const Set<String> _domainBoostWords = <String>{
     "행복",

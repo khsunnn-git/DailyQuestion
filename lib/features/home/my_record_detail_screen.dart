@@ -346,6 +346,7 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
+    final String createdDate = _createdDateLabel(_currentRecord);
     return Scaffold(
       backgroundColor: brand.bg,
       body: Padding(
@@ -360,11 +361,6 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                 itemCount: _records.length,
                 itemBuilder: (BuildContext context, int index) {
                   final TodayQuestionRecord record = _records[index];
-                  final DateTime createdAt = _displayDateForRecord(record);
-                  final String createdDate =
-                      "${createdAt.year.toString().padLeft(4, "0")}."
-                      "${createdAt.month.toString().padLeft(2, "0")}."
-                      "${createdAt.day.toString().padLeft(2, "0")}";
                   final String questionTitle =
                       (record.questionText?.trim().isNotEmpty ?? false)
                       ? record.questionText!.trim()
@@ -380,69 +376,13 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                   return SingleChildScrollView(
                     padding: EdgeInsets.fromLTRB(
                       AppSpacing.s20,
-                      AppHeaderTokens.topInset,
+                      AppHeaderTokens.topInset + AppHeaderTokens.height,
                       AppSpacing.s20,
                       AppNavigationBar.totalHeight(context) + AppSpacing.s20,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        SizedBox(
-                          height: AppHeaderTokens.height,
-                          child: Row(
-                            children: <Widget>[
-                              SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: IconButton(
-                                  onPressed: () =>
-                                      Navigator.of(context).maybePop(),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 24,
-                                    height: 24,
-                                  ),
-                                  icon: const Icon(
-                                    Icons.arrow_back,
-                                    color: AppNeutralColors.grey900,
-                                    size: 24,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  createdDate,
-                                  textAlign: TextAlign.center,
-                                  style: AppTypography.headingXSmall.copyWith(
-                                    color: AppNeutralColors.grey900,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: IconButton(
-                                  onPressed: isCurrentPage
-                                      ? _toggleMoreMenu
-                                      : null,
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 24,
-                                    height: 24,
-                                  ),
-                                  visualDensity: VisualDensity.compact,
-                                  icon: Icon(
-                                    Icons.more_horiz,
-                                    color: isCurrentPage
-                                        ? AppNeutralColors.grey400
-                                        : Colors.transparent,
-                                    size: 24,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                         const SizedBox(height: AppSpacing.s24),
                         Padding(
                           padding: const EdgeInsets.symmetric(
@@ -605,6 +545,72 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
                 },
               ),
             ),
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: AppHeaderTokens.topInset + AppHeaderTokens.height,
+                color: brand.bg,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.s20,
+                  AppHeaderTokens.topInset,
+                  AppSpacing.s20,
+                  0,
+                ),
+                child: SizedBox(
+                  height: AppHeaderTokens.height,
+                  child: Row(
+                    children: <Widget>[
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: IconButton(
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 24,
+                            height: 24,
+                          ),
+                          icon: const Icon(
+                            Icons.arrow_back,
+                            color: AppNeutralColors.grey900,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          createdDate,
+                          textAlign: TextAlign.center,
+                          style: AppTypography.headingXSmall.copyWith(
+                            color: AppNeutralColors.grey900,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: IconButton(
+                          onPressed: _toggleMoreMenu,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 24,
+                            height: 24,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          icon: const Icon(
+                            Icons.more_horiz,
+                            color: AppNeutralColors.grey400,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             if (_showMoreMenu)
               Positioned.fill(
                 child: GestureDetector(
@@ -678,6 +684,13 @@ class _MyRecordDetailScreenState extends State<MyRecordDetailScreen> {
         ),
       ),
     );
+  }
+
+  String _createdDateLabel(TodayQuestionRecord record) {
+    final DateTime createdAt = _displayDateForRecord(record);
+    return "${createdAt.year.toString().padLeft(4, "0")}."
+        "${createdAt.month.toString().padLeft(2, "0")}."
+        "${createdAt.day.toString().padLeft(2, "0")}";
   }
 
   DateTime _displayDateForRecord(TodayQuestionRecord record) {

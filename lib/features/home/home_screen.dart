@@ -40,6 +40,8 @@ class HomeScreen extends StatelessWidget {
       "assets/images/home/home_banner_invite_fish_blue.webp";
   static const String _iosInviteStoreUrl =
       "https://apps.apple.com/kr/app/dailyquestion/id6760876920";
+  static const String _androidInviteStoreUrl =
+      "https://play.google.com/store/apps/details?id=com.pland.dailyquestion";
   static const String _topWaterBackgroundAsset =
       "assets/images/home/home_bg_water.webp";
 
@@ -2953,17 +2955,21 @@ class _TodayMetricCompletionCard extends StatelessWidget {
 class _InviteFriendsBanner extends StatelessWidget {
   const _InviteFriendsBanner();
 
-  bool _isIos(BuildContext context) =>
-      Theme.of(context).platform == TargetPlatform.iOS;
+  String? _inviteStoreUrl(BuildContext context) {
+    return switch (Theme.of(context).platform) {
+      TargetPlatform.iOS => HomeScreen._iosInviteStoreUrl,
+      TargetPlatform.android => HomeScreen._androidInviteStoreUrl,
+      _ => null,
+    };
+  }
 
   Future<void> _copyInviteLink(BuildContext context) async {
-    if (!_isIos(context)) {
+    final String? inviteStoreUrl = _inviteStoreUrl(context);
+    if (inviteStoreUrl == null) {
       return;
     }
 
-    await Clipboard.setData(
-      const ClipboardData(text: HomeScreen._iosInviteStoreUrl),
-    );
+    await Clipboard.setData(ClipboardData(text: inviteStoreUrl));
 
     if (!context.mounted) {
       return;
@@ -2984,11 +2990,11 @@ class _InviteFriendsBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final bool isIos = _isIos(context);
+    final bool canCopyInviteLink = _inviteStoreUrl(context) != null;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: isIos ? () => _copyInviteLink(context) : null,
+        onTap: canCopyInviteLink ? () => _copyInviteLink(context) : null,
         borderRadius: AppRadius.br16,
         child: Container(
           width: double.infinity,

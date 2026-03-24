@@ -226,6 +226,8 @@ class WeeklyAggregationSnapshot {
     required this.targetDays,
     required this.topKeywords,
     required this.trendDelta,
+    this.dueBucketCount = 0,
+    this.completedDueBucketCount = 0,
   });
 
   final ReportAnalyzePayload payload;
@@ -237,6 +239,8 @@ class WeeklyAggregationSnapshot {
   final int targetDays;
   final List<String> topKeywords;
   final double trendDelta;
+  final int dueBucketCount;
+  final int completedDueBucketCount;
 
   bool get hasCheckinData =>
       averageMood > 0 ||
@@ -326,6 +330,22 @@ class WeeklyAggregationSnapshot {
           payload.metrics["trend_delta"],
         ]),
       ),
+      dueBucketCount:
+          _asInt(
+            pickFirst(<Object?>[
+              json["due_bucket_count"],
+              payload.metrics["due_bucket_count"],
+            ]),
+          ) ??
+          0,
+      completedDueBucketCount:
+          _asInt(
+            pickFirst(<Object?>[
+              json["completed_due_bucket_count"],
+              payload.metrics["completed_due_bucket_count"],
+            ]),
+          ) ??
+          0,
     );
   }
 
@@ -340,6 +360,8 @@ class WeeklyAggregationSnapshot {
       "target_days": targetDays,
       "top_keywords": topKeywords,
       "trend_delta": trendDelta,
+      "due_bucket_count": dueBucketCount,
+      "completed_due_bucket_count": completedDueBucketCount,
     };
   }
 

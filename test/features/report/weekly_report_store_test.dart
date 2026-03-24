@@ -91,6 +91,14 @@ class _FakeReportAggregationService extends ReportAggregationService {
     return _report(snapshot);
   }
 
+  @override
+  WeeklyAiReport tuneWeeklyReport({
+    required WeeklyAiReport report,
+    required WeeklyAggregationSnapshot snapshot,
+  }) {
+    return report;
+  }
+
   WeeklyAiReport _report(WeeklyAggregationSnapshot snapshot) {
     return WeeklyAiReport(
       summary: "days ${snapshot.recordedDays}",

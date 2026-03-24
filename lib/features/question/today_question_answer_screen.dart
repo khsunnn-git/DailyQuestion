@@ -866,6 +866,14 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
     final BrandScale brand = context.appBrandScale;
     final DateTime now = nowInKst();
     final double safeBottomInset = MediaQuery.of(context).viewPadding.bottom;
+    final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bool isKeyboardVisible = keyboardInset > 0;
+    final double actionTopPadding = isKeyboardVisible ? AppSpacing.s12 : AppSpacing.s16;
+    final double actionBottomPadding = isKeyboardVisible
+        ? AppSpacing.s12
+        : safeBottomInset + AppSpacing.s8;
+    final double actionAreaHeight =
+        60 + actionTopPadding + actionBottomPadding;
     final DateTime displayDate =
         widget.editingRecord?.createdAt ?? widget.initialDate ?? now;
     final String headerTitle = widget.headerTitle ?? "오늘의 질문";
@@ -884,11 +892,11 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
           children: <Widget>[
             Positioned.fill(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(
+                padding: EdgeInsets.fromLTRB(
                   AppSpacing.s20,
                   70,
                   AppSpacing.s20,
-                  AppSpacing.s20,
+                  actionAreaHeight + AppSpacing.s20,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1177,45 +1185,57 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 40),
-                    SizedBox(
-                      height: 60,
-                      child: FilledButton(
-                        onPressed: _hasInput ? _saveRecord : null,
-                        style: ButtonStyle(
-                          backgroundColor:
-                              WidgetStateProperty.resolveWith<Color>((
-                                Set<WidgetState> states,
-                              ) {
-                                if (states.contains(WidgetState.disabled)) {
-                                  return brand.c300;
-                                }
-                                if (states.contains(WidgetState.hovered)) {
-                                  return brand.c600;
-                                }
-                                return brand.c500;
-                              }),
-                          overlayColor: WidgetStatePropertyAll<Color>(
-                            AppNeutralColors.white.withValues(alpha: 0.08),
-                          ),
-                          shape: WidgetStatePropertyAll<RoundedRectangleBorder>(
-                            RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.s8,
-                              ),
-                            ),
-                          ),
-                        ),
-                        child: Text(
-                          "저장하기",
-                          style: AppTypography.buttonLarge.copyWith(
-                            color: AppNeutralColors.white,
-                          ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+                color: brand.bg,
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.s20,
+                  actionTopPadding,
+                  AppSpacing.s20,
+                  actionBottomPadding,
+                ),
+                child: SizedBox(
+                  height: 60,
+                  child: FilledButton(
+                    onPressed: _hasInput ? _saveRecord : null,
+                    style: ButtonStyle(
+                      backgroundColor:
+                          WidgetStateProperty.resolveWith<Color>((
+                            Set<WidgetState> states,
+                          ) {
+                            if (states.contains(WidgetState.disabled)) {
+                              return brand.c300;
+                            }
+                            if (states.contains(WidgetState.hovered)) {
+                              return brand.c600;
+                            }
+                            return brand.c500;
+                          }),
+                      overlayColor: WidgetStatePropertyAll<Color>(
+                        AppNeutralColors.white.withValues(alpha: 0.08),
+                      ),
+                      shape: WidgetStatePropertyAll<RoundedRectangleBorder>(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppSpacing.s8),
                         ),
                       ),
                     ),
-                    SizedBox(height: safeBottomInset + 8),
-                  ],
+                    child: Text(
+                      "저장하기",
+                      style: AppTypography.buttonLarge.copyWith(
+                        color: AppNeutralColors.white,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

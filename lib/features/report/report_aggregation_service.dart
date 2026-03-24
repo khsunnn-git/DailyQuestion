@@ -4,6 +4,7 @@ import "dart:math";
 import "package:isar_community/isar.dart";
 
 import "../../core/kst_date_time.dart";
+import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/entities/daily_checkin_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../home/public_today_records_repository.dart";
@@ -60,6 +61,11 @@ class ReportAggregationService {
     "내가",
     "우리",
     "저는",
+    "그래",
+    "그래도",
+    "그래서",
+    "근데",
+    "하지만",
   };
   static const Set<String> _lowInfoWords = <String>{
     "사람",
@@ -89,6 +95,11 @@ class ReportAggregationService {
     "지내기",
     "나가기",
     "들어가기",
+    "그래",
+    "그래도",
+    "그래서",
+    "근데",
+    "하지만",
   };
   static const Set<String> _domainBoostWords = <String>{
     "행복",
@@ -522,6 +533,8 @@ class ReportAggregationService {
     final List<String> topKeywords = _extractKeywords(weeklyAnswers, topN: 5);
     final List<String> communityRecoveryIdeas =
         await _loadCommunityRecoveryIdeas(now: endDate);
+    final _WeeklyBucketProgress bucketProgress =
+        await _loadWeeklyBucketProgress(startDate: startDate, endDate: endDate);
     final _EmotionPattern emotionPattern = _emotionPattern(
       days: days,
       trendDelta: trendDelta,
@@ -545,6 +558,8 @@ class ReportAggregationService {
         "burden_day_count": emotionPattern.burdenDays,
         "stable_day_count": emotionPattern.stableDays,
         "emotion_balance": emotionPattern.balanceLabel,
+        "due_bucket_count": bucketProgress.dueCount,
+        "completed_due_bucket_count": bucketProgress.completedCount,
       },
       days: days,
       entriesCompact: entriesCompact,
@@ -563,18 +578,12 @@ class ReportAggregationService {
       targetDays: 7,
       topKeywords: topKeywords,
       trendDelta: trendDelta,
+      dueBucketCount: bucketProgress.dueCount,
+      completedDueBucketCount: bucketProgress.completedCount,
     );
   }
 
   WeeklyAiReport buildLocalFallbackReport(WeeklyAggregationSnapshot snapshot) {
-    final int completionRate =
-        ((snapshot.recordedDays / snapshot.targetDays) * 100).round();
-    final bool hasCheckinData = snapshot.hasCheckinData;
-    final String trendText = snapshot.trendDelta > 0.2
-        ? "주 후반으로 갈수록 컨디션이 좋아졌어요."
-        : snapshot.trendDelta < -0.2
-        ? "주 후반에 컨디션이 다소 낮아졌어요."
-        : "주간 컨디션이 비교적 안정적이었어요.";
     final _DayScoreEvidence? bestDay = _pickDayByScore(
       snapshot.payload.days,
       pickMax: true,
@@ -602,11 +611,7 @@ class ReportAggregationService {
     );
 
     return WeeklyAiReport(
-      summary: hasCheckinData
-          ? "이번 주 평균 점수는 ${snapshot.weeklyScore}/5점, 기록률은 $completionRate%예요. "
-                "$trendText"
-          : "이번 주 기록률은 $completionRate%예요. "
-                "감정 체크인 데이터가 아직 부족해서 평균 점수는 집계되지 않았어요.",
+      summary: _buildWeeklySummary(snapshot),
       emotionSummary:
           "${emotionPattern.balanceSentence} "
           "${emotionPattern.flowSentence}"
@@ -616,6 +621,40 @@ class ReportAggregationService {
       weeklyScore: snapshot.weeklyScore,
       monthlyScore: null,
       source: "local-fallback",
+    );
+  }
+
+  WeeklyAiReport tuneWeeklyReport({
+    required WeeklyAiReport report,
+    required WeeklyAggregationSnapshot snapshot,
+  }) {
+    if (snapshot.recordedDays < 3) {
+      return report;
+    }
+    final _DayScoreEvidence? bestDay = _pickDayByScore(
+      snapshot.payload.days,
+      pickMax: true,
+    );
+    final _DayScoreEvidence? hardestDay = _pickDayByScore(
+      snapshot.payload.days,
+      pickMax: false,
+    );
+    return WeeklyAiReport(
+      summary: _buildWeeklySummary(snapshot),
+      emotionSummary: report.emotionSummary,
+      insights: _buildWeeklyInsights(
+        snapshot: snapshot,
+        bestDay: bestDay,
+        hardestDay: hardestDay,
+      ),
+      actions: _buildNextWeekMissions(
+        snapshot: snapshot,
+        bestDay: bestDay,
+        hardestDay: hardestDay,
+      ).take(3).toList(growable: false),
+      weeklyScore: report.weeklyScore,
+      monthlyScore: report.monthlyScore,
+      source: report.source,
     );
   }
 
@@ -700,6 +739,41 @@ class ReportAggregationService {
               item.dateKey.compareTo(endKey) <= 0,
         )
         .toList(growable: false);
+  }
+
+  Future<_WeeklyBucketProgress> _loadWeeklyBucketProgress({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    final Isar isar = await LocalDatabase.instance.isar;
+    final List<BucketItemEntity> all = await isar.bucketItemEntitys
+        .where()
+        .anyId()
+        .findAll();
+    int dueCount = 0;
+    int completedCount = 0;
+    for (final BucketItemEntity item in all) {
+      final DateTime? dueDate = item.dueDate;
+      if (dueDate == null) {
+        continue;
+      }
+      final DateTime dueDateOnly = DateTime(
+        dueDate.year,
+        dueDate.month,
+        dueDate.day,
+      );
+      if (dueDateOnly.isBefore(startDate) || dueDateOnly.isAfter(endDate)) {
+        continue;
+      }
+      dueCount += 1;
+      if (item.isCompleted) {
+        completedCount += 1;
+      }
+    }
+    return _WeeklyBucketProgress(
+      dueCount: dueCount,
+      completedCount: completedCount,
+    );
   }
 
   TodayQuestionRecord? _latestRecordByDateKey(
@@ -992,68 +1066,279 @@ class ReportAggregationService {
     required _DayScoreEvidence? bestDay,
     required _DayScoreEvidence? hardestDay,
   }) {
-    final List<String> missions = <String>[];
-    final Set<String> seen = <String>{};
+    final List<_ActionSuggestion> suggestions = <_ActionSuggestion>[];
+    final Set<String> seenTexts = <String>{};
+    final Set<String> usedCategories = <String>{};
     final List<_RecoveryActionCue> preferredCues = _preferredRecoveryCues(
       snapshot,
       prioritizedText: bestDay?.answerSnippet ?? "",
     );
+    final List<_RecoveryActionCue> communityCues = _communityRecoveryCues(
+      snapshot.payload.communityRecoveryIdeas,
+    );
+    final List<String> reportTexts = _reportTexts(snapshot);
+    final String? preferredColor = _detectPreferredColor(reportTexts);
+    final bool mentionsHome = _mentionsKeyword(snapshot, "집");
+    final bool mentionsBeverage = _containsAnyText(
+      texts: reportTexts,
+      patterns: _beveragePatterns,
+    );
     final String hardTheme = _hardMoodTheme(snapshot, hardestDay);
 
-    void addMission(String text) {
-      final String normalized = text
+    void addSuggestion(_ActionSuggestion suggestion) {
+      final String stripped = suggestion.text
           .trim()
           .replaceFirst(
             RegExp(r"^(다음\s*주\s*미션|다음\s*주\s*액션|다음\s*액션)\s*[:：-]?\s*"),
             "",
           )
           .trim();
-      if (normalized.isEmpty || !seen.add(normalized)) {
+      if (stripped.isEmpty ||
+          !seenTexts.add(stripped) ||
+          !usedCategories.add(suggestion.category)) {
         return;
       }
-      missions.add(normalized);
-    }
-
-    if (preferredCues.isNotEmpty) {
-      final _RecoveryActionCue cue = preferredCues.first;
-      addMission(
-        "이번 주 기록에서는 ${cue.subject} 기분을 환기하는 데 도움이 된 흔적이 보여요. "
-        "다음에 마음이 가라앉는 날엔 ${cue.recommendation}",
+      suggestions.add(
+        _ActionSuggestion(category: suggestion.category, text: stripped),
       );
     }
 
-    if (snapshot.payload.communityRecoveryIdeas.isNotEmpty) {
-      addMission(snapshot.payload.communityRecoveryIdeas.first);
-    }
-
-    if (preferredCues.length > 1) {
-      final _RecoveryActionCue cue = preferredCues[1];
-      addMission(
-        "${hardTheme.isNotEmpty ? _hardThemeLead(hardTheme) : ""}"
-        "${cue.shortLabel} 같은 작은 회복 행동부터 먼저 해보세요.",
-      );
-    } else if (preferredCues.isNotEmpty) {
-      final _RecoveryActionCue cue = preferredCues.first;
-      addMission(
-        "${hardTheme.isNotEmpty ? _hardThemeLead(hardTheme) : ""}"
-        "버티기보다 ${cue.shortLabel} 같은 작은 회복 행동부터 먼저 해보세요.",
+    if (mentionsHome) {
+      addSuggestion(
+        const _ActionSuggestion(
+          category: "home",
+          text: "요즘 '집'이 자주 보여요. 집에서 10분만 작은 정리를 하거나 좋아하는 음악 2곡을 틀어보세요.",
+        ),
       );
     }
 
-    if (snapshot.topKeywords.isNotEmpty) {
-      final String keyword = snapshot.topKeywords.first;
-      addMission(
-        "이번 주 자주 보인 키워드는 $keyword예요. "
-        "기분이 흔들리는 날엔 $keyword와 연결된 작은 행동 하나를 다시 꺼내 해보세요.",
+    if (preferredColor != null) {
+      addSuggestion(
+        _ActionSuggestion(
+          category: "color",
+          text: "답변에서 자주 보인 $preferredColor 계열을 떠올리며, 필요한 소품 하나를 그 색으로 골라보세요.",
+        ),
       );
     }
 
-    while (missions.length < 3) {
-      addMission("기분이 좋지 않은 날에는 이번 주 조금 편안했던 행동 1가지를 가장 먼저 다시 해보세요.");
-      addMission("마음이 복잡한 날엔 해결부터 하려 하기보다 지금 할 수 있는 가장 작은 행동 1개만 시작해보세요.");
-      addMission("하루를 마치며 나를 조금 편하게 만든 순간 1개만 짧게 적어보세요.");
+    for (final _RecoveryActionCue cue in preferredCues) {
+      addSuggestion(_userSuggestionFromCue(cue));
     }
-    return missions.take(3).toList(growable: false);
+
+    if (mentionsBeverage || suggestions.length < 2) {
+      addSuggestion(
+        const _ActionSuggestion(
+          category: "beverage",
+          text: "하루 한 번 좋아하는 음료를 천천히 마시며 숨을 고르는 시간을 만들어보세요.",
+        ),
+      );
+    }
+
+    for (final _RecoveryActionCue cue in communityCues) {
+      addSuggestion(_communitySuggestionFromCue(cue));
+    }
+
+    addSuggestion(
+      const _ActionSuggestion(
+        category: "movement",
+        text: "오후에 10분 정도 산책을 해보세요.",
+      ),
+    );
+    addSuggestion(
+      const _ActionSuggestion(
+        category: "writing",
+        text: "하루를 마치며 오늘 괜찮았던 순간 1가지만 짧게 적어보세요.",
+      ),
+    );
+    addSuggestion(
+      const _ActionSuggestion(
+        category: "rest",
+        text: "마음이 복잡한 날엔 5분만 눈과 어깨의 힘을 풀고 쉬어보세요.",
+      ),
+    );
+    if (hardTheme.isNotEmpty) {
+      addSuggestion(
+        _ActionSuggestion(
+          category: "theme",
+          text:
+              "${_hardThemeLead(hardTheme)}해결하려 하기보다 지금 할 수 있는 가장 작은 행동 1개만 먼저 시작해보세요.",
+        ),
+      );
+    }
+
+    return suggestions
+        .take(3)
+        .map((_ActionSuggestion item) => item.text)
+        .toList(growable: false);
+  }
+
+  List<String> _reportTexts(WeeklyAggregationSnapshot snapshot) {
+    return <String>[
+      ...snapshot.payload.representativeAnswers,
+      ...snapshot.payload.days
+          .map((Map<String, Object?> day) => (day["answer"] as String?) ?? "")
+          .map((String text) => text.trim())
+          .where((String text) => text.isNotEmpty),
+      ...snapshot.topKeywords,
+    ];
+  }
+
+  bool _containsAnyText({
+    required List<String> texts,
+    required List<String> patterns,
+  }) {
+    for (final String text in texts) {
+      for (final String pattern in patterns) {
+        if (_matchesCuePattern(text: text, pattern: pattern)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  bool _mentionsKeyword(WeeklyAggregationSnapshot snapshot, String keyword) {
+    if (snapshot.topKeywords.contains(keyword)) {
+      return true;
+    }
+    return _containsAnyText(
+      texts: _reportTexts(snapshot),
+      patterns: <String>[keyword],
+    );
+  }
+
+  String? _detectPreferredColor(List<String> texts) {
+    final Map<_ColorSignal, int> scores = <_ColorSignal, int>{};
+    for (final String text in texts) {
+      for (final _ColorSignal color in _colorSignals) {
+        for (final String pattern in color.patterns) {
+          if (!_matchesCuePattern(text: text, pattern: pattern)) {
+            continue;
+          }
+          scores[color] = (scores[color] ?? 0) + 1;
+        }
+      }
+    }
+    if (scores.isEmpty) {
+      return null;
+    }
+    final List<MapEntry<_ColorSignal, int>> sorted = scores.entries.toList()
+      ..sort((MapEntry<_ColorSignal, int> a, MapEntry<_ColorSignal, int> b) {
+        if (b.value != a.value) {
+          return b.value.compareTo(a.value);
+        }
+        return a.key.label.compareTo(b.key.label);
+      });
+    return sorted.first.key.label;
+  }
+
+  _ActionSuggestion _userSuggestionFromCue(_RecoveryActionCue cue) {
+    switch (cue.category) {
+      case "movement":
+        return _ActionSuggestion(
+          category: cue.category,
+          text:
+              "이번 주 기록에서 ${cue.shortLabel}가 잘 맞는 흐름이 보여요. 오후에 10분 정도 산책하거나 가볍게 몸을 움직여보세요.",
+        );
+      case "music":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "이번 주엔 음악이 기분 전환에 도움이 된 흔적이 보여요. 좋아하는 플레이리스트에서 2곡만 틀어보세요.",
+        );
+      case "connection":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "가까운 사람과 나눈 대화가 힘이 된 한 주였어요. 믿는 사람 한 명에게 짧게 안부를 보내보세요.",
+        );
+      case "rest":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "이번 주엔 잠깐 쉬는 시간이 회복에 도움이 됐어요. 10분만 조용히 쉬는 시간을 만들어보세요.",
+        );
+      case "shower":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "몸을 풀어주는 시간이 잘 맞았어요. 오늘은 따뜻한 샤워로 긴장을 먼저 풀어보세요.",
+        );
+      case "reading":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "답변에 책이나 읽기가 자주 보여요. 오늘은 몇 페이지만 가볍게 읽어보세요.",
+        );
+      case "writing":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "생각을 적어보는 방식이 잘 맞았어요. 지금 마음을 3줄만 적어보세요.",
+        );
+      case "beverage":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "좋아하는 음료나 커피가 자주 보여요. 오늘은 한 잔을 천천히 마시며 호흡을 고르세요.",
+        );
+      case "sleep":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "몸을 쉬게 하는 흐름이 중요해 보여요. 오늘은 평소보다 조금 일찍 쉬어보세요.",
+        );
+      default:
+        return _ActionSuggestion(
+          category: cue.category,
+          text: cue.recommendation,
+        );
+    }
+  }
+
+  List<_RecoveryActionCue> _communityRecoveryCues(List<String> ideas) {
+    final Map<_RecoveryActionCue, int> scores = <_RecoveryActionCue, int>{};
+    for (final String idea in ideas) {
+      for (final _RecoveryActionCue cue in _recoveryActionCues) {
+        for (final String pattern in cue.patterns) {
+          if (!_matchesCuePattern(text: idea, pattern: pattern)) {
+            continue;
+          }
+          scores[cue] = (scores[cue] ?? 0) + 1;
+        }
+      }
+    }
+    final List<MapEntry<_RecoveryActionCue, int>> sorted =
+        scores.entries.toList()..sort((
+          MapEntry<_RecoveryActionCue, int> a,
+          MapEntry<_RecoveryActionCue, int> b,
+        ) {
+          if (b.value != a.value) {
+            return b.value.compareTo(a.value);
+          }
+          return a.key.shortLabel.compareTo(b.key.shortLabel);
+        });
+    return sorted
+        .map((MapEntry<_RecoveryActionCue, int> entry) => entry.key)
+        .toList(growable: false);
+  }
+
+  _ActionSuggestion _communitySuggestionFromCue(_RecoveryActionCue cue) {
+    switch (cue.category) {
+      case "movement":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "최근 공개글에서는 산책이나 가벼운 움직임으로 기분을 환기한 이야기가 많았어요. 오늘 10분만 걸어보세요.",
+        );
+      case "music":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "최근 공개글에서는 좋아하는 음악으로 기분을 환기한 이야기가 많았어요. 플레이리스트 한 곡부터 틀어보세요.",
+        );
+      case "connection":
+        return _ActionSuggestion(
+          category: cue.category,
+          text: "최근 공개글에서는 가까운 사람과의 짧은 대화가 도움이 됐다는 이야기가 많았어요. 가볍게 먼저 말을 걸어보세요.",
+        );
+      default:
+        return _ActionSuggestion(
+          category: cue.category,
+          text:
+              "최근 공개글에서는 ${cue.shortLabel}로 기분을 환기한 이야기가 보였어요. 이번 주에 한 번 가볍게 따라 해보세요.",
+        );
+    }
   }
 
   String _buildCompactAction(WeeklyAggregationSnapshot snapshot) {
@@ -1073,6 +1358,56 @@ class ReportAggregationService {
     return "다음에 기분이 좋지 않은 날엔 이번 주 조금 괜찮았던 행동 1가지를 먼저 다시 해보세요.";
   }
 
+  String _buildWeeklySummary(WeeklyAggregationSnapshot snapshot) {
+    final int completionRate =
+        ((snapshot.recordedDays / snapshot.targetDays) * 100).round();
+    if (!snapshot.hasCheckinData) {
+      return "이번 주 기록률은 $completionRate%예요. "
+          "감정 체크인 데이터가 아직 부족해서 평균 점수는 집계되지 않았어요.";
+    }
+
+    final bool stableWeek = _isStableWeeklyFlow(snapshot);
+    final String trendText = stableWeek
+        ? "점수 흐름이 비교적 안정적이었어요."
+        : snapshot.trendDelta > 0.2
+        ? "주 후반으로 갈수록 컨디션이 좋아졌어요."
+        : snapshot.trendDelta < -0.2
+        ? "주 후반에 컨디션이 다소 낮아졌어요."
+        : "주간 컨디션이 비교적 안정적이었어요.";
+    final String? bucketText = _weeklyBucketAchievementText(snapshot);
+
+    if (bucketText != null && stableWeek) {
+      return "이번 주 평균 점수는 ${snapshot.weeklyScore}/5점, 기록률은 $completionRate%예요. "
+          "점수 흐름이 비교적 안정적이었고, $bucketText 작은 성취가 꾸준히 쌓이고 있어요.";
+    }
+
+    if (bucketText != null) {
+      return "이번 주 평균 점수는 ${snapshot.weeklyScore}/5점, 기록률은 $completionRate%예요. "
+          "$trendText $bucketText 작은 성취가 꾸준히 쌓이고 있어요.";
+    }
+
+    return "이번 주 평균 점수는 ${snapshot.weeklyScore}/5점, 기록률은 $completionRate%예요. "
+        "$trendText";
+  }
+
+  bool _isStableWeeklyFlow(WeeklyAggregationSnapshot snapshot) {
+    return snapshot.trendDelta >= -0.2 && snapshot.trendDelta <= 0.2;
+  }
+
+  String? _weeklyBucketAchievementText(WeeklyAggregationSnapshot snapshot) {
+    if (snapshot.completedDueBucketCount <= 0) {
+      return null;
+    }
+    if (snapshot.dueBucketCount <= 1 && snapshot.completedDueBucketCount == 1) {
+      return "이번 주 완료 예정이었던 버킷리스트 1개도 잘 마무리했어요.";
+    }
+    if (snapshot.dueBucketCount > 0 &&
+        snapshot.completedDueBucketCount >= snapshot.dueBucketCount) {
+      return "이번 주 완료 예정이었던 버킷리스트 ${snapshot.completedDueBucketCount}개를 모두 마무리했어요.";
+    }
+    return "이번 주 완료 예정이었던 버킷리스트 중 ${snapshot.completedDueBucketCount}개를 마무리했어요.";
+  }
+
   String _averageScoreInsight(WeeklyAggregationSnapshot snapshot) {
     final List<String> parts = <String>[
       if (snapshot.averageMood > 0)
@@ -1085,7 +1420,19 @@ class ReportAggregationService {
     if (parts.isEmpty) {
       return "기분/에너지/스트레스 체크인 기록이 아직 없어서 평균 점수는 집계되지 않았어요.";
     }
+    if (_hasStableAverageScores(snapshot)) {
+      return "${parts.join(", ")}으로 평균적으로 안정적인 흐름이었어요.";
+    }
     return "${parts.join(", ")}입니다.";
+  }
+
+  bool _hasStableAverageScores(WeeklyAggregationSnapshot snapshot) {
+    final List<double> values = <double>[
+      if (snapshot.averageMood > 0) snapshot.averageMood,
+      if (snapshot.averageEnergy > 0) snapshot.averageEnergy,
+      if (snapshot.averageStress > 0) snapshot.averageStress,
+    ];
+    return values.isNotEmpty && values.every((double value) => value >= 3);
   }
 
   List<String> _buildWeeklyInsights({
@@ -1097,6 +1444,7 @@ class ReportAggregationService {
     final String? leadKeyword = snapshot.topKeywords.isEmpty
         ? null
         : snapshot.topKeywords.first;
+    final bool mentionsHome = _mentionsKeyword(snapshot, "집");
 
     if (snapshot.hasCheckinData && bestDay != null) {
       if (leadKeyword != null) {
@@ -1109,6 +1457,12 @@ class ReportAggregationService {
       }
     } else if (leadKeyword != null) {
       insights.add("이번 한 주에는 ${_withObjectParticle(leadKeyword)} 자주 언급하셨어요.");
+    }
+
+    if (mentionsHome) {
+      insights.add(
+        "요즘 '집'을 자주 떠올리셨어요. 집에서 좋아하는 음악을 틀거나 따뜻한 음료 한 잔처럼 부담 없는 활동이 잘 맞을 수 있어요.",
+      );
     }
 
     if (snapshot.hasCheckinData) {
@@ -1610,62 +1964,97 @@ class _EmotionPattern {
   final String flowSentence;
 }
 
+const List<String> _beveragePatterns = <String>[
+  "커피",
+  "음료",
+  "라떼",
+  "차",
+  "티",
+  "주스",
+  "아메리카노",
+];
+
+const List<_ColorSignal> _colorSignals = <_ColorSignal>[
+  _ColorSignal(
+    label: "파란색",
+    patterns: <String>["파란색", "파랑", "파란", "블루", "blue"],
+  ),
+  _ColorSignal(label: "분홍색", patterns: <String>["분홍색", "핑크", "pink"]),
+  _ColorSignal(label: "초록색", patterns: <String>["초록색", "초록", "그린", "green"]),
+  _ColorSignal(label: "노란색", patterns: <String>["노란색", "노랑", "옐로", "yellow"]),
+  _ColorSignal(label: "빨간색", patterns: <String>["빨간색", "빨강", "레드", "red"]),
+  _ColorSignal(label: "보라색", patterns: <String>["보라색", "보라", "퍼플", "purple"]),
+  _ColorSignal(label: "하늘색", patterns: <String>["하늘색", "스카이", "sky"]),
+  _ColorSignal(label: "검은색", patterns: <String>["검은색", "검정", "블랙", "black"]),
+  _ColorSignal(label: "흰색", patterns: <String>["흰색", "하양", "화이트", "white"]),
+];
+
 const List<_RecoveryActionCue> _recoveryActionCues = <_RecoveryActionCue>[
   _RecoveryActionCue(
+    category: "movement",
     patterns: <String>["산책", "걷기", "걷다"],
     subject: "산책이",
     shortLabel: "산책",
     recommendation: "짧게라도 산책해보세요.",
   ),
   _RecoveryActionCue(
+    category: "music",
     patterns: <String>["음악", "노래", "플레이리스트"],
     subject: "음악을 듣는 시간이",
     shortLabel: "음악 듣기",
     recommendation: "좋아하는 음악 1~2곡을 들어보세요.",
   ),
   _RecoveryActionCue(
+    category: "connection",
     patterns: <String>["친구", "대화", "통화", "가족", "엄마", "아빠", "동생", "연인"],
     subject: "가까운 사람과 나누는 대화가",
     shortLabel: "가까운 사람과 대화하기",
     recommendation: "믿는 사람 한 명에게 짧게라도 먼저 연락해보세요.",
   ),
   _RecoveryActionCue(
+    category: "rest",
     patterns: <String>["휴식", "쉬기", "쉼", "멍", "혼자"],
     subject: "혼자 조용히 쉬는 시간이",
     shortLabel: "잠깐 쉬기",
     recommendation: "잠깐이라도 혼자 편하게 쉬는 시간을 만들어보세요.",
   ),
   _RecoveryActionCue(
+    category: "shower",
     patterns: <String>["샤워", "목욕", "반신욕"],
     subject: "따뜻한 샤워 같은 몸을 풀어주는 시간이",
     shortLabel: "따뜻한 샤워",
     recommendation: "따뜻한 샤워로 몸의 긴장을 먼저 풀어보세요.",
   ),
   _RecoveryActionCue(
+    category: "movement",
     patterns: <String>["스트레칭", "운동", "러닝", "헬스", "요가"],
     subject: "가볍게 몸을 움직이는 시간이",
     shortLabel: "가벼운 움직임",
     recommendation: "스트레칭이나 가벼운 움직임으로 몸부터 깨워보세요.",
   ),
   _RecoveryActionCue(
+    category: "reading",
     patterns: <String>["독서", "책 읽", "책읽"],
     subject: "짧게 책을 읽는 시간이",
     shortLabel: "짧은 독서",
     recommendation: "몇 페이지라도 책을 읽으며 호흡을 고르세요.",
   ),
   _RecoveryActionCue(
+    category: "writing",
     patterns: <String>["기록", "일기", "메모", "글"],
     subject: "생각을 적어보는 시간이",
     shortLabel: "짧게 기록하기",
     recommendation: "지금 드는 생각을 3줄만 적어보세요.",
   ),
   _RecoveryActionCue(
+    category: "beverage",
     patterns: <String>["카페", "커피"],
-    subject: "잠깐 장소를 바꾸는 것이",
-    shortLabel: "장소 바꾸기",
-    recommendation: "잠깐 자리나 장소를 바꿔 분위기를 환기해보세요.",
+    subject: "좋아하는 음료를 마시는 시간이",
+    shortLabel: "좋아하는 음료 마시기",
+    recommendation: "좋아하는 음료 한 잔을 천천히 마셔보세요.",
   ),
   _RecoveryActionCue(
+    category: "sleep",
     patterns: <String>["잠", "수면", "낮잠"],
     subject: "몸을 쉬게 하는 시간이",
     shortLabel: "충분히 쉬기",
@@ -1675,14 +2064,40 @@ const List<_RecoveryActionCue> _recoveryActionCues = <_RecoveryActionCue>[
 
 class _RecoveryActionCue {
   const _RecoveryActionCue({
+    required this.category,
     required this.patterns,
     required this.subject,
     required this.shortLabel,
     required this.recommendation,
   });
 
+  final String category;
   final List<String> patterns;
   final String subject;
   final String shortLabel;
   final String recommendation;
+}
+
+class _ActionSuggestion {
+  const _ActionSuggestion({required this.category, required this.text});
+
+  final String category;
+  final String text;
+}
+
+class _ColorSignal {
+  const _ColorSignal({required this.label, required this.patterns});
+
+  final String label;
+  final List<String> patterns;
+}
+
+class _WeeklyBucketProgress {
+  const _WeeklyBucketProgress({
+    required this.dueCount,
+    required this.completedCount,
+  });
+
+  final int dueCount;
+  final int completedCount;
 }

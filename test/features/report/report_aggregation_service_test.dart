@@ -157,7 +157,7 @@ void main() {
       averageEnergy: 3.4,
       averageStress: 2.7,
       trendDelta: 0.2,
-      topKeywords: const <String>["산책", "휴식"],
+      topKeywords: const <String>["회사"],
       communityRecoveryIdeas: const <String>[
         "다음 주 미션: 최근 공개답변에서는 음악 듣기로 기분을 환기한 이야기도 보였어요. 마음이 답답한 날 한 번 가볍게 시도해보세요.",
       ],
@@ -168,18 +168,57 @@ void main() {
           "energy_score": 4,
           "stress_score": 2,
           "day_score": 4,
-          "answer": "산책하고 나니 마음이 가벼웠다.",
+          "answer": "회사 생각이 많았지만 금방 지나갔다.",
         },
       ],
     );
 
     final WeeklyAiReport report = service.buildLocalFallbackReport(snapshot);
 
-    expect(report.actions.any((String item) => item.contains("공개답변")), isTrue);
+    expect(
+      report.actions.any((String item) => item.contains("최근 공개글")),
+      isTrue,
+    );
     expect(
       report.actions.every((String item) => !item.startsWith("다음 주 미션")),
       isTrue,
     );
+  });
+
+  test("stable week highlights bucket achievement and varied actions", () {
+    final WeeklyAggregationSnapshot snapshot = _snapshot(
+      recordedDays: 5,
+      weeklyScore: 4,
+      averageMood: 3.8,
+      averageEnergy: 3.4,
+      averageStress: 3.2,
+      trendDelta: 0.0,
+      topKeywords: const <String>["집", "파란색", "커피"],
+      representativeAnswers: const <String>["집에서 파란색 컵으로 커피를 마시면 차분해진다."],
+      dueBucketCount: 1,
+      completedDueBucketCount: 1,
+      days: const <Map<String, Object?>>[
+        <String, Object?>{
+          "date_key": "20260308",
+          "mood_score": 4,
+          "energy_score": 3,
+          "stress_score": 3,
+          "day_score": 4,
+          "answer": "집에서 파란색 컵으로 커피를 마셨다.",
+        },
+      ],
+    );
+
+    final WeeklyAiReport report = service.buildLocalFallbackReport(snapshot);
+
+    expect(report.summary, contains("완료 예정이었던 버킷리스트 1개도 잘 마무리했어요"));
+    expect(report.summary, contains("작은 성취가 꾸준히 쌓이고 있어요"));
+    expect(report.insights.first, contains("평균적으로 안정적인 흐름"));
+    expect(report.insights.join(" "), contains("요즘 '집'을 자주 떠올리셨어요"));
+    expect(report.actions, hasLength(3));
+    expect(report.actions[0], contains("집에서 10분만"));
+    expect(report.actions[1], contains("파란색 계열"));
+    expect(report.actions[2], contains("좋아하는 음료"));
   });
 }
 
@@ -193,6 +232,9 @@ WeeklyAggregationSnapshot _snapshot({
   required List<String> topKeywords,
   required List<Map<String, Object?>> days,
   List<String> communityRecoveryIdeas = const <String>[],
+  List<String> representativeAnswers = const <String>[],
+  int dueBucketCount = 0,
+  int completedDueBucketCount = 0,
 }) {
   return WeeklyAggregationSnapshot(
     payload: ReportAnalyzePayload(
@@ -203,7 +245,7 @@ WeeklyAggregationSnapshot _snapshot({
       days: days,
       entriesCompact: const <String>[],
       topKeywords: topKeywords,
-      representativeAnswers: const <String>[],
+      representativeAnswers: representativeAnswers,
       communityRecoveryIdeas: communityRecoveryIdeas,
     ),
     weeklyScore: weeklyScore,
@@ -214,5 +256,7 @@ WeeklyAggregationSnapshot _snapshot({
     targetDays: 7,
     topKeywords: topKeywords,
     trendDelta: trendDelta,
+    dueBucketCount: dueBucketCount,
+    completedDueBucketCount: completedDueBucketCount,
   );
 }

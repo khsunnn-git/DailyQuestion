@@ -70,7 +70,7 @@ class WeeklyReportStore extends ValueNotifier<WeeklyReportState> {
        super(const WeeklyReportState.idle());
 
   static final WeeklyReportStore instance = WeeklyReportStore();
-  static const String _cachePrefsKey = "weekly_report_cache_v6";
+  static const String _cachePrefsKey = "weekly_report_cache_v7";
 
   final ReportAggregationService _aggregationService;
   final ReportApiClient _apiClient;
@@ -107,6 +107,10 @@ class WeeklyReportStore extends ValueNotifier<WeeklyReportState> {
           report = _fallbackReportFor(snapshot);
         }
       }
+      report = _aggregationService.tuneWeeklyReport(
+        report: report,
+        snapshot: snapshot,
+      );
       final WeeklyReportCacheEntry entry = WeeklyReportCacheEntry(
         slotKey: window.slotKey,
         generatedAt: nowInKst(),
