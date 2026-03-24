@@ -292,7 +292,8 @@ class _SocialLoginPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool useAppleLogin = !kIsWeb;
+    final bool useAppleLogin =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
     final SocialAuthProvider provider =
         useAppleLogin ? SocialAuthProvider.apple : SocialAuthProvider.google;
 
