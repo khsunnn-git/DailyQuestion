@@ -2,6 +2,39 @@ import "package:dailyquestion/features/report/report_models.dart";
 import "package:flutter_test/flutter_test.dart";
 
 void main() {
+  test("isOpenAiReportSource only returns true for real ai source", () {
+    expect(isOpenAiReportSource("ai"), isTrue);
+    expect(isOpenAiReportSource(" AI "), isTrue);
+    expect(isOpenAiReportSource("server-fallback"), isFalse);
+    expect(isOpenAiReportSource("local-fallback"), isFalse);
+    expect(isOpenAiReportSource("test"), isFalse);
+    expect(isOpenAiReportSource(null), isFalse);
+    expect(isOpenAiReportSource(""), isFalse);
+  });
+
+  test("WeeklyAiReport.isFromOpenAi follows normalized source", () {
+    expect(
+      const WeeklyAiReport(
+        summary: "summary",
+        insights: <String>[],
+        actions: <String>[],
+        weeklyScore: 4,
+        source: "ai",
+      ).isFromOpenAi,
+      isTrue,
+    );
+    expect(
+      const WeeklyAiReport(
+        summary: "summary",
+        insights: <String>[],
+        actions: <String>[],
+        weeklyScore: 4,
+        source: "server-fallback",
+      ).isFromOpenAi,
+      isFalse,
+    );
+  });
+
   test("WeeklyAggregationSnapshot.fromJson reads legacy score keys", () {
     final WeeklyAggregationSnapshot snapshot =
         WeeklyAggregationSnapshot.fromJson(<String, dynamic>{

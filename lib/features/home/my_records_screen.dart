@@ -9,6 +9,7 @@ import "package:shared_preferences/shared_preferences.dart";
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
+import "ai_report_period_defaults.dart";
 import "my_records_visibility.dart";
 import "../navigation/main_tab_shell.dart";
 import "../profile/user_profile_events.dart";
@@ -17,6 +18,9 @@ import "home_screen.dart";
 import "../more/more_settings_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
+import "../report/period_report_aggregation_service.dart";
+import "../report/report_api_client.dart";
+import "../report/report_models.dart";
 import "../report/weekly_report_schedule.dart";
 import "../report/weekly_report_store.dart";
 import "annual_record_screen.dart";
@@ -31,6 +35,10 @@ class MyRecordsScreen extends StatefulWidget {
       "assets/images/record/my_record_hero_deco.webp";
   static const String _profileBucketlistAsset =
       "assets/images/record/profile_bucketlist.webp";
+  static const String _profileInsightAsset =
+      "assets/images/record/profile_insight.webp";
+  static const String _profileRecordPatternAsset =
+      "assets/images/record/profile_record_pattern.webp";
 
   static const String _defaultQuestion = "오늘 가장 기억에 남는 순간은 무엇인가요?";
   static const String _unansweredMessage = "아직 열어보지 않은 질문입니다.";
@@ -1789,12 +1797,20 @@ class _AiReportEntryCard extends StatefulWidget {
 class _AiReportEntryCardState extends State<_AiReportEntryCard>
     with WidgetsBindingObserver {
   _AiReportPeriod _selected = _AiReportPeriod.weekly;
+  bool _didUserSelectPeriod = false;
+  final PeriodReportAggregationService _periodAggregationService =
+      const PeriodReportAggregationService();
+  final ReportApiClient _periodApiClient = ReportApiClient();
+  final Map<String, _PeriodAiReportLoadState> _periodReports =
+      <String, _PeriodAiReportLoadState>{};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _selected = _defaultSelectedPeriod(now: nowInKst());
     unawaited(WeeklyReportStore.instance.prepareCurrentWeeklyReport());
+    unawaited(_ensureSelectedPeriodReportLoaded());
   }
 
   @override
@@ -1806,75 +1822,146 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _syncDefaultSelectedPeriodIfNeeded();
       unawaited(WeeklyReportStore.instance.prepareCurrentWeeklyReport());
+      unawaited(_ensureSelectedPeriodReportLoaded(forceRefresh: true));
     }
   }
 
-  _AiReportUiData _dataFor(_AiReportPeriod period) {
-    final String monthLabel = "${widget.selectedMonth}월";
-    final int quarter = ((widget.selectedMonth - 1) ~/ 3) + 1;
-    final int year = widget.selectedYear;
+  @override
+  void didUpdateWidget(covariant _AiReportEntryCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedYear != widget.selectedYear ||
+        oldWidget.selectedMonth != widget.selectedMonth) {
+      _didUserSelectPeriod = false;
+      _selected = _defaultSelectedPeriod(now: nowInKst());
+      unawaited(_ensureSelectedPeriodReportLoaded());
+    }
+  }
 
+  _AiReportPeriod _defaultSelectedPeriod({required DateTime now}) {
+    return shouldDefaultAiReportToMonthly(
+          year: widget.selectedYear,
+          month: widget.selectedMonth,
+          now: now,
+        )
+        ? _AiReportPeriod.monthly
+        : _AiReportPeriod.weekly;
+  }
+
+  void _syncDefaultSelectedPeriodIfNeeded() {
+    if (_didUserSelectPeriod) {
+      return;
+    }
+    final _AiReportPeriod next = _defaultSelectedPeriod(now: nowInKst());
+    if (next == _selected || !mounted) {
+      return;
+    }
+    setState(() {
+      _selected = next;
+    });
+  }
+
+  void _handlePeriodTap(_AiReportPeriod period) {
+    setState(() {
+      _didUserSelectPeriod = true;
+      _selected = period;
+    });
+    unawaited(_ensureSelectedPeriodReportLoaded());
+  }
+
+  String _periodReportCacheKey(_AiReportPeriod period) {
+    return "${widget.selectedYear}-${widget.selectedMonth}-${period.name}";
+  }
+
+  ReportPeriod? _calendarReportPeriod(_AiReportPeriod period) {
     switch (period) {
       case _AiReportPeriod.weekly:
-        return const _AiReportUiData(
-          summaryTitle: "주간 요약",
-          summaryBody: "",
-          insightBody: "",
-          actions: <String>[],
-        );
+        return null;
       case _AiReportPeriod.monthly:
-        return _AiReportUiData(
-          summaryTitle: "$monthLabel 요약",
-          summaryBody:
-              "$monthLabel 초반에는 기록이 뜸했지만, 중반 이후부터 기록 빈도가 올라가며 만족도·에너지 흐름이 안정됐어요. "
-              "버킷리스트 12개 중 4개를 완료하며 작은 성취가 꾸준히 쌓이고 있어요.",
-          insightBody:
-              "기분이 좋은 날엔 산책·음악·짧은 휴식이 반복적으로 등장했어요. 반대로 스트레스가 높았던 날엔 미루기와 수면 불규칙 키워드가 함께 나타났어요.",
-          actions: const <String>[
-            "점심시간에 10분 산책을 해보세요.",
-            "일정을 작은 단위로 나눠 먼저 1개만 시작해보세요.",
-            "주 1회 동료와 커피 한 잔 대화 시간을 만들어보세요.",
-          ],
-        );
+        return ReportPeriod.monthly;
       case _AiReportPeriod.quarterly:
-        return _AiReportUiData(
-          summaryTitle: "$quarter분기 요약",
-          summaryBody:
-              "최근 3개월 동안 기록 리듬이 점차 안정되며 감정 기복 폭이 줄었어요. "
-              "버킷리스트는 30개가 추가됐고 11개를 완료했어요.",
-          insightBody:
-              "관심사 중심축이 바뀌고 있어요. 1월에는 '수영 배우기'를 자주 언급했지만 최근에는 '마라톤 도전하기'가 반복되며 목표 영역이 확장됐어요.",
-          actions: const <String>[
-            "분기 목표를 1개 핵심 목표와 2개 보조 목표로 구분해보세요.",
-            "완료한 버킷리스트를 주 1회 회고하며 다음 행동으로 연결해보세요.",
-            "스트레스가 높은 주에는 휴식 일정을 먼저 달력에 고정해보세요.",
-          ],
-        );
+        return ReportPeriod.quarterly;
       case _AiReportPeriod.yearly:
-        return _AiReportUiData(
-          summaryTitle: "$year년 요약",
-          summaryBody:
-              "올해는 기록량과 자기이해가 함께 성장한 해였어요. 감정 기록, 질문 답변, 버킷리스트 데이터가 쌓이며 나만의 패턴이 선명해졌어요.",
-          insightBody:
-              "질문 답변 비교에서 목표의 결이 진화했어요. 작년에는 '설악산'을, 올해는 '한라산'을 답하며 도전의 난이도와 실행 의지가 함께 높아졌어요.",
-          actions: const <String>[
-            "올해 가장 만족도가 높았던 습관 1개를 내년 고정 루틴으로 지정해보세요.",
-            "연간 목표는 상반기/하반기로 나눠 실행 체크포인트를 만드세요.",
-            "연말 회고에서 '잘한 점 3개, 줄일 점 1개'만 간단히 정리해보세요.",
-          ],
-        );
+        return ReportPeriod.yearly;
     }
   }
 
-  bool _isMonthClosed({
-    required int year,
-    required int month,
-    required DateTime now,
-  }) {
-    final DateTime today = DateTime(now.year, now.month, now.day);
-    final DateTime lastDayOfMonth = DateTime(year, month + 1, 0);
-    return !today.isBefore(lastDayOfMonth);
+  String _calendarSummaryTitle(_AiReportPeriod period) {
+    final String monthLabel = "${widget.selectedMonth}월";
+    final int quarter = ((widget.selectedMonth - 1) ~/ 3) + 1;
+    switch (period) {
+      case _AiReportPeriod.weekly:
+        return "주간 요약";
+      case _AiReportPeriod.monthly:
+        return "$monthLabel 요약";
+      case _AiReportPeriod.quarterly:
+        return "$quarter분기 요약";
+      case _AiReportPeriod.yearly:
+        return "${widget.selectedYear}년 요약";
+    }
+  }
+
+  Future<void> _ensureSelectedPeriodReportLoaded({
+    bool forceRefresh = false,
+  }) async {
+    final ReportPeriod? period = _calendarReportPeriod(_selected);
+    if (period == null) {
+      return;
+    }
+
+    final String cacheKey = _periodReportCacheKey(_selected);
+    final _PeriodAiReportLoadState current =
+        _periodReports[cacheKey] ?? const _PeriodAiReportLoadState.idle();
+    if (!forceRefresh &&
+        (current.status == _PeriodAiReportLoadStatus.loading ||
+            current.status == _PeriodAiReportLoadStatus.success)) {
+      return;
+    }
+
+    if (!_periodApiClient.isConfigured) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _periodReports[cacheKey] = const _PeriodAiReportLoadState.error(
+          "AI 리포트 서버 설정이 필요해요.",
+        );
+      });
+      return;
+    }
+
+    setState(() {
+      _periodReports[cacheKey] = const _PeriodAiReportLoadState.loading();
+    });
+
+    try {
+      final ReportAnalyzePayload payload = await _periodAggregationService
+          .buildPayloadForSelection(
+            period: period,
+            year: widget.selectedYear,
+            month: widget.selectedMonth,
+          );
+      final WeeklyAiReport report = await _periodApiClient.analyze(payload);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _periodReports[cacheKey] = _PeriodAiReportLoadState.success(report);
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      String message = "AI 리포트를 불러오지 못했어요. 잠시 후 다시 시도해주세요.";
+      if (error is ReportApiException &&
+          error.message.contains("REPORT_API_BASE_URL")) {
+        message = "AI 리포트 서버 설정이 필요해요.";
+      }
+      setState(() {
+        _periodReports[cacheKey] = _PeriodAiReportLoadState.error(message);
+      });
+    }
   }
 
   String _weeklySummaryTitle(WeeklyReportState state) {
@@ -1999,9 +2086,10 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
               ],
               const SizedBox(height: AppSpacing.s16),
               _AiReportPreviewCard(
-                iconData: Icons.auto_graph_rounded,
+                iconAsset: MyRecordsScreen._profileRecordPatternAsset,
                 title: summaryTitle,
                 body: report.summary,
+                showAiBadge: report.isFromOpenAi,
               ),
               if (report.actions.isNotEmpty) ...<Widget>[
                 const SizedBox(height: AppSpacing.s12),
@@ -2009,6 +2097,7 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
                   iconAsset: MyRecordsScreen._profileBucketlistAsset,
                   title: "이렇게 해볼까요?",
                   body: actionsBody,
+                  showAiBadge: report.isFromOpenAi,
                 ),
               ],
             ],
@@ -2023,21 +2112,24 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
             ],
             const SizedBox(height: AppSpacing.s16),
             _AiReportPreviewCard(
-              iconData: Icons.auto_graph_rounded,
+              iconAsset: MyRecordsScreen._profileRecordPatternAsset,
               title: summaryTitle,
               body: report.summary,
+              showAiBadge: report.isFromOpenAi,
             ),
             const SizedBox(height: AppSpacing.s12),
             _AiReportPreviewCard(
-              iconData: Icons.lightbulb_rounded,
+              iconAsset: MyRecordsScreen._profileInsightAsset,
               title: "인사이트",
               body: insightBody,
+              showAiBadge: report.isFromOpenAi,
             ),
             const SizedBox(height: AppSpacing.s12),
             _AiReportPreviewCard(
               iconAsset: MyRecordsScreen._profileBucketlistAsset,
               title: "이렇게 해볼까요?",
               body: actionsBody,
+              showAiBadge: report.isFromOpenAi,
             ),
           ],
         );
@@ -2045,11 +2137,72 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
     );
   }
 
+  Widget _buildCalendarPeriodReportContent() {
+    final _PeriodAiReportLoadState state =
+        _periodReports[_periodReportCacheKey(_selected)] ??
+        const _PeriodAiReportLoadState.idle();
+
+    if (state.status == _PeriodAiReportLoadStatus.loading ||
+        state.status == _PeriodAiReportLoadStatus.idle) {
+      return const Padding(
+        padding: EdgeInsets.only(top: AppSpacing.s24),
+        child: SizedBox(
+          width: double.infinity,
+          height: 180,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (state.status == _PeriodAiReportLoadStatus.error ||
+        state.report == null) {
+      return Column(
+        children: <Widget>[
+          const SizedBox(height: AppSpacing.s24),
+          _AiDataAlert(message: state.errorMessage ?? "AI 리포트를 아직 준비하지 못했어요."),
+        ],
+      );
+    }
+
+    final WeeklyAiReport report = state.report!;
+    final String insightBody = report.insights.isEmpty
+        ? "아직 인사이트가 없어요."
+        : report.insights.map((String insight) => "• $insight").join("\n");
+    final String actionsBody = report.actions.isEmpty
+        ? "아직 제안이 없어요."
+        : report.actions.map((String action) => "• $action").join("\n");
+
+    return Column(
+      children: <Widget>[
+        const SizedBox(height: AppSpacing.s16),
+        _AiReportPreviewCard(
+          iconAsset: MyRecordsScreen._profileRecordPatternAsset,
+          title: _calendarSummaryTitle(_selected),
+          body: report.summary,
+          showAiBadge: report.isFromOpenAi,
+        ),
+        const SizedBox(height: AppSpacing.s12),
+        _AiReportPreviewCard(
+          iconAsset: MyRecordsScreen._profileInsightAsset,
+          title: "인사이트",
+          body: insightBody,
+          showAiBadge: report.isFromOpenAi,
+        ),
+        const SizedBox(height: AppSpacing.s12),
+        _AiReportPreviewCard(
+          iconAsset: MyRecordsScreen._profileBucketlistAsset,
+          title: "이렇게 해볼까요?",
+          body: actionsBody,
+          showAiBadge: report.isFromOpenAi,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final _AiReportUiData data = _dataFor(_selected);
-    final DateTime now = DateTime.now();
-    final bool monthlyEnabled = _isMonthClosed(
+    final DateTime now = nowInKst();
+    final bool monthlyEnabled = isAiReportMonthClosed(
       year: widget.selectedYear,
       month: widget.selectedMonth,
       now: now,
@@ -2084,27 +2237,26 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
               label: "주간",
               enabled: true,
               selected: _selected == _AiReportPeriod.weekly,
-              onTap: () => setState(() => _selected = _AiReportPeriod.weekly),
+              onTap: () => _handlePeriodTap(_AiReportPeriod.weekly),
             ),
             _AiPeriodChip(
               label: "월간",
               enabled: monthlyEnabled,
               selected: monthlyEnabled && _selected == _AiReportPeriod.monthly,
-              onTap: () => setState(() => _selected = _AiReportPeriod.monthly),
+              onTap: () => _handlePeriodTap(_AiReportPeriod.monthly),
             ),
             _AiPeriodChip(
               label: "분기",
               enabled: quarterlyEnabled,
               selected:
                   quarterlyEnabled && _selected == _AiReportPeriod.quarterly,
-              onTap: () =>
-                  setState(() => _selected = _AiReportPeriod.quarterly),
+              onTap: () => _handlePeriodTap(_AiReportPeriod.quarterly),
             ),
             _AiPeriodChip(
               label: "연간",
               enabled: yearlyEnabled,
               selected: yearlyEnabled && _selected == _AiReportPeriod.yearly,
-              onTap: () => setState(() => _selected = _AiReportPeriod.yearly),
+              onTap: () => _handlePeriodTap(_AiReportPeriod.yearly),
             ),
           ],
         ),
@@ -2121,26 +2273,7 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
             !yearlyEnabled) ...<Widget>[
           const SizedBox(height: AppSpacing.s24),
           const _AiDataAlert(message: "연간 리포트는 12월 말에 생성돼요."),
-        ] else ...<Widget>[
-          const SizedBox(height: AppSpacing.s16),
-          _AiReportPreviewCard(
-            iconData: Icons.auto_graph_rounded,
-            title: data.summaryTitle,
-            body: data.summaryBody,
-          ),
-          const SizedBox(height: AppSpacing.s12),
-          _AiReportPreviewCard(
-            iconData: Icons.lightbulb_rounded,
-            title: "인사이트",
-            body: data.insightBody,
-          ),
-          const SizedBox(height: AppSpacing.s12),
-          _AiReportPreviewCard(
-            iconAsset: MyRecordsScreen._profileBucketlistAsset,
-            title: "이렇게 해볼까요?",
-            body: data.actions.map((String action) => "• $action").join("\n"),
-          ),
-        ],
+        ] else ...<Widget>[_buildCalendarPeriodReportContent()],
       ],
     );
   }
@@ -2209,27 +2342,29 @@ class _AiPeriodChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final BrandScale brand = context.appBrandScale;
+    final AppSegmentedButtonStyle style = AppSegmentedTokens.style(
+      !enabled
+          ? AppControlState.disabled
+          : selected
+          ? AppControlState.selected
+          : AppControlState.defaultState,
+    );
     return InkWell(
       onTap: enabled ? onTap : null,
-      borderRadius: AppRadius.pill,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.s20,
-          vertical: AppSpacing.s6,
-        ),
-        decoration: BoxDecoration(
-          color: selected && enabled ? brand.c100 : AppNeutralColors.grey50,
-          borderRadius: AppRadius.pill,
-          border: selected && enabled
-              ? Border.all(color: brand.c500, width: 1)
-              : Border.all(color: Colors.transparent, width: 1),
-          boxShadow: AppElevation.level1,
-        ),
-        child: Text(
-          label,
-          style: AppTypography.bodySmallSemiBold.copyWith(
-            color: selected && enabled ? brand.c500 : AppNeutralColors.grey200,
+      borderRadius: style.borderRadius,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.48,
+        child: Container(
+          padding: style.padding,
+          decoration: BoxDecoration(
+            color: style.backgroundColor,
+            borderRadius: style.borderRadius,
+            border: Border.all(color: style.borderColor, width: 1),
+            boxShadow: style.shadows,
+          ),
+          child: Text(
+            label,
+            style: style.textStyle.copyWith(color: style.textColor),
           ),
         ),
       ),
@@ -2239,16 +2374,16 @@ class _AiPeriodChip extends StatelessWidget {
 
 class _AiReportPreviewCard extends StatelessWidget {
   const _AiReportPreviewCard({
-    this.iconAsset,
-    this.iconData,
+    required this.iconAsset,
     required this.title,
     required this.body,
-  }) : assert(iconAsset != null || iconData != null);
+    this.showAiBadge = false,
+  });
 
-  final String? iconAsset;
-  final IconData? iconData;
+  final String iconAsset;
   final String title;
   final String body;
+  final bool showAiBadge;
 
   @override
   Widget build(BuildContext context) {
@@ -2273,9 +2408,14 @@ class _AiReportPreviewCard extends StatelessWidget {
                   color: brand.c100,
                   shape: BoxShape.circle,
                 ),
-                child: iconData != null
-                    ? Icon(iconData, color: brand.c500, size: 28)
-                    : Image.asset(iconAsset!, width: 50, height: 50),
+                child: Center(
+                  child: Image.asset(
+                    iconAsset,
+                    width: 34,
+                    height: 34,
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
               const SizedBox(width: AppSpacing.s20),
               Expanded(
@@ -2286,20 +2426,23 @@ class _AiReportPreviewCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.s8,
-                  vertical: AppSpacing.s2,
+              if (showAiBadge)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.s8,
+                    vertical: AppSpacing.s2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppSemanticColors.info100,
+                    borderRadius: AppRadius.pill,
+                  ),
+                  child: Text(
+                    "AI",
+                    style: AppTypography.captionSmall.copyWith(
+                      color: brand.c500,
+                    ),
+                  ),
                 ),
-                decoration: BoxDecoration(
-                  color: AppSemanticColors.info100,
-                  borderRadius: AppRadius.pill,
-                ),
-                child: Text(
-                  "AI",
-                  style: AppTypography.captionSmall.copyWith(color: brand.c500),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: AppSpacing.s20),
@@ -2315,18 +2458,30 @@ class _AiReportPreviewCard extends StatelessWidget {
   }
 }
 
-class _AiReportUiData {
-  const _AiReportUiData({
-    required this.summaryTitle,
-    required this.summaryBody,
-    required this.insightBody,
-    required this.actions,
+enum _PeriodAiReportLoadStatus { idle, loading, success, error }
+
+class _PeriodAiReportLoadState {
+  const _PeriodAiReportLoadState({
+    required this.status,
+    this.report,
+    this.errorMessage,
   });
 
-  final String summaryTitle;
-  final String summaryBody;
-  final String insightBody;
-  final List<String> actions;
+  const _PeriodAiReportLoadState.idle()
+    : this(status: _PeriodAiReportLoadStatus.idle);
+
+  const _PeriodAiReportLoadState.loading()
+    : this(status: _PeriodAiReportLoadStatus.loading);
+
+  const _PeriodAiReportLoadState.success(WeeklyAiReport report)
+    : this(status: _PeriodAiReportLoadStatus.success, report: report);
+
+  const _PeriodAiReportLoadState.error(String errorMessage)
+    : this(status: _PeriodAiReportLoadStatus.error, errorMessage: errorMessage);
+
+  final _PeriodAiReportLoadStatus status;
+  final WeeklyAiReport? report;
+  final String? errorMessage;
 }
 
 class _WeeklyReportPendingProgress {

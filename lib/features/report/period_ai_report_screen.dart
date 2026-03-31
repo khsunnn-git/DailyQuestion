@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 
+import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "period_report_aggregation_service.dart";
 import "report_api_client.dart";
@@ -43,8 +44,13 @@ class _PeriodAiReportScreenState extends State<PeriodAiReportScreen> {
       return;
     }
     try {
+      final DateTime now = nowInKst();
       final ReportAnalyzePayload payload = await _aggregationService
-          .buildPayloadFor(_selected);
+          .buildPayloadForSelection(
+            period: _selected,
+            year: now.year,
+            month: now.month,
+          );
       final WeeklyAiReport response = await _apiClient.analyze(payload);
       setState(() {
         _status = _PeriodReportStatus.success;
@@ -220,22 +226,23 @@ class _Card extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.s8,
-                        vertical: AppSpacing.s2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF5FF),
-                        borderRadius: AppRadius.pill,
-                      ),
-                      child: Text(
-                        "AI",
-                        style: AppTypography.captionSmall.copyWith(
-                          color: const Color(0xFF017AF7),
+                    if (isOpenAiReportSource(source))
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.s8,
+                          vertical: AppSpacing.s2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF5FF),
+                          borderRadius: AppRadius.pill,
+                        ),
+                        child: Text(
+                          "AI",
+                          style: AppTypography.captionSmall.copyWith(
+                            color: const Color(0xFF017AF7),
+                          ),
                         ),
                       ),
-                    ),
                     if (source != null) ...<Widget>[
                       const SizedBox(width: AppSpacing.s6),
                       Builder(

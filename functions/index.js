@@ -193,18 +193,23 @@ function buildWeeklyInsights({
   const bestDay = pickDayEvidence(payload, true);
   const hardestDay = pickDayEvidence(payload, false);
   const leadKeyword = topKeywords.length > 0 ? topKeywords[0] : "";
+  const periodKey = normalizedReportPeriod(payload);
 
   if (hasCheckinData && bestDay) {
     if (leadKeyword) {
       insights.push(
-          `이번 한 주 ${bestDay.weekdayLabel}에 컨디션이 좋았고, ` +
+          `${periodKey === "weekly" ? "이번 한 주" : "이 기간에는"} ${bestDay.weekdayLabel}에 컨디션이 좋았고, ` +
           `${withObjectParticle(leadKeyword)} 자주 언급하셨어요.`,
       );
     } else {
-      insights.push(`이번 한 주 ${bestDay.weekdayLabel}에 컨디션이 좋았어요.`);
+      insights.push(
+          `${periodKey === "weekly" ? "이번 한 주" : "이 기간에는"} ${bestDay.weekdayLabel}에 컨디션이 좋았어요.`,
+      );
     }
   } else if (leadKeyword) {
-    insights.push(`이번 한 주에는 ${withObjectParticle(leadKeyword)} 자주 언급하셨어요.`);
+    insights.push(
+        `${periodKey === "weekly" ? "이번 한 주에는" : "이 기간에는"} ${withObjectParticle(leadKeyword)} 자주 언급하셨어요.`,
+    );
   }
 
   if (hasCheckinData) {
@@ -337,9 +342,39 @@ function hardThemeLead(theme) {
   return `${normalized}이 올라올 때는 `;
 }
 
+function normalizedReportPeriod(payload) {
+  const raw = `${payload && payload.period ? payload.period : "weekly"}`
+      .trim()
+      .toLowerCase();
+  switch (raw) {
+    case "monthly":
+    case "quarterly":
+    case "yearly":
+      return raw;
+    default:
+      return "weekly";
+  }
+}
+
+function reportPeriodLabel(periodKey) {
+  switch (periodKey) {
+    case "monthly":
+      return "월간";
+    case "quarterly":
+      return "분기";
+    case "yearly":
+      return "연간";
+    default:
+      return "주간";
+  }
+}
+
 function buildPersonalizedActions(payload, compact = false) {
   const actions = [];
   const seen = new Set();
+  const periodKey = normalizedReportPeriod(payload);
+  const periodWindow = periodKey === "weekly" ? "이번 주" : "이 기간";
+  const periodReviewWindow = periodKey === "weekly" ? "이번 주" : "이 기간에";
   const cues = collectPreferredActionCues(payload, bestDayText(payload));
   const theme = hardMoodTheme(payload);
   const topKeywords = Array.isArray(payload && payload.top_keywords) ?
@@ -364,7 +399,7 @@ function buildPersonalizedActions(payload, compact = false) {
   if (cues.length > 0) {
     const cue = cues[0];
     add(
-        `이번 주 기록에서는 ${cue.subject} 기분을 환기하는 데 도움이 된 흔적이 보여요. ` +
+        `${periodWindow} 기록에서는 ${cue.subject} 기분을 환기하는 데 도움이 된 흔적이 보여요. ` +
         `다음에 마음이 가라앉는 날엔 ${cue.recommendation}`,
     );
   }
@@ -390,12 +425,14 @@ function buildPersonalizedActions(payload, compact = false) {
 
   if (!compact && topKeywords.length > 0) {
     add(
-        `이번 주 자주 보인 키워드는 ${topKeywords[0]}예요. ` +
+        `${periodWindow} 자주 보인 키워드는 ${topKeywords[0]}예요. ` +
         `${topKeywords[0]}와 연결된 작은 행동 하나를 다시 꺼내 해보세요.`,
     );
   }
 
-  add("기분이 좋지 않은 날엔 이번 주 조금 괜찮았던 행동 1가지를 먼저 다시 해보세요.");
+  add(
+      `기분이 좋지 않은 날엔 ${periodReviewWindow} 조금 괜찮았던 행동 1가지를 먼저 다시 해보세요.`,
+  );
   add("마음이 복잡한 날엔 해결부터 하려 하기보다 지금 할 수 있는 가장 작은 행동 1개만 시작해보세요.");
 
   return actions.slice(0, compact ? 1 : 3);
@@ -403,6 +440,8 @@ function buildPersonalizedActions(payload, compact = false) {
 
 function buildCompactFallbackReport(payload) {
   const metrics = payload && payload.metrics ? payload.metrics : {};
+  const periodKey = normalizedReportPeriod(payload);
+  const periodIntro = periodKey === "weekly" ? "이번 주는" : "이 기간에는";
   const recordedDays = asNumber(metrics.recorded_days) || 0;
   const targetDays = asNumber(metrics.target_days) || 7;
   const completion = targetDays > 0 ?
@@ -422,8 +461,8 @@ function buildCompactFallbackReport(payload) {
 
   return {
     summary:
-      `이번 주는 ${recordedDays}일 기록했어요. ` +
-      `아직 데이터가 많지 않아 간단한 리포트로 정리했어요. ${keywordText}`,
+      `${periodIntro} ${recordedDays}일 기록했어요. ` +
+      `아직 데이터가 많지 않아 간단한 ${reportPeriodLabel(periodKey)} 리포트로 정리했어요. ${keywordText}`,
     emotion_summary:
       `${emotionSummary.summary} ` +
       "조금만 더 기록이 쌓이면 긍정 흐름과 부담 흐름을 더 자세하게 읽어드릴 수 있어요.",
@@ -439,6 +478,9 @@ function buildCompactFallbackReport(payload) {
 
 function buildFallbackReport(payload) {
   const metrics = payload && payload.metrics ? payload.metrics : {};
+  const periodKey = normalizedReportPeriod(payload);
+  const periodWindow = periodKey === "weekly" ? "이번 주" : "이 기간";
+  const flowLabel = periodKey === "weekly" ? "주간 컨디션" : "이 기간 흐름";
   const recordedDays = asNumber(metrics.recorded_days) || 0;
   if (recordedDays < 3) {
     return buildCompactFallbackReport(payload);
@@ -478,9 +520,9 @@ function buildFallbackReport(payload) {
 
   return {
     summary: hasCheckinData ?
-      `이번 주 평균 점수는 ${weeklyScore}/5점, 기록률은 ${completion}%예요. ` +
-        "주간 컨디션은 비교적 안정적인 편이었어요." :
-      `이번 주 기록률은 ${completion}%예요. ` +
+      `${periodWindow} 평균 점수는 ${weeklyScore}/5점, 기록률은 ${completion}%예요. ` +
+        `${flowLabel}은 비교적 안정적인 편이었어요.` :
+      `${periodWindow} 기록률은 ${completion}%예요. ` +
         "감정 체크인 데이터가 아직 부족해서 평균 점수는 집계되지 않았어요.",
     emotion_summary: emotionSummary.summary,
     insights,
@@ -547,6 +589,8 @@ async function createOpenAIReport(payload) {
   }
 
   const metrics = payload && payload.metrics ? payload.metrics : {};
+  const periodKey = normalizedReportPeriod(payload);
+  const periodLabel = reportPeriodLabel(periodKey);
   const recordedDays = asNumber(metrics.recorded_days) || 0;
   const response = await fetch(OPENAI_API_URL, {
     method: "POST",
@@ -563,8 +607,12 @@ async function createOpenAIReport(payload) {
             {
               type: "input_text",
               text:
-                "너는 한국어 라이프 저널 주간 리포트 에디터다. " +
+                `너는 한국어 라이프 저널 ${periodLabel} 리포트 에디터다. ` +
                 "사용자가 쉽게 읽을 수 있도록 따뜻하고 간결하게 작성한다. " +
+                "payload.period를 보고 기간 표현을 정확히 맞춘다. " +
+                (periodKey === "weekly" ?
+                  "" :
+                  "weekly가 아닌 경우 '이번 주', '다음 주' 같은 표현은 쓰지 말고 '이 기간' 또는 해당 기간 표현을 사용한다. ") +
                 "metrics.recorded_days가 3 미만이면 간단 리포트로 " +
                 "작성하고 insights는 최대 1개, actions는 " +
                 "최대 1개만 작성한다. " +
@@ -607,7 +655,7 @@ async function createOpenAIReport(payload) {
       text: {
         format: {
           type: "json_schema",
-          name: "weekly_report",
+          name: "period_report",
           strict: true,
           schema: reportSchema(),
         },

@@ -1,3 +1,7 @@
+bool isOpenAiReportSource(String? source) {
+  return source?.trim().toLowerCase() == "ai";
+}
+
 class ReportAnalyzePayload {
   const ReportAnalyzePayload({
     required this.period,
@@ -101,6 +105,8 @@ class WeeklyAiReport {
   final int weeklyScore;
   final int? monthlyScore;
   final String source;
+
+  bool get isFromOpenAi => isOpenAiReportSource(source);
 
   factory WeeklyAiReport.fromJson(Map<String, dynamic> json) {
     final String normalizedSummary = _normalizeSummaryText(

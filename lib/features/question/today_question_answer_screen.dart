@@ -39,7 +39,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
   static const Color _allCategoryColor = AppNeutralColors.grey100;
   static const bool _showPolishUi = false;
   static const String _unopenedQuestionMessage = "아직 열어보지 않은 질문입니다.";
-  bool _isPublic = false;
+  bool _isPublic = true;
   int _polishUsedCount = 0;
   bool _showPolishLoading = false;
   String? _resolvedQuestionText;
@@ -94,8 +94,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       if (query.docs.isEmpty) {
         return null;
       }
-      final String? base = (query.docs.first.data()["base"] as String?)
-          ?.trim();
+      final String? base = (query.docs.first.data()["base"] as String?)?.trim();
       if (base == null || base.isEmpty) {
         return null;
       }
@@ -127,7 +126,8 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       return;
     }
 
-    final DateTime? targetDate = widget.initialDate ?? widget.editingRecord?.createdAt;
+    final DateTime? targetDate =
+        widget.initialDate ?? widget.editingRecord?.createdAt;
     if (targetDate != null) {
       final String? fetched = await _fetchQuestionForDate(targetDate);
       if (!mounted) {
@@ -868,12 +868,13 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
     final double safeBottomInset = MediaQuery.of(context).viewPadding.bottom;
     final double keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final bool isKeyboardVisible = keyboardInset > 0;
-    final double actionTopPadding = isKeyboardVisible ? AppSpacing.s12 : AppSpacing.s16;
+    final double actionTopPadding = isKeyboardVisible
+        ? AppSpacing.s12
+        : AppSpacing.s16;
     final double actionBottomPadding = isKeyboardVisible
         ? AppSpacing.s12
         : safeBottomInset + AppSpacing.s8;
-    final double actionAreaHeight =
-        60 + actionTopPadding + actionBottomPadding;
+    final double actionAreaHeight = 60 + actionTopPadding + actionBottomPadding;
     final DateTime displayDate =
         widget.editingRecord?.createdAt ?? widget.initialDate ?? now;
     final String headerTitle = widget.headerTitle ?? "오늘의 질문";
@@ -1208,18 +1209,17 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                   child: FilledButton(
                     onPressed: _hasInput ? _saveRecord : null,
                     style: ButtonStyle(
-                      backgroundColor:
-                          WidgetStateProperty.resolveWith<Color>((
-                            Set<WidgetState> states,
-                          ) {
-                            if (states.contains(WidgetState.disabled)) {
-                              return brand.c300;
-                            }
-                            if (states.contains(WidgetState.hovered)) {
-                              return brand.c600;
-                            }
-                            return brand.c500;
-                          }),
+                      backgroundColor: WidgetStateProperty.resolveWith<Color>((
+                        Set<WidgetState> states,
+                      ) {
+                        if (states.contains(WidgetState.disabled)) {
+                          return brand.c300;
+                        }
+                        if (states.contains(WidgetState.hovered)) {
+                          return brand.c600;
+                        }
+                        return brand.c500;
+                      }),
                       overlayColor: WidgetStatePropertyAll<Color>(
                         AppNeutralColors.white.withValues(alpha: 0.08),
                       ),

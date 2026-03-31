@@ -11,6 +11,35 @@ import "report_models.dart";
 
 enum ReportPeriod { monthly, quarterly, yearly }
 
+({DateTime startDate, DateTime endDate, String periodKey})
+resolveSelectedPeriodReportWindow({
+  required ReportPeriod period,
+  required int year,
+  required int month,
+}) {
+  switch (period) {
+    case ReportPeriod.monthly:
+      return (
+        startDate: DateTime(year, month, 1),
+        endDate: DateTime(year, month + 1, 0),
+        periodKey: "monthly",
+      );
+    case ReportPeriod.quarterly:
+      final int quarterStartMonth = ((month - 1) ~/ 3) * 3 + 1;
+      return (
+        startDate: DateTime(year, quarterStartMonth, 1),
+        endDate: DateTime(year, quarterStartMonth + 3, 0),
+        periodKey: "quarterly",
+      );
+    case ReportPeriod.yearly:
+      return (
+        startDate: DateTime(year, 1, 1),
+        endDate: DateTime(year + 1, 1, 0),
+        periodKey: "yearly",
+      );
+  }
+}
+
 class PeriodReportAggregationService {
   const PeriodReportAggregationService();
 
@@ -394,7 +423,6 @@ class PeriodReportAggregationService {
   ];
 
   Future<ReportAnalyzePayload> buildPayloadFor(ReportPeriod period) async {
-    await TodayQuestionStore.instance.initialize();
     final DateTime now = nowInKst();
     final DateTime endDate = DateTime(now.year, now.month, now.day);
     final int windowDays = switch (period) {
@@ -408,6 +436,40 @@ class PeriodReportAggregationService {
       ReportPeriod.yearly => "yearly",
     };
     final DateTime startDate = endDate.subtract(Duration(days: windowDays - 1));
+
+    return _buildPayload(
+      startDate: startDate,
+      endDate: endDate,
+      periodKey: periodKey,
+    );
+  }
+
+  Future<ReportAnalyzePayload> buildPayloadForSelection({
+    required ReportPeriod period,
+    required int year,
+    required int month,
+  }) async {
+    final ({DateTime startDate, DateTime endDate, String periodKey})
+    periodWindow = resolveSelectedPeriodReportWindow(
+      period: period,
+      year: year,
+      month: month,
+    );
+
+    return _buildPayload(
+      startDate: periodWindow.startDate,
+      endDate: periodWindow.endDate,
+      periodKey: periodWindow.periodKey,
+    );
+  }
+
+  Future<ReportAnalyzePayload> _buildPayload({
+    required DateTime startDate,
+    required DateTime endDate,
+    required String periodKey,
+  }) async {
+    await TodayQuestionStore.instance.initialize();
+    final int windowDays = endDate.difference(startDate).inDays + 1;
 
     final List<DailyCheckinEntity> checkins = await _loadCheckinsInRange(
       startDate: startDate,
