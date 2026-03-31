@@ -1,5 +1,9 @@
 Future<void> initializeDailyQuestionNotificationScheduler() async {}
 
+Future<void> refreshDailyQuestionNotificationSchedulerState({
+  bool requestPermissionOnFirstRun = false,
+}) async {}
+
 Future<void> updateDailyQuestionNotificationSchedule({
   required bool enabled,
   required int hour,

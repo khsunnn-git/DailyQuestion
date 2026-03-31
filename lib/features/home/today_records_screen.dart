@@ -1,15 +1,13 @@
 import "dart:async";
 
-import "package:cloud_firestore/cloud_firestore.dart";
-import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
-import "../auth/auth_service.dart";
 import "home_screen.dart";
 import "../navigation/main_tab_shell.dart";
+import "public_record_report_repository.dart";
 import "../question/today_question_prompt_store.dart";
 import "../question/today_question_store.dart";
 import "public_today_records_repository.dart";
@@ -515,7 +513,8 @@ class _FullRecordCard extends StatefulWidget {
 }
 
 class _FullRecordCardState extends State<_FullRecordCard> {
-  final _UserReportRepository _reportRepository = _UserReportRepository();
+  final PublicRecordReportRepository _reportRepository =
+      PublicRecordReportRepository();
   _RecordMenuAction? _selectedAction;
 
   Future<void> _selectAction(_RecordMenuAction action) async {
@@ -997,7 +996,7 @@ class _FullRecordCardState extends State<_FullRecordCard> {
         if (mounted) {
           _showToast("신고가 접수되었습니다. 빠르게 확인할게요.");
         }
-      } on _ReportSubmitException catch (error) {
+      } on PublicRecordReportSubmitException catch (error) {
         if (mounted) {
           _showToast(error.userMessage);
         }
@@ -1098,64 +1097,4 @@ class _FullRecordCardState extends State<_FullRecordCard> {
       ),
     );
   }
-}
-
-class _UserReportRepository {
-  _UserReportRepository({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
-
-  final FirebaseFirestore _firestore;
-
-  Future<void> submit({
-    required String reason,
-    required String targetId,
-    required String targetType,
-    required String questionDateKey,
-    required String authorName,
-    required String answerPreview,
-  }) async {
-    try {
-      final User user = await _ensureSignedInUser();
-      await _firestore.collection("reports").add(<String, dynamic>{
-        "reason": reason,
-        "targetId": targetId,
-        "targetType": targetType,
-        "questionDateKey": questionDateKey,
-        "authorName": authorName,
-        "answerPreview": answerPreview,
-        "reporterUid": user.uid,
-        "status": "open",
-        "source": "mobile_app",
-        "reportedAt": FieldValue.serverTimestamp(),
-        "reportedAtClient": Timestamp.now(),
-        "createdAt": FieldValue.serverTimestamp(),
-        "updatedAt": FieldValue.serverTimestamp(),
-      });
-    } on FirebaseException catch (error) {
-      if (error.code == "permission-denied") {
-        throw const _ReportSubmitException(
-          userMessage: "신고 권한이 없어요. 로그인 상태를 확인 후 다시 시도해주세요.",
-        );
-      }
-      throw const _ReportSubmitException(
-        userMessage: "신고 접수에 실패했어요. 네트워크를 확인하고 다시 시도해주세요.",
-      );
-    }
-  }
-
-  Future<User> _ensureSignedInUser() async {
-    try {
-      return await AuthService.instance.ensureSignedInUser();
-    } on AuthActionException catch (_) {
-      throw const _ReportSubmitException(
-        userMessage: "로그인이 필요해서 신고를 완료하지 못했어요. 다시 시도해주세요.",
-      );
-    }
-  }
-}
-
-class _ReportSubmitException implements Exception {
-  const _ReportSubmitException({required this.userMessage});
-
-  final String userMessage;
 }

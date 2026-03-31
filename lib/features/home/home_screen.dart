@@ -18,6 +18,7 @@ import "my_record_detail_screen.dart";
 import "home_character_assets.dart";
 import "home_fish_growth.dart";
 import "my_records_screen.dart";
+import "public_record_detail_screen.dart";
 import "public_today_records_repository.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_prompt_store.dart";
@@ -77,6 +78,46 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  static Future<PublicRecordDetailResult?> openPublicRecordDetail(
+    BuildContext context, {
+    required PublicTodayRecord record,
+    required String questionDateKey,
+    required String questionText,
+  }) {
+    return showGeneralDialog<PublicRecordDetailResult>(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: "타인의 기록 닫기",
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder:
+          (
+            BuildContext dialogContext,
+            Animation<double> primaryAnimation,
+            Animation<double> secondaryAnimation,
+          ) => PublicRecordDetailOverlay(
+            record: record,
+            questionDateKey: questionDateKey,
+            questionText: questionText,
+          ),
+      transitionBuilder:
+          (
+            BuildContext context,
+            Animation<double> animation,
+            Animation<double> secondaryAnimation,
+            Widget child,
+          ) {
+            return FadeTransition(
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: Curves.easeOutCubic,
+              ),
+              child: child,
+            );
+          },
+    );
+  }
+
   static void goHome(BuildContext context) {
     Navigator.of(context).popUntil((Route<dynamic> route) => route.isFirst);
   }
@@ -98,7 +139,7 @@ class HomeScreen extends StatelessWidget {
                 child: Column(
                   children: <Widget>[
                     const _TopQuestionPanel(),
-                    const SizedBox(height: AppSpacing.s40),
+                    const SizedBox(height: AppSpacing.s24),
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.s20,
@@ -107,10 +148,11 @@ class HomeScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: <Widget>[
                           _RecordStreakSection(),
-                          const _TodayMeSection(),
-                          const SizedBox(height: AppSpacing.s32),
+                          const SizedBox(height: AppSpacing.s24),
                           _TodayRecordSection(),
-                          const SizedBox(height: AppSpacing.s32),
+                          const SizedBox(height: AppSpacing.s24),
+                          const _TodayMeSection(),
+                          const SizedBox(height: AppSpacing.s24),
                           _InviteFriendsBanner(),
                           const SizedBox(height: AppSpacing.s40),
                         ],
@@ -1769,6 +1811,8 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
     "소중한 하루가 쌓였어요!",
     "꾸준한 당신을 칭찬해요!",
   ];
+  static const double _fishFrameSize = 128;
+  static const double _fishVisualSize = 172;
 
   late final AnimationController _fishController;
   late final Animation<double> _fishDy;
@@ -1848,20 +1892,20 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
             ),
           ),
           Positioned(
-            left: 218,
-            top: -14,
+            left: 236,
+            top: 2,
             child: AnimatedBuilder(
               animation: _fishController,
               child: SizedBox(
-                width: 152,
-                height: 152,
+                width: _fishFrameSize,
+                height: _fishFrameSize,
                 child: OverflowBox(
-                  maxWidth: 208,
-                  maxHeight: 208,
+                  maxWidth: _fishVisualSize,
+                  maxHeight: _fishVisualSize,
                   child: _HomeHeroFishImage(
                     assetPath: fishAssetPath,
-                    size: 208,
-                    fallbackFontSize: 56,
+                    size: _fishVisualSize,
+                    fallbackFontSize: 48,
                   ),
                 ),
               ),
@@ -2081,16 +2125,13 @@ class _TodayRecordSectionState extends State<_TodayRecordSection>
                   ) {
                     final List<PublicTodayRecord> fetchedRecords =
                         snapshot.data ?? const <PublicTodayRecord>[];
-                    final List<_TodayRecordData> remoteRecords = fetchedRecords
+                    final String questionText = TodayQuestionPromptStore
+                        .instance
+                        .value
+                        .currentQuestionText;
+                    final List<PublicTodayRecord> records = fetchedRecords
                         .take(5)
-                        .map(
-                          (PublicTodayRecord item) => _TodayRecordData(
-                            body: _toPreviewText(item.body),
-                            name: item.author,
-                          ),
-                        )
                         .toList(growable: false);
-                    final List<_TodayRecordData> records = remoteRecords;
                     final bool hasRecords = records.isNotEmpty;
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2101,10 +2142,7 @@ class _TodayRecordSectionState extends State<_TodayRecordSection>
                                   await HomeScreen.openTodayRecords(
                                     context,
                                     questionDateKey: _todayKey,
-                                    questionText: TodayQuestionPromptStore
-                                        .instance
-                                        .value
-                                        .currentQuestionText,
+                                    questionText: questionText,
                                     initialRecords: fetchedRecords,
                                   );
                                   if (!mounted) {
@@ -2196,6 +2234,24 @@ class _TodayRecordSectionState extends State<_TodayRecordSection>
                                                   child: _TodayRecordCard(
                                                     record: records[index],
                                                     width: _recordCardWidth,
+                                                    onTap: () async {
+                                                      final PublicRecordDetailResult?
+                                                      result =
+                                                          await HomeScreen.openPublicRecordDetail(
+                                                            context,
+                                                            record:
+                                                                records[index],
+                                                            questionDateKey:
+                                                                _todayKey,
+                                                            questionText:
+                                                                questionText,
+                                                          );
+                                                      if (!mounted ||
+                                                          result == null) {
+                                                        return;
+                                                      }
+                                                      setState(() {});
+                                                    },
                                                   ),
                                                 ),
                                           ),
@@ -2217,14 +2273,6 @@ class _TodayRecordSectionState extends State<_TodayRecordSection>
             );
           },
     );
-  }
-
-  String _toPreviewText(String raw) {
-    final String singleLine = raw.replaceAll("\n", " ");
-    if (singleLine.length <= 56) {
-      return singleLine;
-    }
-    return "${singleLine.substring(0, 56)}...";
   }
 }
 
@@ -2263,7 +2311,10 @@ class _TodayRecordEmptyCard extends StatelessWidget {
                 height: 64,
                 fit: BoxFit.contain,
                 errorBuilder: (_, error, stackTrace) {
-                  return const AppEmojiText("🐟", style: TextStyle(fontSize: 32));
+                  return const AppEmojiText(
+                    "🐟",
+                    style: TextStyle(fontSize: 32),
+                  );
                 },
               ),
               const SizedBox(height: AppSpacing.s8),
@@ -2281,56 +2332,70 @@ class _TodayRecordEmptyCard extends StatelessWidget {
   }
 }
 
-class _TodayRecordData {
-  const _TodayRecordData({required this.body, required this.name});
-
-  final String body;
-  final String name;
-}
-
 class _TodayRecordCard extends StatelessWidget {
-  const _TodayRecordCard({required this.record, required this.width});
+  const _TodayRecordCard({
+    required this.record,
+    required this.width,
+    required this.onTap,
+  });
 
-  final _TodayRecordData record;
+  final PublicTodayRecord record;
   final double width;
+  final Future<void> Function() onTap;
 
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return Container(
-      width: width,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppNeutralColors.white,
+    final String previewText = _toPreviewText(record.body);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: AppRadius.br16,
-        boxShadow: AppElevation.level1,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              record.body,
-              style: AppTypography.bodyMediumMedium.copyWith(
-                color: AppNeutralColors.grey900,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 3,
-            ),
+        child: Container(
+          width: width,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppNeutralColors.white,
+            borderRadius: AppRadius.br16,
+            boxShadow: AppElevation.level1,
           ),
-          const SizedBox(height: AppSpacing.s12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              record.name,
-              style: AppTypography.bodyMediumSemiBold.copyWith(
-                color: brand.c500,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  previewText,
+                  style: AppTypography.bodyMediumMedium.copyWith(
+                    color: AppNeutralColors.grey900,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 3,
+                ),
               ),
-            ),
+              const SizedBox(height: AppSpacing.s12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  record.author,
+                  style: AppTypography.bodyMediumSemiBold.copyWith(
+                    color: brand.c500,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  String _toPreviewText(String raw) {
+    final String singleLine = raw.replaceAll("\n", " ");
+    if (singleLine.length <= 56) {
+      return singleLine;
+    }
+    return "${singleLine.substring(0, 56)}...";
   }
 }
 
@@ -2461,6 +2526,35 @@ class _TodayMeSectionState extends State<_TodayMeSection>
     return _pageController!;
   }
 
+  void _handleMetricOptionTap({
+    required DailyCheckinMetric metric,
+    required int selectedIndex,
+    required int cardIndex,
+    required int totalCards,
+  }) {
+    unawaited(
+      DailyCheckinStore.instance.saveSelection(
+        metric: metric,
+        selectedIndex: selectedIndex,
+      ),
+    );
+    _showSavedToast();
+    if (cardIndex >= totalCards - 1) {
+      return;
+    }
+    final PageController? controller = _pageController;
+    if (controller == null || !controller.hasClients) {
+      return;
+    }
+    unawaited(
+      controller.animateToPage(
+        cardIndex + 1,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<DailyCheckinRecord?>(
@@ -2497,13 +2591,12 @@ class _TodayMeSectionState extends State<_TodayMeSection>
                     defaultBorderColor: const Color(0xFFE9F6FF),
                     selectedIndex: checkin?.moodIndex,
                     onOptionTap: (int index) {
-                      unawaited(
-                        DailyCheckinStore.instance.saveSelection(
-                          metric: DailyCheckinMetric.mood,
-                          selectedIndex: index,
-                        ),
+                      _handleMetricOptionTap(
+                        metric: DailyCheckinMetric.mood,
+                        selectedIndex: index,
+                        cardIndex: 0,
+                        totalCards: 3,
                       );
-                      _showSavedToast();
                     },
                   ),
                   _TodayMetricCard(
@@ -2520,13 +2613,12 @@ class _TodayMeSectionState extends State<_TodayMeSection>
                     defaultBorderColor: const Color(0xFFEEE1F3),
                     selectedIndex: checkin?.energyIndex,
                     onOptionTap: (int index) {
-                      unawaited(
-                        DailyCheckinStore.instance.saveSelection(
-                          metric: DailyCheckinMetric.energy,
-                          selectedIndex: index,
-                        ),
+                      _handleMetricOptionTap(
+                        metric: DailyCheckinMetric.energy,
+                        selectedIndex: index,
+                        cardIndex: 1,
+                        totalCards: 3,
                       );
-                      _showSavedToast();
                     },
                   ),
                   _TodayMetricCard(
@@ -2543,13 +2635,12 @@ class _TodayMeSectionState extends State<_TodayMeSection>
                     defaultBorderColor: const Color(0xFFFFF1E6),
                     selectedIndex: checkin?.stressIndex,
                     onOptionTap: (int index) {
-                      unawaited(
-                        DailyCheckinStore.instance.saveSelection(
-                          metric: DailyCheckinMetric.stress,
-                          selectedIndex: index,
-                        ),
+                      _handleMetricOptionTap(
+                        metric: DailyCheckinMetric.stress,
+                        selectedIndex: index,
+                        cardIndex: 2,
+                        totalCards: 3,
                       );
-                      _showSavedToast();
                     },
                   ),
                 ];
@@ -2561,6 +2652,16 @@ class _TodayMeSectionState extends State<_TodayMeSection>
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
+                    Padding(
+                      padding: EdgeInsets.only(left: contentLeadingInset),
+                      child: Text(
+                        "오늘의 나는 어떤가요?",
+                        style: AppTypography.headingSmall.copyWith(
+                          color: AppNeutralColors.grey900,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s16),
                     if (!hasCompletedAllMetrics) ...<Widget>[
                       Padding(
                         padding: EdgeInsets.only(left: contentLeadingInset),

@@ -3,6 +3,7 @@ import "dart:math";
 
 import "package:isar_community/isar.dart";
 
+import "../../core/keyword_semantics.dart";
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/daily_checkin_entity.dart";
 import "../../data/local_db/local_database.dart";
@@ -666,6 +667,7 @@ class PeriodReportAggregationService {
         }
         _setMaxScore(perRecord, noun, score);
       }
+      _applySemanticKeywords(perRecord, record.answer, score: 2);
       for (final MapEntry<String, int> entry in perRecord.entries) {
         _addScore(counter, entry.key, entry.value);
       }
@@ -727,6 +729,7 @@ class PeriodReportAggregationService {
       }
       _addScore(counter, noun, score);
     }
+    _applySemanticKeywords(counter, record.answer, score: 2);
 
     final List<MapEntry<String, int>> sorted =
         _removeSubTokens(
@@ -798,6 +801,19 @@ class PeriodReportAggregationService {
     }
   }
 
+  void _applySemanticKeywords(
+    Map<String, int> counter,
+    String text, {
+    required int score,
+  }) {
+    for (final String keyword in semanticKeywordsFromText(text)) {
+      _setMaxScore(counter, keyword, score);
+    }
+    for (final String artifact in artifactKeywordsForText(text)) {
+      counter.remove(artifact);
+    }
+  }
+
   bool _isLikelyNoun(String token) {
     if (token.isEmpty) return false;
     if (token.length < 2) return _singleCharAllowedNouns.contains(token);
@@ -809,9 +825,14 @@ class PeriodReportAggregationService {
   }
 
   String? _normalizeNounToken(String token) {
-    String value = token.trim().toLowerCase();
+    final String rawValue = token.trim().toLowerCase();
+    String value = rawValue;
     if (value.isEmpty) {
       return null;
+    }
+    final String? semanticAlias = semanticKeywordAliasForToken(rawValue);
+    if (semanticAlias != null) {
+      return semanticAlias;
     }
     value = _extractLeadingNounCandidate(value);
     if (value.startsWith("이사가")) {

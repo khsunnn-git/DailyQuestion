@@ -1,5 +1,6 @@
 import "dart:async";
 
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
@@ -9,6 +10,7 @@ import "../bucket/bucket_list_screen.dart";
 import "../home/home_screen.dart";
 import "../home/my_records_screen.dart";
 import "../more/more_settings_screen.dart";
+import "../notifications/daily_question_notification_scheduler.dart";
 
 class MainTabShell extends StatefulWidget {
   const MainTabShell({super.key, this.initialIndex = 0})
@@ -40,7 +42,8 @@ class MainTabShell extends StatefulWidget {
   State<MainTabShell> createState() => _MainTabShellState();
 }
 
-class _MainTabShellState extends State<MainTabShell> {
+class _MainTabShellState extends State<MainTabShell>
+    with WidgetsBindingObserver {
   late int _currentIndex = widget.initialIndex;
   StreamSubscription<Object?>? _authSubscription;
   bool _isResolvingAuthState = true;
@@ -56,16 +59,28 @@ class _MainTabShellState extends State<MainTabShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _authSubscription = AuthService.instance.authStateChanges.listen((_) {
       _refreshAccountConnectPrompt();
     });
     unawaited(_restoreAuthState());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_refreshNotificationSchedulesOnEntry());
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authSubscription?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshNotificationSchedulesOnResume());
+    }
   }
 
   Future<void> _restoreAuthState() async {
@@ -78,6 +93,20 @@ class _MainTabShellState extends State<MainTabShell> {
       _isResolvingAuthState = false;
     });
     _refreshAccountConnectPrompt();
+  }
+
+  Future<void> _refreshNotificationSchedulesOnEntry() async {
+    try {
+      await refreshDailyQuestionNotificationSchedulerState(
+        requestPermissionOnFirstRun: !kIsWeb,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _refreshNotificationSchedulesOnResume() async {
+    try {
+      await refreshDailyQuestionNotificationSchedulerState();
+    } catch (_) {}
   }
 
   void _refreshAccountConnectPrompt() {

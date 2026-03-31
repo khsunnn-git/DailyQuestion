@@ -963,7 +963,7 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
                       focusNode: _answerFocusNode,
                       hintText: "무엇이든 가볍게 적어보세요",
                       height: 369,
-                      backgroundColor: brand.bg,
+                      backgroundColor: AppNeutralColors.white,
                       borderColor: brand.c400,
                     ),
                     if (_showPolishUi) ...<Widget>[

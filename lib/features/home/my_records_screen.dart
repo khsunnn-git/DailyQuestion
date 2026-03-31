@@ -6,6 +6,7 @@ import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
+import "../../core/keyword_semantics.dart";
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
@@ -3825,25 +3826,28 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
         }
         _setMaxScore(perRecord, noun, score);
       }
+      _applySemanticKeywords(perRecord, record.answer, score: 2);
       for (final MapEntry<String, int> entry in perRecord.entries) {
         _addScore(priorityScores, entry.key, entry.value);
         _addScore(occurrences, entry.key, 1);
       }
     }
 
-    final Map<String, int> filteredOccurrences = _removeSubTokens(occurrences);
+    final Map<String, int> filteredPriorityScores = _removeSubTokens(
+      priorityScores,
+    );
     final List<MapEntry<String, int>> sorted =
-        filteredOccurrences.entries
-            .where((MapEntry<String, int> e) => e.value > 0)
+        filteredPriorityScores.entries
+            .where((MapEntry<String, int> e) => (occurrences[e.key] ?? 0) > 0)
             .toList()
           ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
+            final int aOccurrence = occurrences[a.key] ?? 0;
+            final int bOccurrence = occurrences[b.key] ?? 0;
+            if (bOccurrence != aOccurrence) {
+              return bOccurrence.compareTo(aOccurrence);
+            }
             if (b.value != a.value) {
               return b.value.compareTo(a.value);
-            }
-            final int aPriority = priorityScores[a.key] ?? 0;
-            final int bPriority = priorityScores[b.key] ?? 0;
-            if (bPriority != aPriority) {
-              return bPriority.compareTo(aPriority);
             }
             return a.key.compareTo(b.key);
           });
@@ -3860,9 +3864,12 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
           : effective.length,
       (int index) {
         final MapEntry<String, int> item = effective[index];
+        final int mentionCount = occurrences[item.key] ?? 0;
         return _KeywordSlice(
           label: item.key,
-          count: item.value,
+          weight: mentionCount,
+          recordCount: mentionCount,
+          rank: index + 1,
           color: _sliceColors[index % _sliceColors.length],
         );
       },
@@ -3926,12 +3933,29 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
     }
   }
 
+  void _applySemanticKeywords(
+    Map<String, int> counter,
+    String text, {
+    required int score,
+  }) {
+    for (final String keyword in semanticKeywordsFromText(text)) {
+      _setMaxScore(counter, keyword, score);
+    }
+    for (final String artifact in artifactKeywordsForText(text)) {
+      counter.remove(artifact);
+    }
+  }
+
   String? _normalizeNounToken(String token) {
-    String value = token.trim();
+    final String rawValue = token.trim().toLowerCase();
+    String value = rawValue;
     if (value.isEmpty) {
       return null;
     }
-    value = value.toLowerCase();
+    final String? semanticAlias = semanticKeywordAliasForToken(rawValue);
+    if (semanticAlias != null) {
+      return semanticAlias;
+    }
     value = _extractLeadingNounCandidate(value);
     if (value.startsWith("이사가")) {
       value = "이사";
@@ -4185,7 +4209,7 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                "${slice.count}건",
+                                "${slice.recordCount}건",
                                 style: AppTypography.bodySmallRegular.copyWith(
                                   color: AppNeutralColors.grey900,
                                 ),
@@ -4198,7 +4222,7 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.s8),
                 Text(
-                  "한 기록에서 여러 키워드가 함께 추출될 수 있어요.",
+                  "이번 달 기록 전체에서 키워드가 언급된 건수를 보여줘요.",
                   style: AppTypography.captionSmall.copyWith(
                     color: AppNeutralColors.grey500,
                   ),
@@ -4215,12 +4239,16 @@ class _MonthlyKeywordPieCard extends StatelessWidget {
 class _KeywordSlice {
   const _KeywordSlice({
     required this.label,
-    required this.count,
+    required this.weight,
+    required this.recordCount,
+    required this.rank,
     required this.color,
   });
 
   final String label;
-  final int count;
+  final int weight;
+  final int recordCount;
+  final int rank;
   final Color color;
 }
 
@@ -4233,7 +4261,7 @@ class _KeywordPieChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final int total = slices.fold(
       0,
-      (int acc, _KeywordSlice e) => acc + e.count,
+      (int acc, _KeywordSlice e) => acc + e.weight,
     );
     if (total == 0) return;
 
@@ -4251,7 +4279,7 @@ class _KeywordPieChartPainter extends CustomPainter {
 
     double startAngle = -math.pi / 2;
     for (final _KeywordSlice slice in slices) {
-      final double sweep = (slice.count / total) * math.pi * 2;
+      final double sweep = (slice.weight / total) * math.pi * 2;
       paint.color = slice.color;
       canvas.drawArc(rect, startAngle, sweep, false, paint);
       startAngle += sweep;
@@ -4260,15 +4288,7 @@ class _KeywordPieChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _KeywordPieChartPainter oldDelegate) {
-    if (oldDelegate.slices.length != slices.length) return true;
-    for (int i = 0; i < slices.length; i++) {
-      final _KeywordSlice a = slices[i];
-      final _KeywordSlice b = oldDelegate.slices[i];
-      if (a.label != b.label || a.count != b.count || a.color != b.color) {
-        return true;
-      }
-    }
-    return false;
+    return true;
   }
 }
 

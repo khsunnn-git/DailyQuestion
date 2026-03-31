@@ -6,6 +6,14 @@ Future<void> initializeDailyQuestionNotificationScheduler() async {
   await impl.initializeDailyQuestionNotificationScheduler();
 }
 
+Future<void> refreshDailyQuestionNotificationSchedulerState({
+  bool requestPermissionOnFirstRun = false,
+}) async {
+  await impl.refreshDailyQuestionNotificationSchedulerState(
+    requestPermissionOnFirstRun: requestPermissionOnFirstRun,
+  );
+}
+
 Future<void> updateDailyQuestionNotificationSchedule({
   required bool enabled,
   required int hour,

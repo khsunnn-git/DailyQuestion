@@ -59,12 +59,24 @@ void _logNotification(String message) {
 }
 
 Future<void> initializeDailyQuestionNotificationScheduler() async {
-  _logNotification("initialize scheduler");
+  await refreshDailyQuestionNotificationSchedulerState();
+}
+
+Future<void> refreshDailyQuestionNotificationSchedulerState({
+  bool requestPermissionOnFirstRun = false,
+}) async {
+  _logNotification(
+    "refresh scheduler state requestPermissionOnFirstRun=$requestPermissionOnFirstRun",
+  );
   await _ensureInitialized();
+  if (requestPermissionOnFirstRun) {
+    await _maybeRequestNotificationPermissionOnFirstRun();
+  }
   final bool hasNotificationPermission = await areNotificationsEnabledOnDevice();
   await _restoreSchedulesFromPrefs(
     hasNotificationPermission: hasNotificationPermission,
   );
+  await _debugLogPendingNotifications("refresh scheduler state");
 }
 
 Future<bool> areNotificationsEnabledOnDevice() async {
@@ -232,6 +244,7 @@ Future<void> syncBucketDdayNotificationSchedule({
     enabled: enabled && hasPermission,
     daysBefore: daysBefore,
   );
+  await _debugLogPendingNotifications("sync bucket dday");
 }
 
 Future<void> _ensureInitialized() async {
@@ -263,6 +276,34 @@ Future<void> _ensureInitialized() async {
 
   _initialized = true;
   _logNotification("plugin initialized");
+}
+
+Future<void> _maybeRequestNotificationPermissionOnFirstRun() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    return;
+  }
+
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final bool hasRequestedOnboarding =
+      prefs.getBool(NotificationPrefsKeys.permissionOnboardingRequested) ??
+      false;
+  if (hasRequestedOnboarding) {
+    return;
+  }
+
+  await prefs.setBool(
+    NotificationPrefsKeys.permissionOnboardingRequested,
+    true,
+  );
+
+  final bool hasPermission = await areNotificationsEnabledOnDevice();
+  if (hasPermission) {
+    _logNotification("skip first-run permission prompt because already granted");
+    return;
+  }
+
+  final bool granted = await requestNotificationPermissionOnDevice();
+  _logNotification("first-run notification permission result=$granted");
 }
 
 Future<void> _configureLocalTimeZone() async {
@@ -324,6 +365,7 @@ Future<void> _restoreSchedulesFromPrefs({
     enabled: bucketDdayEnabled && hasNotificationPermission,
     daysBefore: bucketDdayDaysBefore,
   );
+  await _debugLogPendingNotifications("restore schedules");
 }
 
 bool _isNotificationPermissionGranted(PermissionStatus status) {
@@ -395,6 +437,21 @@ Future<void> _zonedScheduleBestEffort({
   }
 }
 
+Future<void> _debugLogPendingNotifications(String context) async {
+  if (!kDebugMode) {
+    return;
+  }
+  try {
+    final List<PendingNotificationRequest> pending =
+        await _notifications.pendingNotificationRequests();
+    _logNotification(
+      "$context pending=${pending.length} ids=${pending.map((PendingNotificationRequest item) => item.id).join(",")}",
+    );
+  } catch (error) {
+    _logNotification("$context failed to read pending notifications: $error");
+  }
+}
+
 Future<void> _scheduleDaily({required int hour, required int minute}) async {
   final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
   final tz.TZDateTime todayAtSelectedTime = tz.TZDateTime(
@@ -435,6 +492,7 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
       scheduledDate: catchupTime,
     );
   }
+  await _debugLogPendingNotifications("schedule daily");
 }
 
 Future<void> _scheduleWeeklyReportNotification() async {
@@ -458,6 +516,7 @@ Future<void> _scheduleWeeklyReportNotification() async {
     scheduledDate: scheduled,
     matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
   );
+  await _debugLogPendingNotifications("schedule weekly report");
 }
 
 Future<void> _resyncBucketDdayNotifications({
