@@ -30,6 +30,37 @@ void main() {
     expect(store.value.snapshot?.recordedDays, 4);
     expect(store.value.report?.summary, "days 4");
   });
+
+  test("refreshes cached fallback report when api becomes available", () async {
+    final _FakeReportAggregationService aggregationService =
+        _FakeReportAggregationService(recordedDays: 4);
+    final WeeklyReportStore localStore = WeeklyReportStore(
+      aggregationService: aggregationService,
+      apiClient: ReportApiClient(baseUrl: ""),
+    );
+
+    await localStore.prepareCurrentWeeklyReport(forceRefresh: true);
+    expect(localStore.value.report?.isFromOpenAi, isFalse);
+
+    final WeeklyReportStore apiStore = WeeklyReportStore(
+      aggregationService: aggregationService,
+      apiClient: _FakeReportApiClient(
+        report: const WeeklyAiReport(
+          summary: "ai report",
+          emotionSummary: "ai emotion",
+          insights: <String>["ai insight"],
+          actions: <String>["ai action"],
+          weeklyScore: 4,
+          source: "ai",
+        ),
+      ),
+    );
+
+    await apiStore.prepareCurrentWeeklyReport();
+
+    expect(apiStore.value.report?.summary, "ai report");
+    expect(apiStore.value.report?.isFromOpenAi, isTrue);
+  });
 }
 
 class _FakeReportAggregationService extends ReportAggregationService {
@@ -107,5 +138,19 @@ class _FakeReportAggregationService extends ReportAggregationService {
       weeklyScore: snapshot.weeklyScore,
       source: "test",
     );
+  }
+}
+
+class _FakeReportApiClient extends ReportApiClient {
+  _FakeReportApiClient({required this.report}) : super(baseUrl: "http://test");
+
+  final WeeklyAiReport report;
+
+  @override
+  bool get isConfigured => true;
+
+  @override
+  Future<WeeklyAiReport> analyze(ReportAnalyzePayload payload) async {
+    return report;
   }
 }

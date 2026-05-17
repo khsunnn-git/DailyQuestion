@@ -22,12 +22,31 @@ void main() {
     );
   });
 
-  test("month defaults to monthly on the last day", () {
+  test("month stays weekly until the last day 8am", () {
     expect(
       isAiReportMonthClosed(
         year: 2026,
         month: 3,
-        now: DateTime(2026, 3, 31, 0, 0),
+        now: DateTime(2026, 3, 31, 7, 59),
+      ),
+      isFalse,
+    );
+    expect(
+      shouldDefaultAiReportToMonthly(
+        year: 2026,
+        month: 3,
+        now: DateTime(2026, 3, 31, 7, 59),
+      ),
+      isFalse,
+    );
+  });
+
+  test("month defaults to monthly from the last day 8am", () {
+    expect(
+      isAiReportMonthClosed(
+        year: 2026,
+        month: 3,
+        now: DateTime(2026, 3, 31, 8),
       ),
       isTrue,
     );
@@ -35,7 +54,7 @@ void main() {
       shouldDefaultAiReportToMonthly(
         year: 2026,
         month: 3,
-        now: DateTime(2026, 3, 31, 0, 0),
+        now: DateTime(2026, 3, 31, 8),
       ),
       isTrue,
     );

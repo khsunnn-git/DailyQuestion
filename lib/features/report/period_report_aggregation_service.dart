@@ -47,6 +47,8 @@ class PeriodReportAggregationService {
   static const Set<String> _stopWords = <String>{
     "오늘",
     "요즘",
+    "오랜만",
+    "대충",
     "계속",
     "많이",
     "말고",
@@ -102,6 +104,10 @@ class PeriodReportAggregationService {
   static const Set<String> _blockedKeywordWords = <String>{
     "이야기",
     "얘기",
+    "오랜만",
+    "대충",
+    "정주행중인",
+    "추억돋는다",
     "다녀오기",
     "돌아오기",
     "보기",
@@ -464,6 +470,77 @@ class PeriodReportAggregationService {
     );
   }
 
+  WeeklyAiReport buildLocalFallbackReport({
+    required ReportAnalyzePayload payload,
+    required ReportPeriod period,
+    required int year,
+    required int month,
+  }) {
+    final int recordedDays = _metricInt(
+      payload.metrics["recorded_days"],
+      fallback: payload.days.length,
+    );
+    final int targetDays = _metricInt(
+      payload.metrics["target_days"],
+      fallback: max(1, payload.days.length),
+    );
+    final int overallScore = _metricInt(payload.metrics["overall_score"]);
+    final double avgMood = _metricDouble(payload.metrics["avg_mood"]);
+    final double avgEnergy = _metricDouble(payload.metrics["avg_energy"]);
+    final double avgStress = _metricDouble(payload.metrics["avg_stress"]);
+    final String focusLabel = _selectedPeriodLabel(
+      period: period,
+      year: year,
+      month: month,
+    );
+    final String nextLabel = _nextPeriodLabel(period);
+    final List<String> keywords = payload.topKeywords
+        .take(3)
+        .where((String keyword) => keyword.trim().isNotEmpty)
+        .toList(growable: false);
+    final _PeriodScoreEvidence? bestDay = _pickPeriodDay(
+      payload.days,
+      pickMax: true,
+    );
+    final _PeriodScoreEvidence? hardestDay = _pickPeriodDay(
+      payload.days,
+      pickMax: false,
+    );
+
+    return WeeklyAiReport(
+      summary: _buildPeriodSummary(
+        focusLabel: focusLabel,
+        recordedDays: recordedDays,
+        targetDays: targetDays,
+        avgMood: avgMood,
+        avgEnergy: avgEnergy,
+        avgStress: avgStress,
+        keywords: keywords,
+      ),
+      insights: _buildPeriodInsights(
+        focusLabel: focusLabel,
+        payload: payload,
+        avgMood: avgMood,
+        avgEnergy: avgEnergy,
+        avgStress: avgStress,
+        keywords: keywords,
+        bestDay: bestDay,
+        hardestDay: hardestDay,
+      ),
+      actions: _buildPeriodActions(
+        nextLabel: nextLabel,
+        keywords: keywords,
+        avgEnergy: avgEnergy,
+        avgStress: avgStress,
+        recordedDays: recordedDays,
+        targetDays: targetDays,
+      ),
+      weeklyScore: overallScore,
+      monthlyScore: null,
+      source: "local-fallback",
+    );
+  }
+
   Future<ReportAnalyzePayload> _buildPayload({
     required DateTime startDate,
     required DateTime endDate,
@@ -619,6 +696,328 @@ class PeriodReportAggregationService {
         .toList(growable: false);
   }
 
+  String _buildPeriodSummary({
+    required String focusLabel,
+    required int recordedDays,
+    required int targetDays,
+    required double avgMood,
+    required double avgEnergy,
+    required double avgStress,
+    required List<String> keywords,
+  }) {
+    if (recordedDays <= 0) {
+      return "$focusLabel에는 아직 분석할 기록이 충분하지 않아 간단한 리포트로 정리했어요. "
+          "기록이 조금 더 쌓이면 흐름을 더 정확하게 읽어드릴 수 있어요.";
+    }
+
+    final bool hasCheckinData = avgMood > 0 || avgEnergy > 0 || avgStress > 0;
+    final String completionText = "$recordedDays/$targetDays일 기록이 쌓였어요.";
+    final String scoreText = hasCheckinData
+        ? "${_moodTone(avgMood)} ${_energyTone(avgEnergy)} ${_stressTone(avgStress)}"
+        : "체크인 데이터는 아직 많지 않지만 기록 흐름은 이어지고 있어요.";
+    final String keywordText = keywords.isEmpty
+        ? ""
+        : " 자주 떠오른 키워드는 ${keywords.join(", ")}였어요.";
+
+    return "$focusLabel에는 $completionText $scoreText$keywordText"
+        .replaceAll(RegExp(r"\s+"), " ")
+        .trim();
+  }
+
+  List<String> _buildPeriodInsights({
+    required String focusLabel,
+    required ReportAnalyzePayload payload,
+    required double avgMood,
+    required double avgEnergy,
+    required double avgStress,
+    required List<String> keywords,
+    required _PeriodScoreEvidence? bestDay,
+    required _PeriodScoreEvidence? hardestDay,
+  }) {
+    final List<String> insights = <String>[];
+    final bool hasCheckinData = avgMood > 0 || avgEnergy > 0 || avgStress > 0;
+
+    if (hasCheckinData) {
+      insights.add(
+        "기록일 기준 평균 만족도는 ${_formatScore10(avgMood)}점, "
+        "에너지는 ${_formatScore10(avgEnergy)}점, "
+        "스트레스는 ${_formatScore10(avgStress)}점이었어요.",
+      );
+    } else {
+      insights.add("체크인 데이터가 적어 감정 점수 흐름은 제한적으로 집계됐어요.");
+    }
+
+    if (keywords.isNotEmpty) {
+      insights.add("$focusLabel에 자주 나온 키워드는 ${keywords.join(", ")} 입니다.");
+    }
+
+    if (bestDay != null &&
+        hardestDay != null &&
+        bestDay.dateLabel != hardestDay.dateLabel) {
+      insights.add(
+        "${bestDay.dateLabel}에는 ${_periodDayEvidenceText(bestDay, positive: true)} "
+        "${hardestDay.dateLabel}에는 ${_periodDayEvidenceText(hardestDay, positive: false)}",
+      );
+    } else if (bestDay != null) {
+      insights.add(
+        "${bestDay.dateLabel}에는 ${_periodDayEvidenceText(bestDay, positive: true)}",
+      );
+    } else if (payload.representativeAnswers.isNotEmpty) {
+      insights.add(
+        "남겨둔 기록에서는 \"${_snippet(payload.representativeAnswers.first)}\" 같은 문장이 눈에 띄었어요.",
+      );
+    }
+
+    if (insights.length < 3) {
+      final int recordedDays = _metricInt(
+        payload.metrics["recorded_days"],
+        fallback: payload.days.length,
+      );
+      final int targetDays = _metricInt(
+        payload.metrics["target_days"],
+        fallback: max(1, payload.days.length),
+      );
+      insights.add(
+        "이번 기간 기록률은 ${((recordedDays / max(1, targetDays)) * 100).round()}%예요. "
+        "기록이 조금 더 이어지면 패턴을 더 선명하게 읽을 수 있어요.",
+      );
+    }
+
+    return insights.take(3).toList(growable: false);
+  }
+
+  List<String> _buildPeriodActions({
+    required String nextLabel,
+    required List<String> keywords,
+    required double avgEnergy,
+    required double avgStress,
+    required int recordedDays,
+    required int targetDays,
+  }) {
+    final List<String> actions = <String>[];
+
+    void addAction(String value) {
+      final String normalized = value.trim();
+      if (normalized.isEmpty || actions.contains(normalized)) {
+        return;
+      }
+      actions.add(normalized);
+    }
+
+    if (recordedDays < max(3, (targetDays * 0.4).round())) {
+      addAction("$nextLabel에는 하루 한 줄이라도 기록을 남겨 리포트 정확도를 높여보세요.");
+    }
+    if (avgStress >= 3.5) {
+      addAction("$nextLabel에는 스트레스가 높았던 날의 공통 상황을 1줄로 적어보세요.");
+    }
+    if (avgEnergy > 0 && avgEnergy <= 2.8) {
+      addAction("$nextLabel에는 에너지가 떨어지는 시간대에 10분 회복 루틴을 하나 고정해보세요.");
+    }
+
+    final String? keywordAction = _keywordBasedAction(
+      nextLabel: nextLabel,
+      keywords: keywords,
+    );
+    if (keywordAction != null) {
+      addAction(keywordAction);
+    }
+
+    addAction("$nextLabel에는 괜찮았던 날의 루틴 1가지를 다시 재현해보세요.");
+    addAction("$nextLabel에는 나를 가장 잘 회복시킨 순간을 먼저 일정에 넣어보세요.");
+
+    return actions.take(3).toList(growable: false);
+  }
+
+  String _moodTone(double score) {
+    if (score >= 4.0) {
+      return "만족감은 비교적 안정적이었고";
+    }
+    if (score >= 3.0) {
+      return "만족감은 무난한 편이었고";
+    }
+    return "만족감은 다소 흔들리는 편이었고";
+  }
+
+  String _energyTone(double score) {
+    if (score >= 4.0) {
+      return "에너지도 전반적으로 유지됐어요.";
+    }
+    if (score >= 3.0) {
+      return "에너지는 중간 정도를 유지했어요.";
+    }
+    return "에너지는 쉽게 떨어지는 날이 있었어요.";
+  }
+
+  String _stressTone(double score) {
+    if (score >= 4.0) {
+      return "스트레스 부담은 비교적 큰 편이었어요.";
+    }
+    if (score >= 3.0) {
+      return "스트레스는 중간 정도였어요.";
+    }
+    return "스트레스 부담은 비교적 낮았어요.";
+  }
+
+  String _formatScore10(double score5) {
+    return (score5 * 2).toStringAsFixed(1);
+  }
+
+  String _selectedPeriodLabel({
+    required ReportPeriod period,
+    required int year,
+    required int month,
+  }) {
+    return switch (period) {
+      ReportPeriod.monthly => "$month월",
+      ReportPeriod.quarterly => "${((month - 1) ~/ 3) + 1}분기",
+      ReportPeriod.yearly => "$year년",
+    };
+  }
+
+  String _nextPeriodLabel(ReportPeriod period) {
+    return switch (period) {
+      ReportPeriod.monthly => "다음 달",
+      ReportPeriod.quarterly => "다음 분기",
+      ReportPeriod.yearly => "다음 해",
+    };
+  }
+
+  String? _keywordBasedAction({
+    required String nextLabel,
+    required List<String> keywords,
+  }) {
+    if (keywords.isEmpty) {
+      return null;
+    }
+
+    final String primaryKeyword = keywords.first;
+    const Set<String> recoveryKeywords = <String>{
+      "산책",
+      "운동",
+      "휴식",
+      "음악",
+      "독서",
+      "여행",
+    };
+    const Set<String> relationKeywords = <String>{
+      "가족",
+      "친구",
+      "연인",
+      "엄마",
+      "아빠",
+      "동생",
+    };
+
+    if (recoveryKeywords.contains(primaryKeyword)) {
+      return "$nextLabel에도 $primaryKeyword처럼 도움이 됐던 루틴을 짧게라도 이어가보세요.";
+    }
+    if (relationKeywords.contains(primaryKeyword)) {
+      return "$nextLabel에는 $primaryKeyword와 연결되는 시간을 먼저 일정에 넣어보세요.";
+    }
+    return "$nextLabel에는 $primaryKeyword 관련 순간을 다시 만들 수 있는 시간을 미리 확보해보세요.";
+  }
+
+  _PeriodScoreEvidence? _pickPeriodDay(
+    List<Map<String, Object?>> days, {
+    required bool pickMax,
+  }) {
+    _PeriodScoreEvidence? selected;
+    for (final Map<String, Object?> day in days) {
+      final int? score = _tryInt(day["day_score"]);
+      if (score == null) {
+        continue;
+      }
+      final List<String> keywords = _stringList(
+        day["keywords"],
+      ).take(2).toList();
+      final _PeriodScoreEvidence evidence = _PeriodScoreEvidence(
+        score: score,
+        dateLabel: _dateLabelFromKey((day["date_key"] as String?) ?? ""),
+        keywords: keywords,
+        answerSnippet: ((day["answer"] as String?) ?? "").trim(),
+      );
+      if (selected == null) {
+        selected = evidence;
+        continue;
+      }
+      final bool shouldReplace = pickMax
+          ? evidence.score > selected.score
+          : evidence.score < selected.score;
+      if (shouldReplace) {
+        selected = evidence;
+      }
+    }
+    return selected;
+  }
+
+  String _periodDayEvidenceText(
+    _PeriodScoreEvidence evidence, {
+    required bool positive,
+  }) {
+    if (evidence.keywords.isNotEmpty) {
+      final String keywordText = evidence.keywords.join(", ");
+      return positive
+          ? "$keywordText 같은 키워드가 눈에 띄었어요."
+          : "$keywordText 같은 키워드가 함께 보였어요.";
+    }
+    if (evidence.answerSnippet.isNotEmpty) {
+      return "\"${_snippet(evidence.answerSnippet)}\" 같은 기록이 남아 있었어요.";
+    }
+    return positive ? "비교적 안정적인 흐름이 보였어요." : "조금 더 돌봄이 필요한 흐름이 보였어요.";
+  }
+
+  String _dateLabelFromKey(String dateKey) {
+    if (dateKey.length != 8) {
+      return "기록이 남은 날";
+    }
+    final int? month = int.tryParse(dateKey.substring(4, 6));
+    final int? day = int.tryParse(dateKey.substring(6, 8));
+    if (month == null || day == null) {
+      return "기록이 남은 날";
+    }
+    return "$month월 $day일";
+  }
+
+  List<String> _stringList(Object? value) {
+    if (value is! List<dynamic>) {
+      return const <String>[];
+    }
+    return value
+        .map((dynamic item) => "$item".trim())
+        .where((String item) => item.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  int _metricInt(Object? value, {int fallback = 0}) {
+    return _tryInt(value) ?? fallback;
+  }
+
+  int? _tryInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.round();
+    }
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
+  }
+
+  double _metricDouble(Object? value) {
+    if (value is double) {
+      return value;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value) ?? 0;
+    }
+    return 0;
+  }
+
   TodayQuestionRecord? _latestRecordByDateKey(
     List<TodayQuestionRecord> records,
     String dateKey,
@@ -667,7 +1066,7 @@ class PeriodReportAggregationService {
         }
         _setMaxScore(perRecord, noun, score);
       }
-      _applySemanticKeywords(perRecord, record.answer, score: 2);
+      _applySemanticKeywords(perRecord, record.answer, score: 3);
       for (final MapEntry<String, int> entry in perRecord.entries) {
         _addScore(counter, entry.key, entry.value);
       }
@@ -729,7 +1128,7 @@ class PeriodReportAggregationService {
       }
       _addScore(counter, noun, score);
     }
-    _applySemanticKeywords(counter, record.answer, score: 2);
+    _applySemanticKeywords(counter, record.answer, score: 3);
 
     final List<MapEntry<String, int>> sorted =
         _removeSubTokens(
@@ -1008,4 +1407,18 @@ class PeriodReportAggregationService {
     final String dd = dateTime.day.toString().padLeft(2, "0");
     return "${dateTime.year}$mm$dd";
   }
+}
+
+class _PeriodScoreEvidence {
+  const _PeriodScoreEvidence({
+    required this.score,
+    required this.dateLabel,
+    required this.keywords,
+    required this.answerSnippet,
+  });
+
+  final int score;
+  final String dateLabel;
+  final List<String> keywords;
+  final String answerSnippet;
 }

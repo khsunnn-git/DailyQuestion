@@ -80,12 +80,14 @@ class WeeklyReportStore extends ValueNotifier<WeeklyReportState> {
     final WeeklyReportWindow window = currentWeeklyReportWindow();
     WeeklyAggregationSnapshot? precomputedSnapshot;
     if (!forceRefresh && cached != null && cached.slotKey == window.slotKey) {
-      precomputedSnapshot = await _aggregationService.buildWeeklySnapshot(
+          precomputedSnapshot = await _aggregationService.buildWeeklySnapshot(
         referenceDate: window.referenceDate,
       );
       if (_snapshotsEqual(cached.snapshot, precomputedSnapshot)) {
-        _applyCachedEntry(cached);
-        return;
+        if (!_shouldRefreshCachedEntry(cached)) {
+          _applyCachedEntry(cached);
+          return;
+        }
       }
     }
 
@@ -170,6 +172,10 @@ class WeeklyReportStore extends ValueNotifier<WeeklyReportState> {
 
   Future<void> generateWeeklyReport() async {
     await prepareCurrentWeeklyReport(forceRefresh: true);
+  }
+
+  bool _shouldRefreshCachedEntry(WeeklyReportCacheEntry entry) {
+    return _apiClient.isConfigured && !entry.report.isFromOpenAi;
   }
 
   WeeklyAiReport _fallbackReportFor(WeeklyAggregationSnapshot snapshot) {

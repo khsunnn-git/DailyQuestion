@@ -95,6 +95,8 @@ Flutter 앱 연결:
 
 - Android 에뮬레이터: `http://10.0.2.2:8787`
 - Android 실기기(같은 Wi-Fi): `http://<내PC_IP>:8787`
+- 디버그 빌드에서는 `REPORT_API_BASE_URL`이 없어도 Android 에뮬레이터는 `10.0.2.2:8787`, 데스크톱은 `127.0.0.1:8787`를 기본으로 먼저 시도합니다.
+- 릴리즈 빌드에서는 `REPORT_API_BASE_URL`이 없으면 Firebase 함수 `https://us-central1-dailyquestion-29840.cloudfunctions.net/reportAiApi`를 기본으로 사용합니다.
 
 실행 예:
 

@@ -36,13 +36,6 @@ class _PeriodAiReportScreenState extends State<PeriodAiReportScreen> {
       _status = _PeriodReportStatus.loading;
       _error = null;
     });
-    if (!_apiClient.isConfigured) {
-      setState(() {
-        _status = _PeriodReportStatus.error;
-        _error = "REPORT_API_BASE_URL 설정이 필요해요.";
-      });
-      return;
-    }
     try {
       final DateTime now = nowInKst();
       final ReportAnalyzePayload payload = await _aggregationService
@@ -51,7 +44,26 @@ class _PeriodAiReportScreenState extends State<PeriodAiReportScreen> {
             year: now.year,
             month: now.month,
           );
-      final WeeklyAiReport response = await _apiClient.analyze(payload);
+      late final WeeklyAiReport response;
+      if (_apiClient.isConfigured) {
+        try {
+          response = await _apiClient.analyze(payload);
+        } catch (_) {
+          response = _aggregationService.buildLocalFallbackReport(
+            payload: payload,
+            period: _selected,
+            year: now.year,
+            month: now.month,
+          );
+        }
+      } else {
+        response = _aggregationService.buildLocalFallbackReport(
+          payload: payload,
+          period: _selected,
+          year: now.year,
+          month: now.month,
+        );
+      }
       setState(() {
         _status = _PeriodReportStatus.success;
         _report = response;

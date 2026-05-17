@@ -23,6 +23,8 @@ class ReportAggregationService {
   static const Set<String> _stopWords = <String>{
     "오늘",
     "요즘",
+    "오랜만",
+    "대충",
     "계속",
     "많이",
     "말고",
@@ -85,6 +87,10 @@ class ReportAggregationService {
   static const Set<String> _blockedKeywordWords = <String>{
     "이야기",
     "얘기",
+    "오랜만",
+    "대충",
+    "정주행중인",
+    "추억돋는다",
     "다녀오기",
     "돌아오기",
     "보기",
@@ -397,14 +403,36 @@ class ReportAggregationService {
   Future<WeeklyAggregationSnapshot> buildWeeklySnapshot({
     DateTime? referenceDate,
   }) async {
-    await TodayQuestionStore.instance.initialize();
     final DateTime now = referenceDate ?? nowInKst();
-    final DateTime endDate = DateTime(now.year, now.month, now.day);
-    final DateTime startDate = endDate.subtract(const Duration(days: 6));
+    return buildWeeklySnapshotForWindow(
+      startDate: DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(const Duration(days: 6)),
+      endDate: DateTime(now.year, now.month, now.day),
+    );
+  }
+
+  Future<WeeklyAggregationSnapshot> buildWeeklySnapshotForWindow({
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    await TodayQuestionStore.instance.initialize();
+    final DateTime normalizedStartDate = DateTime(
+      startDate.year,
+      startDate.month,
+      startDate.day,
+    );
+    final DateTime normalizedEndDate = DateTime(
+      endDate.year,
+      endDate.month,
+      endDate.day,
+    );
 
     final List<DailyCheckinEntity> checkins = await _loadCheckinsInRange(
-      startDate: startDate,
-      endDate: endDate,
+      startDate: normalizedStartDate,
+      endDate: normalizedEndDate,
     );
     final Map<String, DailyCheckinEntity> byDateKey =
         <String, DailyCheckinEntity>{
@@ -415,7 +443,8 @@ class ReportAggregationService {
         .value
         .where((TodayQuestionRecord item) {
           final DateTime day = _kstDateOnlyFromRecord(item);
-          return !day.isBefore(startDate) && !day.isAfter(endDate);
+          return !day.isBefore(normalizedStartDate) &&
+              !day.isAfter(normalizedEndDate);
         })
         .toList(growable: false);
 
@@ -429,7 +458,7 @@ class ReportAggregationService {
     final List<String> representativeAnswers = <String>[];
 
     for (int i = 0; i < 7; i++) {
-      final DateTime date = startDate.add(Duration(days: i));
+      final DateTime date = normalizedStartDate.add(Duration(days: i));
       final String dateKey = _yyyymmdd(date);
       final DailyCheckinEntity? checkin = byDateKey[dateKey];
       final TodayQuestionRecord? answer = _latestRecordByDateKey(
@@ -533,9 +562,12 @@ class ReportAggregationService {
     final double trendDelta = _trendDelta(dayScores);
     final List<String> topKeywords = _extractKeywords(weeklyAnswers, topN: 5);
     final List<String> communityRecoveryIdeas =
-        await _loadCommunityRecoveryIdeas(now: endDate);
+        await _loadCommunityRecoveryIdeas(now: normalizedEndDate);
     final _WeeklyBucketProgress bucketProgress =
-        await _loadWeeklyBucketProgress(startDate: startDate, endDate: endDate);
+        await _loadWeeklyBucketProgress(
+          startDate: normalizedStartDate,
+          endDate: normalizedEndDate,
+        );
     final _EmotionPattern emotionPattern = _emotionPattern(
       days: days,
       trendDelta: trendDelta,
@@ -543,8 +575,8 @@ class ReportAggregationService {
 
     final ReportAnalyzePayload payload = ReportAnalyzePayload(
       period: "weekly",
-      startDate: _isoDate(startDate),
-      endDate: _isoDate(endDate),
+      startDate: _isoDate(normalizedStartDate),
+      endDate: _isoDate(normalizedEndDate),
       metrics: <String, Object?>{
         "weekly_score": weeklyScore,
         "avg_mood": averageMood,
@@ -825,7 +857,7 @@ class ReportAggregationService {
         }
         _setMaxScore(perRecord, noun, score);
       }
-      _applySemanticKeywords(perRecord, record.answer, score: 2);
+      _applySemanticKeywords(perRecord, record.answer, score: 3);
       for (final MapEntry<String, int> entry in perRecord.entries) {
         _addScore(counter, entry.key, entry.value);
       }
@@ -890,7 +922,7 @@ class ReportAggregationService {
       }
       _addScore(counter, noun, score);
     }
-    _applySemanticKeywords(counter, record.answer, score: 2);
+    _applySemanticKeywords(counter, record.answer, score: 3);
 
     final List<MapEntry<String, int>> sorted =
         _removeSubTokens(

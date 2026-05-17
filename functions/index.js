@@ -160,12 +160,15 @@ function pickDayEvidence(payload, pickMax) {
     }
     const evidence = {
       score,
-      dateLabel: `${day && typeof day.date_key === "string" ? day.date_key : ""}`,
+      dateLabel:
+        `${day && typeof day.date_key === "string" ? day.date_key : ""}`,
       weekdayLabel: weekdayLabelFromKey(day && day.date_key),
       answer: day && typeof day.answer === "string" ? day.answer : "",
     };
     if (selected === null ||
-      (pickMax ? evidence.score > selected.score : evidence.score < selected.score)) {
+      (pickMax ?
+        evidence.score > selected.score :
+        evidence.score < selected.score)) {
       selected = evidence;
     }
   }
@@ -198,22 +201,28 @@ function buildWeeklyInsights({
   if (hasCheckinData && bestDay) {
     if (leadKeyword) {
       insights.push(
-          `${periodKey === "weekly" ? "이번 한 주" : "이 기간에는"} ${bestDay.weekdayLabel}에 컨디션이 좋았고, ` +
+          `${periodKey === "weekly" ? "이번 한 주" : "이 기간에는"} ` +
+          `${bestDay.weekdayLabel}에 컨디션이 좋았고, ` +
           `${withObjectParticle(leadKeyword)} 자주 언급하셨어요.`,
       );
     } else {
       insights.push(
-          `${periodKey === "weekly" ? "이번 한 주" : "이 기간에는"} ${bestDay.weekdayLabel}에 컨디션이 좋았어요.`,
+          `${periodKey === "weekly" ? "이번 한 주" : "이 기간에는"} ` +
+          `${bestDay.weekdayLabel}에 컨디션이 좋았어요.`,
       );
     }
   } else if (leadKeyword) {
     insights.push(
-        `${periodKey === "weekly" ? "이번 한 주에는" : "이 기간에는"} ${withObjectParticle(leadKeyword)} 자주 언급하셨어요.`,
+        `${periodKey === "weekly" ? "이번 한 주에는" : "이 기간에는"} ` +
+        `${withObjectParticle(leadKeyword)} 자주 언급하셨어요.`,
     );
   }
 
   if (hasCheckinData) {
-    if (hardestDay && (!bestDay || hardestDay.dateLabel !== bestDay.dateLabel)) {
+    if (
+      hardestDay &&
+      (!bestDay || hardestDay.dateLabel !== bestDay.dateLabel)
+    ) {
       insights.push(`${hardestDay.weekdayLabel}은 상대적으로 컨디션이 저조했어요.`);
     } else if (bestDay) {
       insights.push("요일별 컨디션 차이는 비교적 고르게 유지됐어요.");
@@ -266,8 +275,8 @@ function collectPreferredActionCues(payload, prioritizedText = "") {
   const scores = [];
   for (const cue of RECOVERY_ACTION_CUES) {
     let score = 0;
-      for (const text of texts) {
-        for (const pattern of cue.patterns) {
+    for (const text of texts) {
+      for (const pattern of cue.patterns) {
         if (!matchesCuePattern(text, pattern)) {
           continue;
         }
@@ -462,7 +471,8 @@ function buildCompactFallbackReport(payload) {
   return {
     summary:
       `${periodIntro} ${recordedDays}일 기록했어요. ` +
-      `아직 데이터가 많지 않아 간단한 ${reportPeriodLabel(periodKey)} 리포트로 정리했어요. ${keywordText}`,
+      "아직 데이터가 많지 않아 간단한 " +
+      `${reportPeriodLabel(periodKey)} 리포트로 정리했어요. ${keywordText}`,
     emotion_summary:
       `${emotionSummary.summary} ` +
       "조금만 더 기록이 쌓이면 긍정 흐름과 부담 흐름을 더 자세하게 읽어드릴 수 있어요.",
@@ -612,7 +622,8 @@ async function createOpenAIReport(payload) {
                 "payload.period를 보고 기간 표현을 정확히 맞춘다. " +
                 (periodKey === "weekly" ?
                   "" :
-                  "weekly가 아닌 경우 '이번 주', '다음 주' 같은 표현은 쓰지 말고 '이 기간' 또는 해당 기간 표현을 사용한다. ") +
+                  "weekly가 아닌 경우 '이번 주', '다음 주' 같은 표현은 " +
+                  "쓰지 말고 '이 기간' 또는 해당 기간 표현을 사용한다. ") +
                 "metrics.recorded_days가 3 미만이면 간단 리포트로 " +
                 "작성하고 insights는 최대 1개, actions는 " +
                 "최대 1개만 작성한다. " +
@@ -622,14 +633,18 @@ async function createOpenAIReport(payload) {
                 "가능하면 metrics의 positive_day_count, burden_day_count, " +
                 "trend_delta, top_keywords, representative_answers를 근거로 쓴다. " +
                 "summary와 insights는 추상적이기보다 구체적으로 쓰고, " +
-                "'좋았던 순간과 힘들었던 순간이 분명하게 구분됐다' 같은 모호한 문장은 피한다. " +
-                "metrics.checkin_recorded_days가 0이거나 avg_mood, avg_energy, avg_stress가 모두 0이면 " +
+                "'좋았던 순간과 힘들었던 순간이 분명하게 구분됐다' " +
+                "같은 모호한 문장은 피한다. " +
+                "metrics.checkin_recorded_days가 0이거나 avg_mood, " +
+                "avg_energy, avg_stress가 모두 0이면 " +
                 "평균 점수를 실제 0점처럼 쓰지 말고 감정 체크인 데이터가 아직 부족하다고 표현한다. " +
-                "insights는 가능하면 4개 이내로 쓰고, 첫 문장은 기분/에너지/스트레스 평균 점수, " +
+                "insights는 가능하면 4개 이내로 쓰고, 첫 문장은 " +
+                "기분/에너지/스트레스 평균 점수, " +
                 "다음 문장은 컨디션이 좋았던 요일과 자주 언급한 키워드, " +
                 "그다음 문장은 상대적으로 컨디션이 저조했던 요일, " +
                 "마지막 문장은 최근 자주 나온 키워드 2~3개를 정리하는 형식으로 작성한다. " +
-                "'긍정 신호 n일/부담 신호 n일', '최고 컨디션 데이터', '저점 데이터 부족' 같은 메타 표현은 쓰지 않는다. " +
+                "'긍정 신호 n일/부담 신호 n일', '최고 컨디션 데이터', " +
+                "'저점 데이터 부족' 같은 메타 표현은 쓰지 않는다. " +
                 "actions는 사용자의 representative_answers와 " +
                 "top_keywords를 바탕으로 개인화한다. " +
                 "community_recovery_ideas가 있으면 그중 1개 정도는 " +
@@ -688,7 +703,12 @@ async function createOpenAIReport(payload) {
     [];
   const actions = Array.isArray(parsed.actions) ?
     parsed.actions
-        .map((x) => `${x}`.trim().replace(/^(다음\s*주\s*미션|다음\s*주\s*액션|다음\s*액션)\s*[:：-]?\s*/u, ""))
+        .map(
+            (x) => `${x}`.trim().replace(
+                /^(다음\s*주\s*미션|다음\s*주\s*액션|다음\s*액션)\s*[:：-]?\s*/u,
+                "",
+            ),
+        )
         .filter(Boolean)
         .slice(0, recordedDays < 3 ? 1 : 3) :
     [];

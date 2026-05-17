@@ -25,4 +25,26 @@ void main() {
       expect(window.summaryTitle, "03.08 - 03.14 요약");
     });
   });
+
+  test("resolves a weekly window from an arbitrary recorded date", () {
+    final WeeklyReportWindow window = weeklyReportWindowForDate(
+      DateTime(2026, 4, 22),
+    );
+
+    expect(window.slotAnchor, DateTime(2026, 4, 26, 8));
+    expect(window.startDate, DateTime(2026, 4, 19));
+    expect(window.endDate, DateTime(2026, 4, 25));
+  });
+
+  test("limits monthly weekly windows to five slots", () {
+    final List<WeeklyReportWindow> windows = weeklyReportWindowsForMonth(
+      year: 2021,
+      month: 5,
+    );
+
+    expect(windows.length, 5);
+    expect(windows.first.startDate, DateTime(2021, 4, 25));
+    expect(windows.last.startDate, DateTime(2021, 5, 23));
+    expect(windows.last.endDate, DateTime(2021, 5, 29));
+  });
 }

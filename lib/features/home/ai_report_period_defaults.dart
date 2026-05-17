@@ -3,9 +3,18 @@ bool isAiReportMonthClosed({
   required int month,
   required DateTime now,
 }) {
-  final DateTime today = DateTime(now.year, now.month, now.day);
-  final DateTime lastDayOfMonth = DateTime(year, month + 1, 0);
-  return !today.isBefore(lastDayOfMonth);
+  final DateTime kstClock = DateTime(
+    now.year,
+    now.month,
+    now.day,
+    now.hour,
+    now.minute,
+    now.second,
+    now.millisecond,
+    now.microsecond,
+  );
+  final DateTime generationDateTime = DateTime(year, month + 1, 0, 8);
+  return !kstClock.isBefore(generationDateTime);
 }
 
 bool shouldDefaultAiReportToMonthly({
