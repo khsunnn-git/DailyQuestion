@@ -7,8 +7,7 @@
     <application
         android:label="Daily Question"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:resizeableActivity="true">
+        android:icon="@mipmap/ic_launcher">
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
             android:exported="false" />
@@ -27,7 +26,6 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
-            android:resizeableActivity="true"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
