@@ -45,9 +45,12 @@ abstract final class AppDropdownTokens {
   static const Color background = AppNeutralColors.white;
   static const Color hoveredBackground = AppNeutralColors.grey50;
   static const Color defaultText = AppNeutralColors.grey900;
-  static final Color selectedText = AppBrandThemes.blue.c500;
+  static Color selectedText(BrandScale brand) => brand.c500;
 
-  static AppDropdownItemStyle itemStyle(AppDropdownItemState state) {
+  static AppDropdownItemStyle itemStyle(
+    AppDropdownItemState state, {
+    required BrandScale brand,
+  }) {
     switch (state) {
       case AppDropdownItemState.defaultState:
         return const AppDropdownItemStyle(
@@ -64,7 +67,7 @@ abstract final class AppDropdownTokens {
       case AppDropdownItemState.selected:
         return AppDropdownItemStyle(
           backgroundColor: Colors.transparent,
-          textColor: selectedText,
+          textColor: selectedText(brand),
           showCheck: true,
         );
     }

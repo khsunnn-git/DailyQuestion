@@ -6,6 +6,7 @@ import "package:flutter_svg/flutter_svg.dart";
 import "../../design_system/design_system.dart";
 import "../auth/login_screen.dart";
 import "../navigation/main_tab_shell.dart";
+import "../onboarding/onboarding_screen.dart";
 import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_prefs.dart";
 import "splash_route_resolver.dart";
@@ -52,32 +53,44 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _routeNext() async {
     if (!mounted) return;
 
+    final bool hasSeenOnboarding = await UserProfilePrefs.hasSeenOnboarding();
     final bool hasInitialConsent =
         await UserProfilePrefs.hasInitialConsentAccepted();
     final bool hasNickname = await UserProfilePrefs.hasNickname();
     if (!mounted) return;
 
     final SplashRouteTarget target = resolveSplashRouteTarget(
+      hasSeenOnboarding: hasSeenOnboarding,
       hasInitialConsent: hasInitialConsent,
       hasNickname: hasNickname,
     );
     switch (target) {
+      case SplashRouteTarget.onboarding:
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => OnboardingScreen(onCompleted: _routeNext),
+          ),
+        );
+        return;
       case SplashRouteTarget.login:
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
             builder: (_) => const LoginScreen(mode: LoginScreenMode.onboarding),
           ),
         );
+        return;
       case SplashRouteTarget.nickname:
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(builder: (_) => const NicknameSetupScreen()),
         );
+        return;
       case SplashRouteTarget.home:
         if (widget.onRouteHome != null) {
           widget.onRouteHome!();
           return;
         }
         Navigator.of(context).pushReplacement(MainTabShell.route());
+        return;
     }
   }
 

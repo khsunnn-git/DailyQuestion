@@ -371,43 +371,60 @@ class _SocialLoginButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool disabled = isLoading;
     final Widget icon = isLoading
-        ? SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(_textColor),
+        ? ExcludeSemantics(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(_textColor),
+              ),
             ),
           )
         : _ProviderIcon(provider: provider, color: _textColor, size: _iconSize);
 
     return Opacity(
       opacity: disabled ? 0.72 : 1,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: disabled ? null : onTap,
-          borderRadius: AppRadius.br8,
-          child: Ink(
-            height: 52,
-            decoration: BoxDecoration(
-              color: _backgroundColor,
+      child: Semantics(
+        button: true,
+        enabled: !disabled,
+        label: _buttonLabel,
+        child: ExcludeSemantics(
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: disabled ? null : onTap,
               borderRadius: AppRadius.br8,
-              border: _border,
-            ),
-            child: Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  icon,
-                  const SizedBox(width: AppSpacing.s8),
-                  Text(
-                    _buttonLabel,
-                    style: AppTypography.buttonMedium.copyWith(
-                      color: _textColor,
-                    ),
+              child: Ink(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: _backgroundColor,
+                  borderRadius: AppRadius.br8,
+                  border: _border,
+                ),
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 140),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: KeyedSubtree(
+                          key: ValueKey<bool>(isLoading),
+                          child: icon,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.s8),
+                      Text(
+                        _buttonLabel,
+                        style: AppTypography.buttonMedium.copyWith(
+                          color: _textColor,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

@@ -1,8 +1,6 @@
 Future<void> initializeDailyQuestionNotificationScheduler() async {}
 
-Future<void> refreshDailyQuestionNotificationSchedulerState({
-  bool requestPermissionOnFirstRun = false,
-}) async {}
+Future<void> refreshDailyQuestionNotificationSchedulerState() async {}
 
 Future<void> updateDailyQuestionNotificationSchedule({
   required bool enabled,
@@ -28,3 +26,7 @@ Future<bool> requestNotificationPermissionOnDevice() async => false;
 Future<bool> canScheduleExactAlarmsOnDevice() async => true;
 
 Future<bool> requestExactAlarmPermissionOnDevice() async => true;
+
+Future<bool> areDailyQuestionAlarmPermissionsGrantedOnDevice() async => true;
+
+Future<bool> requestDailyQuestionAlarmPermissionsOnDevice() async => true;

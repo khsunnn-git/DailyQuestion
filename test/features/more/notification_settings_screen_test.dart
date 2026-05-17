@@ -18,11 +18,24 @@ const MethodChannel _permissionsChannel = MethodChannel(
 );
 const MethodChannel _timezoneChannel = MethodChannel("flutter_timezone");
 
+bool _notificationsEnabled = false;
+bool _requestNotificationsPermissionResult = false;
+bool _canScheduleExactNotifications = true;
+bool _requestExactAlarmsPermissionResult = true;
+int _requestExactAlarmsPermissionCallCount = 0;
+List<int> _scheduledNotificationIds = <int>[];
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    _notificationsEnabled = false;
+    _requestNotificationsPermissionResult = false;
+    _canScheduleExactNotifications = true;
+    _requestExactAlarmsPermissionResult = true;
+    _requestExactAlarmsPermissionCallCount = 0;
+    _scheduledNotificationIds = <int>[];
     FlutterLocalNotificationsPlatform.instance =
         AndroidFlutterLocalNotificationsPlugin();
 
@@ -36,15 +49,23 @@ void main() {
             case "cancel":
               return null;
             case "zonedSchedule":
+              final Object? rawArguments = methodCall.arguments;
+              if (rawArguments is Map) {
+                final Object? id = rawArguments["id"];
+                if (id is int) {
+                  _scheduledNotificationIds.add(id);
+                }
+              }
               return null;
             case "areNotificationsEnabled":
-              return false;
+              return _notificationsEnabled;
             case "requestNotificationsPermission":
-              return false;
+              return _requestNotificationsPermissionResult;
             case "canScheduleExactNotifications":
-              return true;
+              return _canScheduleExactNotifications;
             case "requestExactAlarmsPermission":
-              return true;
+              _requestExactAlarmsPermissionCallCount++;
+              return _requestExactAlarmsPermissionResult;
             case "checkPermissions":
               return <String, Object>{
                 "isEnabled": false,
@@ -127,4 +148,106 @@ void main() {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool("notification_bucket_dday_enabled"), isTrue);
   });
+
+  testWidgets(
+    "today question card shows warning when notification permission is off",
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1440, 3200);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.of(AppBrandTheme.blue),
+          home: const NotificationSettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text("기기 알림 권한이 꺼져 있어 실제 알림은 오지 않아요."), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    "today question card shows exact alarm warning on Android when permission is missing",
+    (WidgetTester tester) async {
+      _notificationsEnabled = true;
+      _canScheduleExactNotifications = false;
+
+      tester.view.physicalSize = const Size(1440, 3200);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.of(AppBrandTheme.blue),
+          home: const NotificationSettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text("정확한 알람 권한이 꺼져 있어 안드로이드에서는 알림이 조금 늦어질 수 있어요."),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    "daily question schedule still exists when exact alarm permission is missing",
+    (WidgetTester tester) async {
+      _notificationsEnabled = true;
+      _canScheduleExactNotifications = false;
+
+      tester.view.physicalSize = const Size(1440, 3200);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.of(AppBrandTheme.blue),
+          home: const NotificationSettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_scheduledNotificationIds, contains(10001));
+      expect(_scheduledNotificationIds, contains(10003));
+    },
+  );
+
+  testWidgets(
+    "exact alarm banner opens allow dialog before requesting permission",
+    (WidgetTester tester) async {
+      _notificationsEnabled = true;
+      _canScheduleExactNotifications = false;
+
+      tester.view.physicalSize = const Size(1440, 3200);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.of(AppBrandTheme.blue),
+          home: const NotificationSettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text("⏰ 정시 알림 권한이 꺼져 있어요"));
+      await tester.pumpAndSettle();
+
+      expect(find.text("시스템 알람 허용"), findsOneWidget);
+      expect(find.text("허용"), findsOneWidget);
+
+      await tester.tap(find.text("허용"));
+      await tester.pumpAndSettle();
+
+      expect(_requestExactAlarmsPermissionCallCount, 1);
+    },
+  );
 }

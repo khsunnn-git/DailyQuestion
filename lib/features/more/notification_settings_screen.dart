@@ -211,6 +211,80 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     );
   }
 
+  Future<bool?> _showExactAlarmPermissionDialog() {
+    final BrandScale brand = context.appBrandScale;
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: AppPopupTokens.dimmed,
+      builder: (BuildContext dialogContext) {
+        return Center(
+          child: AppPopup(
+            width: AppPopupTokens.maxWidth,
+            title: "시스템 알람 허용",
+            body: "오늘의 질문을 제시간에 받으려면\n시스템 알람을 허용해주세요.",
+            actions: <Widget>[
+              SizedBox(
+                width: 100,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppNeutralColors.grey100,
+                    foregroundColor: AppNeutralColors.grey600,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "취소",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.grey600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 170,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: brand.c500,
+                    foregroundColor: AppNeutralColors.white,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "허용",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.white,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<bool> _ensureNotificationPermission() async {
     if (kIsWeb) {
       return false;
@@ -242,7 +316,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     return _hasNotificationPermission;
   }
 
-  Future<void> _ensureExactAlarmPermissionIfNeeded() async {
+  Future<void> _requestExactAlarmPermissionIfNeeded() async {
     if (kIsWeb ||
         defaultTargetPlatform != TargetPlatform.android ||
         !_hasNotificationPermission) {
@@ -264,9 +338,37 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     if (!mounted) {
       return;
     }
+    final bool? shouldRequestPermission =
+        await _showExactAlarmPermissionDialog();
+    if (!mounted || shouldRequestPermission != true) {
+      await _refreshNotificationPermissionBanner();
+      return;
+    }
+    try {
+      final bool opened = await requestExactAlarmPermissionOnDevice();
+      _logNotificationSettings(
+        "request exact alarm permission while enabling result=$opened",
+      );
+    } on PlatformException catch (error) {
+      _logNotificationSettings(
+        "request exact alarm permission while enabling failed: $error",
+      );
+    } catch (error) {
+      _logNotificationSettings(
+        "request exact alarm permission while enabling failed: $error",
+      );
+    }
+
+    final bool refreshedExactAlarmPermission =
+        await canScheduleExactAlarmsOnDevice();
+    if (!mounted) {
+      _hasExactAlarmPermission = refreshedExactAlarmPermission;
+      _showExactAlarmBanner = !refreshedExactAlarmPermission;
+      return;
+    }
     setState(() {
-      _hasExactAlarmPermission = false;
-      _showExactAlarmBanner = true;
+      _hasExactAlarmPermission = refreshedExactAlarmPermission;
+      _showExactAlarmBanner = !refreshedExactAlarmPermission;
     });
   }
 
@@ -274,6 +376,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     if (kIsWeb ||
         defaultTargetPlatform != TargetPlatform.android ||
         _openingSystemSettings) {
+      return;
+    }
+    final bool? shouldOpenSettings = await _showExactAlarmPermissionDialog();
+    if (!mounted || shouldOpenSettings != true) {
+      await _refreshNotificationPermissionBanner();
       return;
     }
     setState(() {
@@ -362,7 +469,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       "sync schedules todayEnabled=$_todayQuestionEnabled time=${_todayQuestionTime.hour.toString().padLeft(2, "0")}:${_todayQuestionTime.minute.toString().padLeft(2, "0")} bucketEnabled=$_bucketDdayEnabled bucketDaysBefore=$_bucketDdayDaysBefore hasPermission=$_hasNotificationPermission",
     );
     await updateDailyQuestionNotificationSchedule(
-      enabled: _hasNotificationPermission && _todayQuestionEnabled,
+      enabled: _canDeliverTodayQuestionNotification,
       hour: _todayQuestionTime.hour,
       minute: _todayQuestionTime.minute,
     );
@@ -373,6 +480,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     await syncWeeklyReportNotificationSchedule(
       enabled: _hasNotificationPermission,
     );
+  }
+
+  bool get _canDeliverTodayQuestionNotification {
+    return _hasNotificationPermission && _todayQuestionEnabled;
   }
 
   Future<void> _onDeviceNotificationBannerTap() async {
@@ -408,7 +519,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         return;
       }
       if (granted) {
-        await _ensureExactAlarmPermissionIfNeeded();
+        await _requestExactAlarmPermissionIfNeeded();
       }
       await _syncNotificationSchedules();
       return;
@@ -828,8 +939,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       await _saveBucketDdayDaysBefore(_bucketDdayDaysBefore);
       await _openBucketDdaySettingBottomSheet(syncAfterSelection: false);
       final bool granted = await _ensureNotificationPermission();
-      if (granted) {
-        await _ensureExactAlarmPermissionIfNeeded();
+      if (granted && mounted) {
+        await _refreshNotificationPermissionBanner();
       }
       await _syncNotificationSchedules();
       return;
@@ -846,6 +957,27 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
+    final bool showTodayQuestionPermissionWarning =
+        _todayQuestionEnabled && !_hasNotificationPermission;
+    final bool showTodayQuestionExactAlarmWarning =
+        _todayQuestionEnabled &&
+        _hasNotificationPermission &&
+        defaultTargetPlatform == TargetPlatform.android &&
+        !_hasExactAlarmPermission;
+    final String? todayQuestionStatusMessage =
+        showTodayQuestionPermissionWarning
+        ? "기기 알림 권한이 꺼져 있어 실제 알림은 오지 않아요."
+        : showTodayQuestionExactAlarmWarning
+        ? "정확한 알람 권한이 꺼져 있어 안드로이드에서는 알림이 조금 늦어질 수 있어요."
+        : null;
+    final Color todayQuestionStatusBackgroundColor =
+        showTodayQuestionPermissionWarning
+        ? AppSemanticColors.info100
+        : AppSemanticColors.warning100;
+    final String? bucketDdayStatusMessage =
+        _bucketDdayEnabled && !_hasNotificationPermission
+        ? "기기 알림 권한이 꺼져 있어 실제 알림은 오지 않아요."
+        : null;
     return Scaffold(
       backgroundColor: brand.bg,
       body: SafeArea(
@@ -996,6 +1128,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 enabled: _todayQuestionEnabled,
                 showTimeRow:
                     _hasNotificationPermission && _todayQuestionEnabled,
+                statusMessage: todayQuestionStatusMessage,
+                statusBackgroundColor: todayQuestionStatusBackgroundColor,
                 timeLabel: _formatKoreanTime(_todayQuestionTime),
                 onTimeTap: _selectTodayQuestionTime,
                 onChanged: _handleTodayQuestionToggle,
@@ -1006,6 +1140,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 description: "다가오는 디데이를 미리 알려드려요",
                 enabled: _bucketDdayEnabled,
                 showDdayRow: _bucketDdayEnabled,
+                statusMessage: bucketDdayStatusMessage,
                 ddayLabel: "$_bucketDdayDaysBefore일 전",
                 onDdayTap: _openBucketDdaySettingBottomSheet,
                 onChanged: _handleBucketDdayToggle,
@@ -1024,6 +1159,7 @@ class _BucketDdayNotificationCard extends StatelessWidget {
     required this.description,
     required this.enabled,
     required this.showDdayRow,
+    this.statusMessage,
     required this.ddayLabel,
     required this.onDdayTap,
     required this.onChanged,
@@ -1033,6 +1169,7 @@ class _BucketDdayNotificationCard extends StatelessWidget {
   final String description;
   final bool enabled;
   final bool showDdayRow;
+  final String? statusMessage;
   final String ddayLabel;
   final VoidCallback onDdayTap;
   final ValueChanged<bool> onChanged;
@@ -1073,6 +1210,13 @@ class _BucketDdayNotificationCard extends StatelessWidget {
               AppIconToggle(value: enabled, onChanged: onChanged),
             ],
           ),
+          if (statusMessage != null) ...<Widget>[
+            const SizedBox(height: AppSpacing.s16),
+            _NotificationStatusMessage(
+              message: statusMessage!,
+              backgroundColor: AppSemanticColors.info100,
+            ),
+          ],
           if (showDdayRow) ...<Widget>[
             const SizedBox(height: AppSpacing.s24),
             GestureDetector(
@@ -1120,6 +1264,8 @@ class _TodayQuestionNotificationCard extends StatelessWidget {
     required this.description,
     required this.enabled,
     required this.showTimeRow,
+    this.statusMessage,
+    this.statusBackgroundColor = AppSemanticColors.info100,
     required this.timeLabel,
     required this.onTimeTap,
     required this.onChanged,
@@ -1129,6 +1275,8 @@ class _TodayQuestionNotificationCard extends StatelessWidget {
   final String description;
   final bool enabled;
   final bool showTimeRow;
+  final String? statusMessage;
+  final Color statusBackgroundColor;
   final String timeLabel;
   final VoidCallback onTimeTap;
   final ValueChanged<bool> onChanged;
@@ -1169,6 +1317,13 @@ class _TodayQuestionNotificationCard extends StatelessWidget {
               AppIconToggle(value: enabled, onChanged: onChanged),
             ],
           ),
+          if (statusMessage != null) ...<Widget>[
+            const SizedBox(height: AppSpacing.s16),
+            _NotificationStatusMessage(
+              message: statusMessage!,
+              backgroundColor: statusBackgroundColor,
+            ),
+          ],
           if (showTimeRow) ...<Widget>[
             const SizedBox(height: AppSpacing.s24),
             GestureDetector(
@@ -1205,6 +1360,37 @@ class _TodayQuestionNotificationCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _NotificationStatusMessage extends StatelessWidget {
+  const _NotificationStatusMessage({
+    required this.message,
+    required this.backgroundColor,
+  });
+
+  final String message;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s12,
+        vertical: AppSpacing.s8,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(AppSpacing.s8),
+      ),
+      child: Text(
+        message,
+        style: AppTypography.captionSmall.copyWith(
+          color: AppNeutralColors.grey700,
+        ),
       ),
     );
   }

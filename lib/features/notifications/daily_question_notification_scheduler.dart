@@ -6,12 +6,8 @@ Future<void> initializeDailyQuestionNotificationScheduler() async {
   await impl.initializeDailyQuestionNotificationScheduler();
 }
 
-Future<void> refreshDailyQuestionNotificationSchedulerState({
-  bool requestPermissionOnFirstRun = false,
-}) async {
-  await impl.refreshDailyQuestionNotificationSchedulerState(
-    requestPermissionOnFirstRun: requestPermissionOnFirstRun,
-  );
+Future<void> refreshDailyQuestionNotificationSchedulerState() async {
+  await impl.refreshDailyQuestionNotificationSchedulerState();
 }
 
 Future<void> updateDailyQuestionNotificationSchedule({
@@ -60,4 +56,12 @@ Future<bool> canScheduleExactAlarmsOnDevice() async {
 
 Future<bool> requestExactAlarmPermissionOnDevice() async {
   return impl.requestExactAlarmPermissionOnDevice();
+}
+
+Future<bool> areDailyQuestionAlarmPermissionsGrantedOnDevice() async {
+  return impl.areDailyQuestionAlarmPermissionsGrantedOnDevice();
+}
+
+Future<bool> requestDailyQuestionAlarmPermissionsOnDevice() async {
+  return impl.requestDailyQuestionAlarmPermissionsOnDevice();
 }

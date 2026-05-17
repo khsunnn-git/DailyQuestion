@@ -8,6 +8,7 @@ import "user_profile_events.dart";
 const String _nicknameKey = "nickname";
 const String _legacyNicknamePrefKey = "user_nickname";
 const String _initialConsentPrefKey = "initial_consent_accepted";
+const String _onboardingSeenPrefKey = "onboarding_seen";
 const Duration _isarNicknameAccessTimeout = Duration(seconds: 2);
 
 Future<String?> loadNickname() async {
@@ -61,9 +62,32 @@ Future<void> saveInitialConsentAccepted(bool accepted) async {
   await prefs.setBool(_initialConsentPrefKey, accepted);
 }
 
+Future<bool> loadOnboardingSeen() async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final bool? seen = prefs.getBool(_onboardingSeenPrefKey);
+  if (seen != null) {
+    return seen;
+  }
+
+  final String? legacyNickname = prefs
+      .getString(_legacyNicknamePrefKey)
+      ?.trim();
+  final bool hasLegacyProfile =
+      (prefs.getBool(_initialConsentPrefKey) ?? false) ||
+      (legacyNickname?.isNotEmpty ?? false);
+  return hasLegacyProfile;
+}
+
+Future<void> saveOnboardingSeen(bool seen) async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  await prefs.setBool(_onboardingSeenPrefKey, seen);
+}
+
 Future<Isar?> _openIsarForNicknameOrNull() async {
   try {
-    return await LocalDatabase.instance.isar.timeout(_isarNicknameAccessTimeout);
+    return await LocalDatabase.instance.isar.timeout(
+      _isarNicknameAccessTimeout,
+    );
   } catch (_) {
     return null;
   }

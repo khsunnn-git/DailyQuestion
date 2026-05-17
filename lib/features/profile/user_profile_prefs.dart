@@ -29,6 +29,10 @@ class UserProfilePrefs {
     return loadInitialConsentAccepted();
   }
 
+  static Future<bool> hasSeenOnboarding() async {
+    return loadOnboardingSeen();
+  }
+
   static Future<void> setInitialConsentAccepted(
     bool accepted, {
     bool syncRemote = true,
@@ -37,6 +41,10 @@ class UserProfilePrefs {
     if (syncRemote) {
       unawaited(UserProfileRemoteService.instance.syncCurrentUserProfile());
     }
+  }
+
+  static Future<void> setOnboardingSeen(bool seen) async {
+    await saveOnboardingSeen(seen);
   }
 
   static Future<void> syncCurrentUserProfileBestEffort({

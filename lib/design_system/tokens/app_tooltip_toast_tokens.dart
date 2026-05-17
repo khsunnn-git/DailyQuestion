@@ -57,7 +57,7 @@ abstract final class AppToastTokens {
 }
 
 abstract final class AppSpeechBubbleTokens {
-  static final Color primaryBackground = AppBrandThemes.blue.c500;
+  static Color primaryBackground(BrandScale brand) => brand.c500;
   static const Color primaryText = AppNeutralColors.white;
   static const Color whiteBackground = AppNeutralColors.white;
   static const Color whiteText = AppNeutralColors.grey700;

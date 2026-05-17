@@ -5,6 +5,7 @@ import "package:flutter/material.dart";
 import "../../design_system/design_system.dart";
 import "initial_terms_consent_screen.dart";
 import "nickname_complete_screen.dart";
+import "profile_character_avatar.dart";
 import "nickname_rules.dart";
 import "user_profile_prefs.dart";
 
@@ -27,9 +28,6 @@ class NicknameSetupScreen extends StatefulWidget {
 class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
   static const int _minNicknameLength = 2;
   static const int _maxNicknameLength = 10;
-  static const Color _main500 = Color(0xFF017AF7);
-  static const Color _main600 = Color(0xFF0069D6);
-  static const Color _main100 = Color(0xFFE9F6FF);
 
   final TextEditingController _nicknameController = TextEditingController();
   final FocusNode _nicknameFocusNode = FocusNode();
@@ -57,9 +55,9 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
     };
   }
 
-  Color get _supportingColor {
+  Color _supportingColor(BrandScale brand) {
     return switch (_validationState) {
-      _NicknameValidationState.available => _main500,
+      _NicknameValidationState.available => brand.c500,
       _NicknameValidationState.invalidLength ||
       _NicknameValidationState.invalidCharacter ||
       _NicknameValidationState.unavailable => AppSemanticColors.error500,
@@ -67,11 +65,11 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
     };
   }
 
-  Color get _fieldBorderColor {
+  Color _fieldBorderColor(BrandScale brand) {
     if (_validationState == _NicknameValidationState.available ||
         (_nicknameFocusNode.hasFocus &&
             _validationState == _NicknameValidationState.idle)) {
-      return _main500;
+      return brand.c500;
     }
     if (_validationState == _NicknameValidationState.invalidLength ||
         _validationState == _NicknameValidationState.invalidCharacter ||
@@ -214,9 +212,10 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
     final Color disabledButtonColor = Color.alphaBlend(
       const Color(0xA3FFFFFF),
-      _main600,
+      brand.c600,
     );
     final Widget screen = Scaffold(
       backgroundColor: AppNeutralColors.white,
@@ -254,16 +253,7 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.s24),
-                  ClipOval(
-                    child: SizedBox(
-                      width: 100,
-                      height: 100,
-                      child: Image.asset(
-                        "assets/images/signup/signup_nickname_profile_fish.webp",
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
+                  const CurrentProfileCharacterAvatar(size: 100),
                   const SizedBox(height: AppSpacing.s16),
                   SizedBox(
                     width: 350,
@@ -300,7 +290,7 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                                         size: 24,
                                         color: _isErrorState
                                             ? AppSemanticColors.error500
-                                            : _main500,
+                                            : brand.c500,
                                       ),
                                     )
                                   : null,
@@ -317,19 +307,19 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                               border: OutlineInputBorder(
                                 borderRadius: AppInputTokens.radius,
                                 borderSide: BorderSide(
-                                  color: _fieldBorderColor,
+                                  color: _fieldBorderColor(brand),
                                 ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: AppInputTokens.radius,
                                 borderSide: BorderSide(
-                                  color: _fieldBorderColor,
+                                  color: _fieldBorderColor(brand),
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: AppInputTokens.radius,
                                 borderSide: BorderSide(
-                                  color: _fieldBorderColor,
+                                  color: _fieldBorderColor(brand),
                                   width: 1.4,
                                 ),
                               ),
@@ -358,14 +348,16 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                                           size: 20,
                                           color: _isErrorState
                                               ? AppSemanticColors.error500
-                                              : _main500,
+                                              : brand.c500,
                                         ),
                                       ),
                                     Expanded(
                                       child: Text(
                                         _supportingMessage,
                                         style: AppInputTokens.supportingMdStyle
-                                            .copyWith(color: _supportingColor),
+                                            .copyWith(
+                                              color: _supportingColor(brand),
+                                            ),
                                       ),
                                     ),
                                   ],
@@ -374,7 +366,7 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                               Text(
                                 "($_nicknameLength/$_maxNicknameLength)",
                                 style: AppInputTokens.supportingMdStyle
-                                    .copyWith(color: _supportingColor),
+                                    .copyWith(color: _supportingColor(brand)),
                               ),
                             ],
                           ),
@@ -398,10 +390,10 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
                     style: ElevatedButton.styleFrom(
                       elevation: 0,
                       shadowColor: Colors.transparent,
-                      backgroundColor: _main500,
+                      backgroundColor: brand.c500,
                       disabledBackgroundColor: disabledButtonColor,
                       foregroundColor: AppNeutralColors.white,
-                      disabledForegroundColor: _main100,
+                      disabledForegroundColor: brand.c100,
                       shape: RoundedRectangleBorder(
                         borderRadius: AppInputTokens.radius,
                       ),

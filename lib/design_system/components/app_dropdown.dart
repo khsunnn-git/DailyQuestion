@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 
+import "../theme/app_theme.dart";
 import "../tokens/app_dropdown_tokens.dart";
 
 class AppDropdownItem extends StatefulWidget {
@@ -36,8 +37,10 @@ class _AppDropdownItemState extends State<AppDropdownItem> {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.appBrandScale;
     final AppDropdownItemStyle style = AppDropdownTokens.itemStyle(
       _effectiveState,
+      brand: brand,
     );
     return MouseRegion(
       onEnter: (_) => setState(() {

@@ -1,10 +1,10 @@
-import "package:cloud_firestore/cloud_firestore.dart";
-import "package:firebase_auth/firebase_auth.dart";
 import "package:flutter/material.dart";
 import "dart:math" as math;
 
 import "../../design_system/design_system.dart";
 import "../auth/auth_service.dart";
+import "feedback_repository.dart";
+import "feedback_submission_draft.dart";
 
 class FeedbackSendScreen extends StatefulWidget {
   const FeedbackSendScreen({super.key});
@@ -26,7 +26,7 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
   final TextEditingController _emailController = TextEditingController();
   final FocusNode _messageFocusNode = FocusNode();
   final FocusNode _emailFocusNode = FocusNode();
-  final _FeedbackRepository _feedbackRepository = _FeedbackRepository();
+  final FeedbackRepository _feedbackRepository = FeedbackRepository();
 
   String _selectedCategory = _categoryOptions.first;
   bool _isSubmitting = false;
@@ -156,25 +156,44 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
     });
 
     try {
+      final user = await AuthService.instance.ensureSignedInUser();
+      final FeedbackSubmissionDraft draft =
+          await FeedbackSubmissionDraft.fromForm(
+            category: _selectedCategory,
+            message: _messageController.text.trim(),
+            replyEmail: _emailController.text.trim(),
+            signedInEmail: user.email,
+            userId: user.uid,
+          );
       await _feedbackRepository.submit(
+        draft: draft,
         category: _selectedCategory,
         message: _messageController.text.trim(),
-        email: _emailController.text.trim(),
+        replyEmail: _emailController.text.trim(),
+        senderUid: user.uid,
+        senderEmail: user.email,
       );
       if (!mounted) {
         return;
       }
-      final bool confirmed = await _showCompletedDialog();
-      if (mounted && confirmed) {
-        Navigator.of(context).pop();
-      }
-    } on _FeedbackSubmitException catch (error) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("의견을 보냈어요.")));
+      Navigator.of(context).pop();
+    } on FeedbackSubmitException catch (error) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(error.userMessage)));
+    } on AuthActionException catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("사용자 정보를 준비하지 못했어요. 다시 시도해주세요.")),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -182,84 +201,6 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
         });
       }
     }
-  }
-
-  Future<bool> _showCompletedDialog() async {
-    final BrandScale brand = context.appBrandScale;
-    final bool? result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: AppPopupTokens.dimmed,
-      builder: (BuildContext dialogContext) {
-        return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.s20),
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 300),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.s20,
-                AppSpacing.s32,
-                AppSpacing.s20,
-                AppSpacing.s20,
-              ),
-              decoration: BoxDecoration(
-                color: AppNeutralColors.white,
-                borderRadius: BorderRadius.circular(AppSpacing.s24),
-                boxShadow: AppPopupTokens.shadow,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.s16,
-                      ),
-                      child: Text(
-                        "의견 보내기가\n완료되었습니다.",
-                        style: AppTypography.headingSmall.copyWith(
-                          color: AppNeutralColors.grey900,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.s28),
-                    SizedBox(
-                      height: AppSpacing.s56,
-                      child: FilledButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(true),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: brand.c500,
-                          foregroundColor: AppNeutralColors.white,
-                          disabledBackgroundColor: brand.c300,
-                          disabledForegroundColor: brand.c100,
-                          surfaceTintColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.s8),
-                          ),
-                          textStyle: AppTypography.buttonLarge,
-                        ),
-                        child: Text(
-                          "확인",
-                          style: AppTypography.buttonLarge.copyWith(
-                            color: AppNeutralColors.white,
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-    return result ?? false;
   }
 
   @override
@@ -523,60 +464,4 @@ class _FeedbackSendScreenState extends State<FeedbackSendScreen> {
       ),
     );
   }
-}
-
-class _FeedbackRepository {
-  _FeedbackRepository({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
-
-  final FirebaseFirestore _firestore;
-
-  Future<void> submit({
-    required String category,
-    required String message,
-    required String email,
-  }) async {
-    try {
-      final User user = await _ensureSignedInUser();
-      await _firestore.collection("reports").add(<String, dynamic>{
-        "reason": message,
-        "targetId": "app_feedback",
-        "targetType": "customer_feedback",
-        "reporterUid": user.uid,
-        "category": category,
-        "email": email,
-        "status": "open",
-        "source": "feedback_form",
-        "reportedAt": FieldValue.serverTimestamp(),
-        "reportedAtClient": Timestamp.now(),
-        "createdAt": FieldValue.serverTimestamp(),
-        "updatedAt": FieldValue.serverTimestamp(),
-      });
-    } on FirebaseException catch (error) {
-      if (error.code == "permission-denied") {
-        throw const _FeedbackSubmitException(
-          userMessage: "의견 전송 권한이 없어요. 로그인 상태를 확인 후 다시 시도해주세요.",
-        );
-      }
-      throw const _FeedbackSubmitException(
-        userMessage: "의견 전송에 실패했어요. 네트워크를 확인하고 다시 시도해주세요.",
-      );
-    }
-  }
-
-  Future<User> _ensureSignedInUser() async {
-    try {
-      return await AuthService.instance.ensureSignedInUser();
-    } on AuthActionException catch (_) {
-      throw const _FeedbackSubmitException(
-        userMessage: "로그인이 필요해서 의견을 보내지 못했어요. 다시 시도해주세요.",
-      );
-    }
-  }
-}
-
-class _FeedbackSubmitException implements Exception {
-  const _FeedbackSubmitException({required this.userMessage});
-
-  final String userMessage;
 }

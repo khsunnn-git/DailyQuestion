@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 
 import "app_emoji_text.dart";
+import "../theme/app_theme.dart";
 import "../tokens/app_tooltip_toast_tokens.dart";
 
 class AppToastMessage extends StatelessWidget {
@@ -121,8 +122,9 @@ class AppSpeechBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.appBrandScale;
     final Color background = _primary
-        ? AppSpeechBubbleTokens.primaryBackground
+        ? AppSpeechBubbleTokens.primaryBackground(brand)
         : AppSpeechBubbleTokens.whiteBackground;
     final Color textColor = _primary
         ? AppSpeechBubbleTokens.primaryText

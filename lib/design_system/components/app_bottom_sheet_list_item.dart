@@ -41,6 +41,7 @@ class _AppBottomSheetListItemState extends State<AppBottomSheetListItem> {
     final brand = context.appBrandScale;
     final AppDropdownItemStyle style = AppDropdownTokens.itemStyle(
       _effectiveState,
+      brand: brand,
     );
 
     return FocusableActionDetector(

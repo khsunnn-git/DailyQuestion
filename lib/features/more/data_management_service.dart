@@ -35,6 +35,8 @@ class DataManagementService {
   static const String _myRecordsInstallDateKey = "my_records_install_date";
   static const String _myRecordsInstallSchemaKey =
       "my_records_install_date_schema_version";
+  static const String _legacyNotificationPermissionRequestedKey =
+      "notification_permission_onboarding_requested";
   static const String _polishDraftsKey = "question_polish_drafts_v1";
   static const String _todayQuestionCachePrefix = "today_question_cache_";
 
@@ -103,11 +105,12 @@ class DataManagementService {
     }
 
     return key == NotificationPrefsKeys.todayQuestionEnabled ||
+        key == NotificationPrefsKeys.settingsSchemaVersion ||
         key == NotificationPrefsKeys.todayQuestionHour ||
         key == NotificationPrefsKeys.todayQuestionMinute ||
         key == NotificationPrefsKeys.bucketDdayEnabled ||
         key == NotificationPrefsKeys.bucketDdayDaysBefore ||
-        key == NotificationPrefsKeys.permissionOnboardingRequested ||
+        key == _legacyNotificationPermissionRequestedKey ||
         key == _bucketDdayNotificationIdsKey ||
         key == _legacyNicknamePrefKey ||
         key == _nicknamePrefKey ||

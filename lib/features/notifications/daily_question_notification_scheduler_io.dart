@@ -19,6 +19,8 @@ const int _dailyQuestionCatchupNotificationId = 10002;
 const int _weeklyReportNotificationId = 10003;
 const int _bucketDdayNotificationBaseId = 200000;
 const String _bucketDdayNotificationIdsKey = "bucket_dday_notification_ids";
+const String _legacyPermissionOnboardingRequestedKey =
+    "notification_permission_onboarding_requested";
 
 const AndroidNotificationDetails _androidNotificationDetails =
     AndroidNotificationDetails(
@@ -62,17 +64,12 @@ Future<void> initializeDailyQuestionNotificationScheduler() async {
   await refreshDailyQuestionNotificationSchedulerState();
 }
 
-Future<void> refreshDailyQuestionNotificationSchedulerState({
-  bool requestPermissionOnFirstRun = false,
-}) async {
-  _logNotification(
-    "refresh scheduler state requestPermissionOnFirstRun=$requestPermissionOnFirstRun",
-  );
+Future<void> refreshDailyQuestionNotificationSchedulerState() async {
+  _logNotification("refresh scheduler state");
   await _ensureInitialized();
-  if (requestPermissionOnFirstRun) {
-    await _maybeRequestNotificationPermissionOnFirstRun();
-  }
-  final bool hasNotificationPermission = await areNotificationsEnabledOnDevice();
+  await _resetNotificationSettingsIfNeeded();
+  final bool hasNotificationPermission =
+      await areNotificationsEnabledOnDevice();
   await _restoreSchedulesFromPrefs(
     hasNotificationPermission: hasNotificationPermission,
   );
@@ -194,6 +191,43 @@ Future<bool> requestExactAlarmPermissionOnDevice() async {
   return canScheduleExactAlarmsOnDevice();
 }
 
+Future<bool> areDailyQuestionAlarmPermissionsGrantedOnDevice() async {
+  if (kIsWeb) {
+    return true;
+  }
+
+  return areNotificationsEnabledOnDevice();
+}
+
+Future<bool> requestDailyQuestionAlarmPermissionsOnDevice() async {
+  if (kIsWeb) {
+    return true;
+  }
+
+  bool hasNotificationPermission = await areNotificationsEnabledOnDevice();
+  if (!hasNotificationPermission) {
+    hasNotificationPermission = await requestNotificationPermissionOnDevice();
+  }
+  if (!hasNotificationPermission) {
+    return false;
+  }
+
+  if (defaultTargetPlatform != TargetPlatform.android) {
+    return true;
+  }
+
+  if (!await canScheduleExactAlarmsOnDevice()) {
+    try {
+      await requestExactAlarmPermissionOnDevice();
+    } catch (error) {
+      _logNotification(
+        "optional exact alarm permission request failed: $error",
+      );
+    }
+  }
+  return true;
+}
+
 Future<void> syncWeeklyReportNotificationSchedule({
   required bool enabled,
 }) async {
@@ -221,6 +255,8 @@ Future<void> updateDailyQuestionNotificationSchedule({
     _logNotification("daily schedule canceled because enabled=false");
     return;
   }
+  // Exact alarms improve punctuality on Android, but reminders should still be
+  // scheduled with an inexact fallback when that permission is unavailable.
   await _scheduleDaily(hour: hour, minute: minute);
 }
 
@@ -278,34 +314,6 @@ Future<void> _ensureInitialized() async {
   _logNotification("plugin initialized");
 }
 
-Future<void> _maybeRequestNotificationPermissionOnFirstRun() async {
-  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-    return;
-  }
-
-  final SharedPreferences prefs = await SharedPreferences.getInstance();
-  final bool hasRequestedOnboarding =
-      prefs.getBool(NotificationPrefsKeys.permissionOnboardingRequested) ??
-      false;
-  if (hasRequestedOnboarding) {
-    return;
-  }
-
-  await prefs.setBool(
-    NotificationPrefsKeys.permissionOnboardingRequested,
-    true,
-  );
-
-  final bool hasPermission = await areNotificationsEnabledOnDevice();
-  if (hasPermission) {
-    _logNotification("skip first-run permission prompt because already granted");
-    return;
-  }
-
-  final bool granted = await requestNotificationPermissionOnDevice();
-  _logNotification("first-run notification permission result=$granted");
-}
-
 Future<void> _configureLocalTimeZone() async {
   try {
     final String timezoneName = await FlutterTimezone.getLocalTimezone();
@@ -319,6 +327,66 @@ Future<void> _configureLocalTimeZone() async {
       tz.setLocalLocation(tz.getLocation("UTC"));
       _logNotification("timezone fallback to UTC");
     }
+  }
+}
+
+Future<void> _resetNotificationSettingsIfNeeded() async {
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final int schemaVersion =
+      prefs.getInt(NotificationPrefsKeys.settingsSchemaVersion) ?? 0;
+
+  if (schemaVersion >= NotificationPrefsKeys.currentSettingsSchemaVersion) {
+    await _ensureDefaultNotificationPreferences(prefs);
+    return;
+  }
+
+  _logNotification(
+    "reset notification settings schema=$schemaVersion -> ${NotificationPrefsKeys.currentSettingsSchemaVersion}",
+  );
+  await _notifications.cancelAll();
+  await prefs.remove(_bucketDdayNotificationIdsKey);
+  await prefs.remove(NotificationPrefsKeys.todayQuestionEnabled);
+  await prefs.remove(NotificationPrefsKeys.todayQuestionHour);
+  await prefs.remove(NotificationPrefsKeys.todayQuestionMinute);
+  await prefs.remove(NotificationPrefsKeys.bucketDdayEnabled);
+  await prefs.remove(NotificationPrefsKeys.bucketDdayDaysBefore);
+  await prefs.remove(_legacyPermissionOnboardingRequestedKey);
+  await _ensureDefaultNotificationPreferences(prefs);
+  await prefs.setInt(
+    NotificationPrefsKeys.settingsSchemaVersion,
+    NotificationPrefsKeys.currentSettingsSchemaVersion,
+  );
+}
+
+Future<void> _ensureDefaultNotificationPreferences(
+  SharedPreferences prefs,
+) async {
+  if (!prefs.containsKey(NotificationPrefsKeys.todayQuestionEnabled)) {
+    await prefs.setBool(
+      NotificationPrefsKeys.todayQuestionEnabled,
+      NotificationPrefsKeys.defaultTodayQuestionEnabled,
+    );
+  }
+  if (!prefs.containsKey(NotificationPrefsKeys.todayQuestionHour)) {
+    await prefs.setInt(
+      NotificationPrefsKeys.todayQuestionHour,
+      NotificationPrefsKeys.defaultTodayQuestionHour,
+    );
+  }
+  if (!prefs.containsKey(NotificationPrefsKeys.todayQuestionMinute)) {
+    await prefs.setInt(
+      NotificationPrefsKeys.todayQuestionMinute,
+      NotificationPrefsKeys.defaultTodayQuestionMinute,
+    );
+  }
+  if (!prefs.containsKey(NotificationPrefsKeys.bucketDdayEnabled)) {
+    await prefs.setBool(NotificationPrefsKeys.bucketDdayEnabled, false);
+  }
+  if (!prefs.containsKey(NotificationPrefsKeys.bucketDdayDaysBefore)) {
+    await prefs.setInt(
+      NotificationPrefsKeys.bucketDdayDaysBefore,
+      NotificationPrefsKeys.defaultBucketDdayDaysBefore,
+    );
   }
 }
 
@@ -344,7 +412,10 @@ Future<void> _restoreSchedulesFromPrefs({
     "restore prefs todayEnabled=$todayQuestionEnabled time=${hour.toString().padLeft(2, "0")}:${minute.toString().padLeft(2, "0")} bucketEnabled=$bucketDdayEnabled bucketDaysBefore=$bucketDdayDaysBefore hasPermission=$hasNotificationPermission",
   );
 
-  if (!todayQuestionEnabled || !hasNotificationPermission) {
+  final bool canScheduleDailyQuestion =
+      todayQuestionEnabled && hasNotificationPermission;
+
+  if (!canScheduleDailyQuestion) {
     await _notifications.cancel(_dailyQuestionNotificationId);
     await _notifications.cancel(_dailyQuestionCatchupNotificationId);
     _logNotification(
@@ -442,8 +513,8 @@ Future<void> _debugLogPendingNotifications(String context) async {
     return;
   }
   try {
-    final List<PendingNotificationRequest> pending =
-        await _notifications.pendingNotificationRequests();
+    final List<PendingNotificationRequest> pending = await _notifications
+        .pendingNotificationRequests();
     _logNotification(
       "$context pending=${pending.length} ids=${pending.map((PendingNotificationRequest item) => item.id).join(",")}",
     );

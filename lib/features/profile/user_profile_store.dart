@@ -7,3 +7,5 @@ Future<void> saveNickname(String nickname) => store.saveNickname(nickname);
 Future<bool> loadInitialConsentAccepted() => store.loadInitialConsentAccepted();
 Future<void> saveInitialConsentAccepted(bool accepted) =>
     store.saveInitialConsentAccepted(accepted);
+Future<bool> loadOnboardingSeen() => store.loadOnboardingSeen();
+Future<void> saveOnboardingSeen(bool seen) => store.saveOnboardingSeen(seen);
