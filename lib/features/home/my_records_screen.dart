@@ -1,12 +1,10 @@
 import "dart:async";
-import "dart:math" as math;
 
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
-import "../../core/keyword_semantics.dart";
 import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../bucket/bucket_list_screen.dart";
@@ -15,15 +13,19 @@ import "my_records_visibility.dart";
 import "../navigation/main_tab_shell.dart";
 import "../profile/user_profile_events.dart";
 import "../profile/user_profile_prefs.dart";
+import "home_character_assets.dart";
+import "home_fish_growth.dart";
 import "home_screen.dart";
+import "home_theme_progression.dart";
 import "../more/more_settings_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
+import "../report/ai_report_cache_store.dart";
+import "../report/ai_report_timeline.dart";
 import "../report/period_report_aggregation_service.dart";
 import "../report/report_api_client.dart";
+import "../report/report_aggregation_service.dart";
 import "../report/report_models.dart";
-import "../report/weekly_report_schedule.dart";
-import "../report/weekly_report_store.dart";
 import "annual_record_screen.dart";
 import "my_record_detail_screen.dart";
 
@@ -239,6 +241,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
   static const String _installDateSchemaVersionKey =
       "my_records_install_date_schema_version";
   static const int _installDateSchemaVersion = 1;
+  static const double _bottomShadowBuffer = 8;
 
   late int _selectedYear;
   late int _selectedMonth;
@@ -280,7 +283,9 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
               child: SingleChildScrollView(
                 padding: EdgeInsets.only(
                   bottom:
-                      AppNavigationBar.totalHeight(context) + AppSpacing.s20,
+                      AppNavigationBar.totalHeight(context) +
+                      AppSpacing.s32 +
+                      _bottomShadowBuffer,
                 ),
                 child: Column(
                   children: <Widget>[
@@ -298,7 +303,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                         children: <Widget>[
                           _RecordReportHeader(nickname: _nickname),
                           const SizedBox(height: AppSpacing.s32),
-                          const _RecordHeroDecor(),
+                          _RecordHeroDecor(brand: brand),
                           const SizedBox(height: AppSpacing.s32),
                           const _StreakCard(),
                           const SizedBox(height: AppSpacing.s32),
@@ -308,11 +313,6 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                             installDate: _installDate,
                             minMonth: _installMonth ?? _maxMonth,
                             maxMonth: _maxMonth,
-                          ),
-                          const SizedBox(height: AppSpacing.s32),
-                          _MonthlyKeywordPieCard(
-                            selectedYear: _selectedYear,
-                            selectedMonth: _selectedMonth,
                           ),
                           const SizedBox(height: AppSpacing.s32),
                           _AiReportEntryCard(
@@ -760,7 +760,11 @@ class _MonthlyPreviewStrip extends StatefulWidget {
 
 class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
   static const double _cardWidth = 350;
+  static const double _cardHeight = 458;
   static const double _cardGap = 12;
+  static const double _cardShadowInset = 8;
+  static const double _cardViewportHeight =
+      _cardHeight + (_cardShadowInset * 2);
   static const double _lastCardRightAdjust = 6;
 
   PageController? _pageController;
@@ -824,7 +828,7 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
             );
 
             if (latestDay <= 0 || firstDay > latestDay) {
-              return const SizedBox(height: 458);
+              return const SizedBox(height: _cardViewportHeight);
             }
             return FutureBuilder<Map<int, String>>(
               future: _PastQuestionDb.loadMonthQuestions(
@@ -946,7 +950,7 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                             );
 
                             return SizedBox(
-                              height: 458,
+                              height: _cardViewportHeight,
                               child: ScrollConfiguration(
                                 behavior: const MaterialScrollBehavior()
                                     .copyWith(
@@ -979,6 +983,8 @@ class _MonthlyPreviewStripState extends State<_MonthlyPreviewStrip> {
                                               : Alignment.center,
                                           child: Padding(
                                             padding: EdgeInsets.only(
+                                              top: _cardShadowInset,
+                                              bottom: _cardShadowInset,
                                               right: isLatestCard
                                                   ? _lastCardRightAdjust
                                                   : 0,
@@ -1298,15 +1304,16 @@ class _MonthlyPreviewCardState extends State<_MonthlyPreviewCard> {
     );
     return SizedBox(
       width: _MonthlyPreviewStripState._cardWidth,
-      height: 458,
+      height: _MonthlyPreviewStripState._cardHeight,
       child: Stack(
+        clipBehavior: Clip.none,
         children: <Widget>[
           GestureDetector(
             onTap: _openDetailFromCard,
             behavior: HitTestBehavior.opaque,
             child: Container(
               width: _MonthlyPreviewStripState._cardWidth,
-              height: 458,
+              height: _MonthlyPreviewStripState._cardHeight,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 32),
               decoration: BoxDecoration(
                 color: AppNeutralColors.white,
@@ -1608,32 +1615,306 @@ class _RecordReportHeader extends StatelessWidget {
   }
 }
 
-class _RecordHeroDecor extends StatelessWidget {
-  const _RecordHeroDecor();
+class _RecordHeroDecor extends StatefulWidget {
+  const _RecordHeroDecor({required this.brand});
+
+  final BrandScale brand;
+
+  @override
+  State<_RecordHeroDecor> createState() => _RecordHeroDecorState();
+}
+
+class _RecordHeroDecorState extends State<_RecordHeroDecor>
+    with SingleTickerProviderStateMixin {
+  static const double _homeHeroBaseVisualSize = 172;
+  static const double _recordHeroVisualScale = 1.14;
+  static const double _recordHeroVisualBaseSize =
+      _homeHeroBaseVisualSize * _recordHeroVisualScale;
+
+  late final AnimationController _treeController;
+  late final Animation<double> _treeSway;
+
+  bool get _isGreenTheme => widget.brand.c500 == AppBrandThemes.green.c500;
+
+  @override
+  void initState() {
+    super.initState();
+    _treeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1700),
+    )..repeat(reverse: true);
+    _treeSway = Tween<double>(begin: -1, end: 1).animate(
+      CurvedAnimation(parent: _treeController, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _treeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 300,
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Transform.translate(
-          offset: const Offset(40, 0),
-          child: SizedBox(
-            width: 500,
-            height: 300,
-            child: Image.asset(
-              MyRecordsScreen._recordHeroDecoAsset,
+    if (!_isGreenTheme) {
+      return SizedBox(
+        width: double.infinity,
+        height: 300,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Transform.translate(
+            offset: const Offset(40, 0),
+            child: SizedBox(
               width: 500,
               height: 300,
-              fit: BoxFit.contain,
+              child: Image.asset(
+                MyRecordsScreen._recordHeroDecoAsset,
+                width: 500,
+                height: 300,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
         ),
+      );
+    }
+
+    return ValueListenableBuilder<List<TodayQuestionRecord>>(
+      valueListenable: TodayQuestionStore.instance,
+      builder:
+          (BuildContext context, List<TodayQuestionRecord> records, Widget? _) {
+            final int recordCount = records.length;
+            final int growthRecordCount = homeGrowthRecordCountForCharacter(
+              characterType: HomeCharacterType.tree,
+              totalRecordCount: recordCount,
+            );
+            final HomeFishGrowthLevel growthLevel =
+                homeFishGrowthLevelForRecordCount(growthRecordCount);
+            final bool useTreeLeafPulse = _recordHeroTreeUsesLeafPulse(
+              growthLevel,
+            );
+            final double visualSize = _recordHeroVisualSizeForRecordCount(
+              growthRecordCount,
+              _recordHeroVisualBaseSize,
+            );
+
+            return SizedBox(
+              width: double.infinity,
+              height: 230,
+              child: SizedBox(
+                width: 350,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: AnimatedBuilder(
+                      animation: _treeController,
+                      builder: (BuildContext context, Widget? child) {
+                        final Widget characterImage = _RecordHeroTreeCharacter(
+                          growthLevel: growthLevel,
+                          size: visualSize,
+                          fallbackFontSize: 52,
+                          treeLeafAngle: useTreeLeafPulse
+                              ? 0
+                              : _treeSway.value *
+                                    _recordHeroTreeSwayMaxAngleForLevel(
+                                      growthLevel,
+                                    ),
+                          treeLeafScale: useTreeLeafPulse
+                              ? _recordHeroTreeLeafScaleForLevel(
+                                  growthLevel,
+                                  _treeSway.value,
+                                )
+                              : 1,
+                        );
+                        return characterImage;
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+    );
+  }
+}
+
+class _RecordHeroTreeCharacter extends StatelessWidget {
+  const _RecordHeroTreeCharacter({
+    required this.growthLevel,
+    required this.size,
+    required this.fallbackFontSize,
+    this.treeLeafAngle = 0,
+    this.treeLeafScale = 1,
+  });
+
+  final HomeFishGrowthLevel growthLevel;
+  final double size;
+  final double fallbackFontSize;
+  final double treeLeafAngle;
+  final double treeLeafScale;
+
+  @override
+  Widget build(BuildContext context) {
+    final _RecordSplitTreeAssetConfig splitTreeConfig = switch (growthLevel) {
+      HomeFishGrowthLevel.level1 => _RecordSplitTreeAssetConfig(
+        baseAssetPath: HomeCharacterAssets.treeLevel1Base,
+        leafAssetPath: HomeCharacterAssets.treeLevel1Leaf,
+        leafYOffsetFactor: 0.02,
+        leafRotationAlignment: const Alignment(0.0, 0.36),
+        leafScaleAlignment: const Alignment(0.0, 0.36),
+        leafScaleCompensationFactor: 0,
+      ),
+      HomeFishGrowthLevel.level2 => _RecordSplitTreeAssetConfig(
+        baseAssetPath: HomeCharacterAssets.treeLevel2Base,
+        leafAssetPath: HomeCharacterAssets.treeLevel2Leaf,
+        leafYOffsetFactor: 0.008,
+        leafRotationAlignment: const Alignment(0.0, 0.42),
+        leafScaleAlignment: const Alignment(0.0, 0.42),
+        leafScaleCompensationFactor: 0,
+      ),
+      HomeFishGrowthLevel.level3 => _RecordSplitTreeAssetConfig(
+        baseAssetPath: HomeCharacterAssets.treeLevel3Base,
+        leafAssetPath: HomeCharacterAssets.treeLevel3Leaf,
+        leafYOffsetFactor: 0.008,
+        leafRotationAlignment: const Alignment(0.0, 0.5),
+        leafScaleAlignment: const Alignment(0.0, 0.5),
+        leafScaleCompensationFactor: 0,
+      ),
+      HomeFishGrowthLevel.level4 => _RecordSplitTreeAssetConfig(
+        baseAssetPath: HomeCharacterAssets.treeLevel4Base,
+        leafAssetPath: HomeCharacterAssets.treeLevel4Leaf,
+        leafYOffsetFactor: 0,
+        leafRotationAlignment: const Alignment(0.0, 0.5),
+        leafScaleAlignment: const Alignment(0.0, 0.86),
+        leafScaleCompensationFactor: 0.7,
+      ),
+      HomeFishGrowthLevel.level5 => _RecordSplitTreeAssetConfig(
+        baseAssetPath: HomeCharacterAssets.treeLevel5Base,
+        leafAssetPath: HomeCharacterAssets.treeLevel5Leaf,
+        leafYOffsetFactor: 0,
+        leafRotationAlignment: const Alignment(0.0, 0.5),
+        leafScaleAlignment: const Alignment(0.0, 0.86),
+        leafScaleCompensationFactor: 0.7,
+      ),
+      HomeFishGrowthLevel.level6 => _RecordSplitTreeAssetConfig(
+        baseAssetPath: HomeCharacterAssets.treeLevel6Base,
+        leafAssetPath: HomeCharacterAssets.treeLevel6Leaf,
+        leafYOffsetFactor: 0,
+        leafRotationAlignment: const Alignment(0.0, 0.5),
+        leafScaleAlignment: const Alignment(0.0, 0.86),
+        leafScaleCompensationFactor: 0.7,
+      ),
+    };
+    final double leafYOffset = size * splitTreeConfig.leafYOffsetFactor;
+    final double leafPulseCompensation =
+        (treeLeafScale - 1) *
+        size *
+        splitTreeConfig.leafScaleCompensationFactor;
+    return SizedBox(
+      key: ValueKey<String>(
+        "record-tree-split-${growthLevel.name}-${splitTreeConfig.leafAssetPath}",
+      ),
+      width: size,
+      height: size,
+      child: Stack(
+        fit: StackFit.expand,
+        children: <Widget>[
+          Image.asset(
+            splitTreeConfig.baseAssetPath,
+            fit: BoxFit.contain,
+            errorBuilder: (_, error, stackTrace) {
+              return const SizedBox.shrink();
+            },
+          ),
+          Transform.translate(
+            offset: Offset(0, leafYOffset + leafPulseCompensation),
+            child: Transform.scale(
+              alignment: splitTreeConfig.leafScaleAlignment,
+              scale: treeLeafScale,
+              child: Transform.rotate(
+                alignment: splitTreeConfig.leafRotationAlignment,
+                angle: treeLeafAngle,
+                child: Image.asset(
+                  splitTreeConfig.leafAssetPath,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, error, stackTrace) {
+                    return Center(
+                      child: AppEmojiText(
+                        "🌱",
+                        style: TextStyle(fontSize: fallbackFontSize),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _RecordSplitTreeAssetConfig {
+  const _RecordSplitTreeAssetConfig({
+    required this.baseAssetPath,
+    required this.leafAssetPath,
+    required this.leafYOffsetFactor,
+    required this.leafRotationAlignment,
+    required this.leafScaleAlignment,
+    required this.leafScaleCompensationFactor,
+  });
+
+  final String baseAssetPath;
+  final String leafAssetPath;
+  final double leafYOffsetFactor;
+  final Alignment leafRotationAlignment;
+  final Alignment leafScaleAlignment;
+  final double leafScaleCompensationFactor;
+}
+
+double _recordHeroVisualSizeForRecordCount(int recordCount, double baseSize) {
+  final HomeFishGrowthLevel level = homeFishGrowthLevelForRecordCount(
+    recordCount,
+  );
+  if (level == HomeFishGrowthLevel.level6) {
+    return baseSize * 0.9;
+  }
+  return baseSize;
+}
+
+double _recordHeroTreeSwayMaxAngleForLevel(HomeFishGrowthLevel level) {
+  return switch (level) {
+    HomeFishGrowthLevel.level1 => 0.095,
+    HomeFishGrowthLevel.level2 => 0.082,
+    HomeFishGrowthLevel.level3 => 0.05,
+    HomeFishGrowthLevel.level4 => 0.04,
+    HomeFishGrowthLevel.level5 => 0.034,
+    HomeFishGrowthLevel.level6 => 0.018,
+  };
+}
+
+bool _recordHeroTreeUsesLeafPulse(HomeFishGrowthLevel level) {
+  return switch (level) {
+    HomeFishGrowthLevel.level4 || HomeFishGrowthLevel.level5 => true,
+    _ => false,
+  };
+}
+
+double _recordHeroTreeLeafScaleForLevel(
+  HomeFishGrowthLevel level,
+  double swayValue,
+) {
+  final double normalizedPhase = (swayValue + 1) / 2;
+  final double easedPhase = Curves.easeInOutCubic.transform(normalizedPhase);
+  final double maxScale = switch (level) {
+    HomeFishGrowthLevel.level4 => 1.012,
+    HomeFishGrowthLevel.level5 => 1.01,
+    HomeFishGrowthLevel.level6 => 1.008,
+    _ => 1,
+  };
+  return 1 + ((maxScale - 1) * easedPhase);
 }
 
 class _StreakCard extends StatelessWidget {
@@ -1782,6 +2063,20 @@ class _StreakCard extends StatelessWidget {
 
 enum _AiReportPeriod { weekly, monthly, quarterly, yearly }
 
+enum _AiSecondaryChipState { selected, defaultState, disabled }
+
+class _AiSecondaryChipData {
+  const _AiSecondaryChipData({
+    required this.label,
+    required this.state,
+    this.onTap,
+  });
+
+  final String label;
+  final _AiSecondaryChipState state;
+  final VoidCallback? onTap;
+}
+
 class _AiReportEntryCard extends StatefulWidget {
   const _AiReportEntryCard({
     required this.selectedYear,
@@ -1799,19 +2094,26 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
     with WidgetsBindingObserver {
   _AiReportPeriod _selected = _AiReportPeriod.weekly;
   bool _didUserSelectPeriod = false;
+  final ReportAggregationService _weeklyAggregationService =
+      const ReportAggregationService();
   final PeriodReportAggregationService _periodAggregationService =
       const PeriodReportAggregationService();
-  final ReportApiClient _periodApiClient = ReportApiClient();
-  final Map<String, _PeriodAiReportLoadState> _periodReports =
-      <String, _PeriodAiReportLoadState>{};
+  final ReportApiClient _apiClient = ReportApiClient();
+  final AiReportCacheStore _cacheStore = const AiReportCacheStore();
+  final Map<String, CachedAiReportEntry> _cachedReports =
+      <String, CachedAiReportEntry>{};
+  final Map<String, _AiGeneratedReportLoadState> _reportStates =
+      <String, _AiGeneratedReportLoadState>{};
+  String? _selectedWeeklyOptionId;
+  int? _selectedMonthlyMonth;
+  int? _selectedQuarter;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _selected = _defaultSelectedPeriod(now: nowInKst());
-    unawaited(WeeklyReportStore.instance.prepareCurrentWeeklyReport());
-    unawaited(_ensureSelectedPeriodReportLoaded());
+    unawaited(_bootstrapAiReports());
   }
 
   @override
@@ -1824,8 +2126,10 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _syncDefaultSelectedPeriodIfNeeded();
-      unawaited(WeeklyReportStore.instance.prepareCurrentWeeklyReport());
-      unawaited(_ensureSelectedPeriodReportLoaded(forceRefresh: true));
+      setState(() {
+        _syncTimelineSelections();
+      });
+      unawaited(_ensureSelectedReportLoaded());
     }
   }
 
@@ -1835,9 +2139,45 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
     if (oldWidget.selectedYear != widget.selectedYear ||
         oldWidget.selectedMonth != widget.selectedMonth) {
       _didUserSelectPeriod = false;
-      _selected = _defaultSelectedPeriod(now: nowInKst());
-      unawaited(_ensureSelectedPeriodReportLoaded());
+      setState(() {
+        _selected = _defaultSelectedPeriod(now: nowInKst());
+        _selectedWeeklyOptionId = null;
+        _selectedMonthlyMonth = null;
+        _selectedQuarter = null;
+        _syncTimelineSelections(force: true);
+      });
+      unawaited(_ensureSelectedReportLoaded());
     }
+  }
+
+  Future<void> _bootstrapAiReports() async {
+    await TodayQuestionStore.instance.initialize();
+    final Map<String, CachedAiReportEntry> cached = await _cacheStore.readAll();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _cachedReports
+        ..clear()
+        ..addAll(cached);
+      _reportStates
+        ..clear()
+        ..addEntries(
+          cached.entries.map(
+            (MapEntry<String, CachedAiReportEntry> entry) =>
+                MapEntry<String, _AiGeneratedReportLoadState>(
+                  entry.key,
+                  _AiGeneratedReportLoadState.success(
+                    report: entry.value.report,
+                    payload: entry.value.payload,
+                    generatedAt: entry.value.generatedAt,
+                  ),
+                ),
+          ),
+        );
+      _syncTimelineSelections(force: true);
+    });
+    await _ensureSelectedReportLoaded();
   }
 
   _AiReportPeriod _defaultSelectedPeriod({required DateTime now}) {
@@ -1860,6 +2200,7 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
     }
     setState(() {
       _selected = next;
+      _syncTimelineSelections();
     });
   }
 
@@ -1867,153 +2208,159 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
     setState(() {
       _didUserSelectPeriod = true;
       _selected = period;
+      _syncTimelineSelections();
     });
-    unawaited(_ensureSelectedPeriodReportLoaded());
+    unawaited(_ensureSelectedReportLoaded());
   }
 
-  String _periodReportCacheKey(_AiReportPeriod period) {
-    return "${widget.selectedYear}-${widget.selectedMonth}-${period.name}";
-  }
-
-  ReportPeriod? _calendarReportPeriod(_AiReportPeriod period) {
-    switch (period) {
-      case _AiReportPeriod.weekly:
-        return null;
-      case _AiReportPeriod.monthly:
-        return ReportPeriod.monthly;
-      case _AiReportPeriod.quarterly:
-        return ReportPeriod.quarterly;
-      case _AiReportPeriod.yearly:
-        return ReportPeriod.yearly;
-    }
-  }
-
-  String _calendarSummaryTitle(_AiReportPeriod period) {
-    final String monthLabel = "${widget.selectedMonth}월";
-    final int quarter = ((widget.selectedMonth - 1) ~/ 3) + 1;
-    switch (period) {
-      case _AiReportPeriod.weekly:
-        return "주간 요약";
-      case _AiReportPeriod.monthly:
-        return "$monthLabel 요약";
-      case _AiReportPeriod.quarterly:
-        return "$quarter분기 요약";
-      case _AiReportPeriod.yearly:
-        return "${widget.selectedYear}년 요약";
-    }
-  }
-
-  Future<void> _ensureSelectedPeriodReportLoaded({
-    bool forceRefresh = false,
-  }) async {
-    final ReportPeriod? period = _calendarReportPeriod(_selected);
-    if (period == null) {
+  void _handleSecondaryChipTap(AiReportTimelineOption option) {
+    if (!option.enabled) {
       return;
     }
-
-    final String cacheKey = _periodReportCacheKey(_selected);
-    final _PeriodAiReportLoadState current =
-        _periodReports[cacheKey] ?? const _PeriodAiReportLoadState.idle();
-    if (!forceRefresh &&
-        (current.status == _PeriodAiReportLoadStatus.loading ||
-            current.status == _PeriodAiReportLoadStatus.success)) {
-      return;
-    }
-
-    if (!_periodApiClient.isConfigured) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _periodReports[cacheKey] = const _PeriodAiReportLoadState.error(
-          "AI 리포트 서버 설정이 필요해요.",
-        );
-      });
-      return;
-    }
-
     setState(() {
-      _periodReports[cacheKey] = const _PeriodAiReportLoadState.loading();
+      switch (_selected) {
+        case _AiReportPeriod.weekly:
+          _selectedWeeklyOptionId = option.id;
+        case _AiReportPeriod.monthly:
+          _selectedMonthlyMonth = option.startDate.month;
+        case _AiReportPeriod.quarterly:
+          _selectedQuarter = _quarterFromMonth(option.startDate.month);
+        case _AiReportPeriod.yearly:
+          break;
+      }
     });
+    unawaited(_ensureSelectedReportLoaded());
+  }
 
-    try {
-      final ReportAnalyzePayload payload = await _periodAggregationService
-          .buildPayloadForSelection(
-            period: period,
-            year: widget.selectedYear,
-            month: widget.selectedMonth,
-          );
-      final WeeklyAiReport report = await _periodApiClient.analyze(payload);
-      if (!mounted) {
-        return;
+  DateTime _firstRecordDate() {
+    DateTime? earliest;
+    for (final TodayQuestionRecord record
+        in TodayQuestionStore.instance.value) {
+      final DateTime displayDate = myRecordsDisplayDate(record);
+      final DateTime normalized = DateTime(
+        displayDate.year,
+        displayDate.month,
+        displayDate.day,
+      );
+      if (earliest == null || normalized.isBefore(earliest)) {
+        earliest = normalized;
       }
-      setState(() {
-        _periodReports[cacheKey] = _PeriodAiReportLoadState.success(report);
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      String message = "AI 리포트를 불러오지 못했어요. 잠시 후 다시 시도해주세요.";
-      if (error is ReportApiException &&
-          error.message.contains("REPORT_API_BASE_URL")) {
-        message = "AI 리포트 서버 설정이 필요해요.";
-      }
-      setState(() {
-        _periodReports[cacheKey] = _PeriodAiReportLoadState.error(message);
-      });
+    }
+    return earliest ?? DateTime(widget.selectedYear, widget.selectedMonth, 1);
+  }
+
+  List<AiReportTimelineOption> _weeklyOptions() {
+    return buildWeeklyAiReportTimelineOptions(
+      year: widget.selectedYear,
+      month: widget.selectedMonth,
+      now: nowInKst(),
+    );
+  }
+
+  List<AiReportTimelineOption> _monthlyOptions() {
+    return buildMonthlyAiReportTimelineOptions(
+      year: widget.selectedYear,
+      firstRecordDate: _firstRecordDate(),
+      now: nowInKst(),
+    );
+  }
+
+  List<AiReportTimelineOption> _quarterlyOptions() {
+    return buildQuarterlyAiReportTimelineOptions(
+      year: widget.selectedYear,
+      firstRecordDate: _firstRecordDate(),
+      now: nowInKst(),
+    );
+  }
+
+  AiReportTimelineOption _yearlyOption() {
+    return buildYearlyAiReportTimelineOption(
+      year: widget.selectedYear,
+      now: nowInKst(),
+    );
+  }
+
+  void _syncTimelineSelections({bool force = false}) {
+    final List<AiReportTimelineOption> weeklyOptions = _weeklyOptions();
+    final List<AiReportTimelineOption> monthlyOptions = _monthlyOptions();
+    final List<AiReportTimelineOption> quarterlyOptions = _quarterlyOptions();
+
+    if (force ||
+        !weeklyOptions.any(
+          (AiReportTimelineOption option) =>
+              option.id == _selectedWeeklyOptionId,
+        )) {
+      _selectedWeeklyOptionId =
+          _defaultWeeklyOption(weeklyOptions)?.id ?? _selectedWeeklyOptionId;
+    }
+
+    if (force ||
+        !monthlyOptions.any(
+          (AiReportTimelineOption option) =>
+              option.startDate.month == _selectedMonthlyMonth,
+        )) {
+      _selectedMonthlyMonth =
+          _defaultMonthlyOption(monthlyOptions)?.startDate.month ??
+          _selectedMonthlyMonth;
+    }
+
+    if (force ||
+        !quarterlyOptions.any(
+          (AiReportTimelineOption option) =>
+              _quarterFromMonth(option.startDate.month) == _selectedQuarter,
+        )) {
+      _selectedQuarter = _defaultQuarterlyOption(quarterlyOptions) == null
+          ? _selectedQuarter
+          : _quarterFromMonth(
+              _defaultQuarterlyOption(quarterlyOptions)!.startDate.month,
+            );
     }
   }
 
-  String _weeklySummaryTitle(WeeklyReportState state) {
-    final DateTime? start = state.periodStartDate;
-    final DateTime? end = state.periodEndDate;
-    if (start == null || end == null) {
-      return "주간 요약";
+  AiReportTimelineOption? _defaultWeeklyOption(
+    List<AiReportTimelineOption> options,
+  ) {
+    for (int index = options.length - 1; index >= 0; index--) {
+      final AiReportTimelineOption option = options[index];
+      if (option.enabled) {
+        return option;
+      }
     }
-    return WeeklyReportWindow(
-      slotAnchor: start,
-      referenceDate: end,
-      startDate: start,
-      endDate: end,
-    ).summaryTitle;
+    return options.isEmpty ? null : options.first;
   }
 
-  _WeeklyReportPendingProgress? _pendingWeeklyProgress() {
-    final WeeklyReportWindow window = currentWeeklyReportWindow();
-    final DateTime today = DateTime(
-      nowInKst().year,
-      nowInKst().month,
-      nowInKst().day,
-    );
-    final DateTime startDate = window.currentProgressStartDate;
-    final DateTime slotEndDate = startDate.add(const Duration(days: 6));
-    final DateTime visibleEndDate = today.isBefore(slotEndDate)
-        ? today
-        : slotEndDate;
-    if (visibleEndDate.isBefore(startDate)) {
-      return null;
+  AiReportTimelineOption? _defaultMonthlyOption(
+    List<AiReportTimelineOption> options,
+  ) {
+    for (final AiReportTimelineOption option in options) {
+      if (option.startDate.month == widget.selectedMonth && option.enabled) {
+        return option;
+      }
     }
+    for (int index = options.length - 1; index >= 0; index--) {
+      if (options[index].enabled) {
+        return options[index];
+      }
+    }
+    return options.isEmpty ? null : options.first;
+  }
 
-    final Set<String> dateKeys = TodayQuestionStore.instance.value
-        .map(myRecordsDisplayDate)
-        .where(
-          (DateTime date) =>
-              !date.isBefore(startDate) && !date.isAfter(visibleEndDate),
-        )
-        .map(
-          (DateTime date) =>
-              "${date.year}${date.month.toString().padLeft(2, "0")}${date.day.toString().padLeft(2, "0")}",
-        )
-        .toSet();
-    if (dateKeys.isEmpty) {
-      return null;
+  AiReportTimelineOption? _defaultQuarterlyOption(
+    List<AiReportTimelineOption> options,
+  ) {
+    final int selectedQuarter = _quarterFromMonth(widget.selectedMonth);
+    for (final AiReportTimelineOption option in options) {
+      if (_quarterFromMonth(option.startDate.month) == selectedQuarter &&
+          option.enabled) {
+        return option;
+      }
     }
-    return _WeeklyReportPendingProgress(
-      startDate: startDate,
-      endDate: slotEndDate,
-      nextGenerationDateTime: window.nextGenerationDateTime,
-    );
+    for (int index = options.length - 1; index >= 0; index--) {
+      if (options[index].enabled) {
+        return options[index];
+      }
+    }
+    return options.isEmpty ? null : options.first;
   }
 
   String _weeklyRangeLabel(DateTime start, DateTime end) {
@@ -2034,184 +2381,381 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
     return "$month.$day($weekday) $hour:$minute";
   }
 
-  Widget _buildWeeklyReportContent() {
-    return ValueListenableBuilder<WeeklyReportState>(
-      valueListenable: WeeklyReportStore.instance,
-      builder: (BuildContext context, WeeklyReportState state, Widget? child) {
-        if (state.status == WeeklyReportStatus.loading &&
-            state.report == null) {
-          return const Padding(
-            padding: EdgeInsets.only(top: AppSpacing.s24),
-            child: SizedBox(
-              width: double.infinity,
-              height: 180,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-          );
-        }
-        if (state.status == WeeklyReportStatus.error || state.report == null) {
-          return Column(
-            children: <Widget>[
-              const SizedBox(height: AppSpacing.s24),
-              _AiDataAlert(
-                message: state.errorMessage ?? "이번 주 리포트를 아직 준비하지 못했어요.",
-              ),
-            ],
-          );
-        }
+  int _quarterFromMonth(int month) => ((month - 1) ~/ 3) + 1;
 
-        final report = state.report!;
-        final String summaryTitle = _weeklySummaryTitle(state);
-        final String insightBody = report.insights
-            .map((String insight) => "• $insight")
-            .join("\n");
-        final String actionsBody = report.actions
-            .map((String action) => "• $action")
-            .join("\n");
-        final _WeeklyReportPendingProgress? pending = _pendingWeeklyProgress();
-        final bool showPendingHint =
-            pending != null &&
-            (state.periodEndDate == null ||
-                pending.startDate.isAfter(state.periodEndDate!));
-        final String pendingMessage = pending == null
-            ? ""
-            : "${_weeklyRangeLabel(pending.startDate, pending.endDate)} 기록은 "
-                  "${_nextGenerationLabel(pending.nextGenerationDateTime)}에 반영돼요.";
+  AiReportTimelineOption? _selectedWeeklyOption() {
+    for (final AiReportTimelineOption option in _weeklyOptions()) {
+      if (option.id == _selectedWeeklyOptionId) {
+        return option;
+      }
+    }
+    return _defaultWeeklyOption(_weeklyOptions());
+  }
 
-        if (state.isCompact) {
-          return Column(
-            children: <Widget>[
-              if (showPendingHint) ...<Widget>[
-                const SizedBox(height: AppSpacing.s16),
-                _AiPendingHint(message: pendingMessage),
-              ],
-              const SizedBox(height: AppSpacing.s16),
-              _AiReportPreviewCard(
-                iconAsset: MyRecordsScreen._profileRecordPatternAsset,
-                title: summaryTitle,
-                body: report.summary,
-                showAiBadge: report.isFromOpenAi,
-              ),
-              if (report.actions.isNotEmpty) ...<Widget>[
-                const SizedBox(height: AppSpacing.s12),
-                _AiReportPreviewCard(
-                  iconAsset: MyRecordsScreen._profileBucketlistAsset,
-                  title: "이렇게 해볼까요?",
-                  body: actionsBody,
-                  showAiBadge: report.isFromOpenAi,
-                ),
-              ],
-            ],
-          );
-        }
+  AiReportTimelineOption? _selectedMonthlyOption() {
+    for (final AiReportTimelineOption option in _monthlyOptions()) {
+      if (option.startDate.month == _selectedMonthlyMonth) {
+        return option;
+      }
+    }
+    return _defaultMonthlyOption(_monthlyOptions());
+  }
 
-        return Column(
-          children: <Widget>[
-            if (showPendingHint) ...<Widget>[
-              const SizedBox(height: AppSpacing.s16),
-              _AiPendingHint(message: pendingMessage),
-            ],
-            const SizedBox(height: AppSpacing.s16),
-            _AiReportPreviewCard(
-              iconAsset: MyRecordsScreen._profileRecordPatternAsset,
-              title: summaryTitle,
-              body: report.summary,
-              showAiBadge: report.isFromOpenAi,
-            ),
-            const SizedBox(height: AppSpacing.s12),
-            _AiReportPreviewCard(
-              iconAsset: MyRecordsScreen._profileInsightAsset,
-              title: "인사이트",
-              body: insightBody,
-              showAiBadge: report.isFromOpenAi,
-            ),
-            const SizedBox(height: AppSpacing.s12),
-            _AiReportPreviewCard(
-              iconAsset: MyRecordsScreen._profileBucketlistAsset,
-              title: "이렇게 해볼까요?",
-              body: actionsBody,
-              showAiBadge: report.isFromOpenAi,
-            ),
-          ],
-        );
-      },
+  AiReportTimelineOption? _selectedQuarterlyOption() {
+    for (final AiReportTimelineOption option in _quarterlyOptions()) {
+      if (_quarterFromMonth(option.startDate.month) == _selectedQuarter) {
+        return option;
+      }
+    }
+    return _defaultQuarterlyOption(_quarterlyOptions());
+  }
+
+  AiReportTimelineOption? _selectedTimelineOption() {
+    return switch (_selected) {
+      _AiReportPeriod.weekly => _selectedWeeklyOption(),
+      _AiReportPeriod.monthly => _selectedMonthlyOption(),
+      _AiReportPeriod.quarterly => _selectedQuarterlyOption(),
+      _AiReportPeriod.yearly => _yearlyOption(),
+    };
+  }
+
+  _AiReportTarget? _selectedTarget() {
+    final AiReportTimelineOption? option = _selectedTimelineOption();
+    if (option == null) {
+      return null;
+    }
+
+    final String summaryTitle = switch (_selected) {
+      _AiReportPeriod.weekly =>
+        "${_weeklyRangeLabel(option.startDate, option.endDate)} 요약",
+      _AiReportPeriod.monthly => "${option.startDate.month}월 요약",
+      _AiReportPeriod.quarterly =>
+        "${_quarterFromMonth(option.startDate.month)}분기 요약",
+      _AiReportPeriod.yearly => "${option.startDate.year}년 요약",
+    };
+
+    final String actionTitle = switch (_selected) {
+      _AiReportPeriod.yearly => "내년엔 이렇게 해볼까요?",
+      _ => "이렇게 해볼까요?",
+    };
+
+    return _AiReportTarget(
+      cacheKey: option.id,
+      period: _selected,
+      startDate: option.startDate,
+      endDate: option.endDate,
+      generatedAt: option.generatedAt,
+      summaryTitle: summaryTitle,
+      actionTitle: actionTitle,
+      enabled: option.enabled,
     );
   }
 
-  Widget _buildCalendarPeriodReportContent() {
-    final _PeriodAiReportLoadState state =
-        _periodReports[_periodReportCacheKey(_selected)] ??
-        const _PeriodAiReportLoadState.idle();
+  Future<void> _ensureSelectedReportLoaded({bool forceRefresh = false}) async {
+    final _AiReportTarget? target = _selectedTarget();
+    if (target == null || !target.enabled) {
+      return;
+    }
 
-    if (state.status == _PeriodAiReportLoadStatus.loading ||
-        state.status == _PeriodAiReportLoadStatus.idle) {
-      return const Padding(
-        padding: EdgeInsets.only(top: AppSpacing.s24),
-        child: SizedBox(
-          width: double.infinity,
-          height: 180,
-          child: Center(child: CircularProgressIndicator()),
+    final CachedAiReportEntry? cachedEntry = _cachedReports[target.cacheKey];
+    final _AiGeneratedReportLoadState current =
+        _reportStates[target.cacheKey] ??
+        const _AiGeneratedReportLoadState.idle();
+    if (!forceRefresh &&
+        current.status == _AiGeneratedReportLoadStatus.loading) {
+      return;
+    }
+    if (!forceRefresh &&
+        current.status == _AiGeneratedReportLoadStatus.success &&
+        !_shouldRefreshStaleAiReport(current.report)) {
+      return;
+    }
+
+    if (!forceRefresh &&
+        cachedEntry != null &&
+        !_shouldRefreshStaleAiReport(cachedEntry.report)) {
+      setState(() {
+        _reportStates[target.cacheKey] = _AiGeneratedReportLoadState.success(
+          report: cachedEntry.report,
+          payload: cachedEntry.payload,
+          generatedAt: cachedEntry.generatedAt,
+        );
+      });
+      return;
+    }
+
+    setState(() {
+      _reportStates[target.cacheKey] =
+          const _AiGeneratedReportLoadState.loading();
+    });
+
+    try {
+      late final ReportAnalyzePayload payload;
+      late final WeeklyAiReport report;
+
+      switch (target.period) {
+        case _AiReportPeriod.weekly:
+          final WeeklyAggregationSnapshot snapshot =
+              await _weeklyAggregationService.buildWeeklySnapshotForWindow(
+                startDate: target.startDate,
+                endDate: target.endDate,
+              );
+          payload = snapshot.payload;
+          report = await _fetchWeeklyReport(snapshot);
+        case _AiReportPeriod.monthly:
+        case _AiReportPeriod.quarterly:
+        case _AiReportPeriod.yearly:
+          final ReportPeriod period = switch (target.period) {
+            _AiReportPeriod.monthly => ReportPeriod.monthly,
+            _AiReportPeriod.quarterly => ReportPeriod.quarterly,
+            _AiReportPeriod.yearly => ReportPeriod.yearly,
+            _AiReportPeriod.weekly => throw StateError("weekly not supported"),
+          };
+          payload = await _periodAggregationService.buildPayloadForSelection(
+            period: period,
+            year: target.startDate.year,
+            month: target.startDate.month,
+          );
+          report = await _fetchCalendarReport(payload: payload);
+      }
+
+      final CachedAiReportEntry entry = CachedAiReportEntry(
+        cacheKey: target.cacheKey,
+        periodKey: target.period.name,
+        generatedAt: target.generatedAt,
+        startDate: target.startDate,
+        endDate: target.endDate,
+        payload: payload,
+        report: report,
+      );
+      await _cacheStore.upsert(entry);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cachedReports[target.cacheKey] = entry;
+        _reportStates[target.cacheKey] = _AiGeneratedReportLoadState.success(
+          report: report,
+          payload: payload,
+          generatedAt: target.generatedAt,
+        );
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      if (cachedEntry != null && cachedEntry.report.isFromOpenAi) {
+        setState(() {
+          _reportStates[target.cacheKey] = _AiGeneratedReportLoadState.success(
+            report: cachedEntry.report,
+            payload: cachedEntry.payload,
+            generatedAt: cachedEntry.generatedAt,
+          );
+        });
+        return;
+      }
+      setState(() {
+        _reportStates[target.cacheKey] =
+            const _AiGeneratedReportLoadState.error(
+              "실제 AI 분석 리포트가 아직 준비되지 않았어요. 생성 시점 이후 다시 확인해주세요.",
+            );
+      });
+    }
+  }
+
+  Future<WeeklyAiReport> _fetchWeeklyReport(
+    WeeklyAggregationSnapshot snapshot,
+  ) async {
+    final WeeklyAiReport report = await _apiClient.analyzeOpenAiOnly(
+      snapshot.payload,
+    );
+    return _weeklyAggregationService.tuneWeeklyReport(
+      report: report,
+      snapshot: snapshot,
+    );
+  }
+
+  Future<WeeklyAiReport> _fetchCalendarReport({
+    required ReportAnalyzePayload payload,
+  }) async {
+    return _apiClient.analyzeOpenAiOnly(payload);
+  }
+
+  bool _shouldRefreshStaleAiReport(WeeklyAiReport? report) {
+    return _apiClient.isConfigured && !(report?.isFromOpenAi ?? false);
+  }
+
+  String _scheduleBannerMessage() {
+    final AiReportTimelineOption? option = _selectedTimelineOption();
+    switch (_selected) {
+      case _AiReportPeriod.weekly:
+        if (option == null) {
+          return "주간 리포트는 매주 일요일 08:00에 반영돼요";
+        }
+        return "${_weeklyRangeLabel(option.startDate, option.endDate)} 기록은 "
+            "${_nextGenerationLabel(option.generatedAt)}에 반영돼요";
+      case _AiReportPeriod.monthly:
+        return "매월 기록은 매달 말일 08:00에 반영돼요";
+      case _AiReportPeriod.quarterly:
+        return "매 분기 기록은 분기 말일 8:00에 생성됩니다.";
+      case _AiReportPeriod.yearly:
+        return "기록은 매년 말일 8:00에 자동생성 됩니다.";
+    }
+  }
+
+  String _unavailablePeriodMessage(_AiReportPeriod period) {
+    switch (period) {
+      case _AiReportPeriod.weekly:
+        return "주간 리포트는 해당 월에 생성된 주차부터 순서대로 확인할 수 있어요.";
+      case _AiReportPeriod.monthly:
+        return "월간 리포트는 기록이 쌓인 달의 말일 08:00 이후에 확인할 수 있어요.";
+      case _AiReportPeriod.quarterly:
+        return "분기 리포트는 3·6·9·12월 말일 08:00 이후에 확인할 수 있어요.";
+      case _AiReportPeriod.yearly:
+        return "연간 리포트는 12월 말일 08:00 이후에 확인할 수 있어요.";
+    }
+  }
+
+  List<_AiSecondaryChipData> _secondaryChips() {
+    final List<AiReportTimelineOption> options = switch (_selected) {
+      _AiReportPeriod.weekly => _weeklyOptions(),
+      _AiReportPeriod.monthly => _monthlyOptions(),
+      _AiReportPeriod.quarterly => _quarterlyOptions(),
+      _AiReportPeriod.yearly => <AiReportTimelineOption>[_yearlyOption()],
+    };
+
+    final String? selectedId = _selectedTimelineOption()?.id;
+    return options
+        .map((AiReportTimelineOption option) {
+          return _AiSecondaryChipData(
+            label: option.label,
+            state: option.id == selectedId
+                ? _AiSecondaryChipState.selected
+                : option.enabled
+                ? _AiSecondaryChipState.defaultState
+                : _AiSecondaryChipState.disabled,
+            onTap: option.enabled
+                ? () => _handleSecondaryChipTap(option)
+                : null,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  Widget _buildSummaryCard({
+    required String title,
+    required WeeklyAiReport report,
+  }) {
+    return _AiReportPreviewCard(
+      iconAsset: MyRecordsScreen._profileRecordPatternAsset,
+      title: title,
+      showAiBadge: report.isFromOpenAi,
+      body: AppEmojiText(
+        report.summary,
+        style: AppTypography.bodyMediumRegular.copyWith(
+          color: AppNeutralColors.grey900,
         ),
+      ),
+    );
+  }
+
+  Widget _buildInsightCard(WeeklyAiReport report) {
+    final List<String> lines = report.insights.isEmpty
+        ? const <String>["아직 인사이트가 없어요."]
+        : report.insights;
+    return _AiReportPreviewCard(
+      iconAsset: MyRecordsScreen._profileInsightAsset,
+      title: "인사이트",
+      showAiBadge: report.isFromOpenAi,
+      body: _AiReportTextGroup(lines: lines),
+    );
+  }
+
+  Widget _buildActionCard(WeeklyAiReport report) {
+    final List<String> lines = report.actions.isEmpty
+        ? const <String>["아직 제안이 없어요."]
+        : report.actions;
+    return _AiReportPreviewCard(
+      iconAsset: MyRecordsScreen._profileBucketlistAsset,
+      title: _selectedTarget()?.actionTitle ?? "이렇게 해볼까요?",
+      showAiBadge: report.isFromOpenAi,
+      body: _AiReportTextGroup(lines: lines, bulleted: true),
+    );
+  }
+
+  Widget _buildSelectedReportContent() {
+    final _AiReportTarget? target = _selectedTarget();
+    if (target == null) {
+      return _AiDataAlert(message: _unavailablePeriodMessage(_selected));
+    }
+
+    final _AiGeneratedReportLoadState state =
+        _reportStates[target.cacheKey] ??
+        const _AiGeneratedReportLoadState.idle();
+
+    if (state.status == _AiGeneratedReportLoadStatus.loading ||
+        state.status == _AiGeneratedReportLoadStatus.idle) {
+      return const SizedBox(
+        width: double.infinity,
+        height: 180,
+        child: Center(child: CircularProgressIndicator()),
       );
     }
 
-    if (state.status == _PeriodAiReportLoadStatus.error ||
+    if (state.status == _AiGeneratedReportLoadStatus.error ||
         state.report == null) {
-      return Column(
-        children: <Widget>[
-          const SizedBox(height: AppSpacing.s24),
-          _AiDataAlert(message: state.errorMessage ?? "AI 리포트를 아직 준비하지 못했어요."),
-        ],
+      return _AiDataAlert(
+        message: state.errorMessage ?? "AI 리포트를 아직 준비하지 못했어요.",
       );
     }
 
     final WeeklyAiReport report = state.report!;
-    final String insightBody = report.insights.isEmpty
-        ? "아직 인사이트가 없어요."
-        : report.insights.map((String insight) => "• $insight").join("\n");
-    final String actionsBody = report.actions.isEmpty
-        ? "아직 제안이 없어요."
-        : report.actions.map((String action) => "• $action").join("\n");
+    final bool compactWeekly =
+        target.period == _AiReportPeriod.weekly && state.isCompact;
+
+    if (compactWeekly) {
+      return Column(
+        children: <Widget>[
+          _buildSummaryCard(title: target.summaryTitle, report: report),
+          if (report.actions.isNotEmpty) ...<Widget>[
+            const SizedBox(height: AppSpacing.s24),
+            _buildActionCard(report),
+          ],
+        ],
+      );
+    }
 
     return Column(
       children: <Widget>[
-        const SizedBox(height: AppSpacing.s16),
-        _AiReportPreviewCard(
-          iconAsset: MyRecordsScreen._profileRecordPatternAsset,
-          title: _calendarSummaryTitle(_selected),
-          body: report.summary,
-          showAiBadge: report.isFromOpenAi,
-        ),
-        const SizedBox(height: AppSpacing.s12),
-        _AiReportPreviewCard(
-          iconAsset: MyRecordsScreen._profileInsightAsset,
-          title: "인사이트",
-          body: insightBody,
-          showAiBadge: report.isFromOpenAi,
-        ),
-        const SizedBox(height: AppSpacing.s12),
-        _AiReportPreviewCard(
-          iconAsset: MyRecordsScreen._profileBucketlistAsset,
-          title: "이렇게 해볼까요?",
-          body: actionsBody,
-          showAiBadge: report.isFromOpenAi,
-        ),
+        _buildSummaryCard(title: target.summaryTitle, report: report),
+        const SizedBox(height: AppSpacing.s24),
+        _buildInsightCard(report),
+        const SizedBox(height: AppSpacing.s24),
+        _buildActionCard(report),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final DateTime now = nowInKst();
-    final bool monthlyEnabled = isAiReportMonthClosed(
-      year: widget.selectedYear,
-      month: widget.selectedMonth,
-      now: now,
-    );
-    final bool quarterlyEnabled =
-        monthlyEnabled && widget.selectedMonth % 3 == 0;
-    final bool yearlyEnabled =
-        monthlyEnabled && widget.selectedMonth == DateTime.december;
+    final AiReportTimelineOption? selectedOption = _selectedTimelineOption();
+    final bool hasEnabledOption = switch (_selected) {
+      _AiReportPeriod.weekly => _weeklyOptions().any(
+        (AiReportTimelineOption option) => option.enabled,
+      ),
+      _AiReportPeriod.monthly => _monthlyOptions().any(
+        (AiReportTimelineOption option) => option.enabled,
+      ),
+      _AiReportPeriod.quarterly => _quarterlyOptions().any(
+        (AiReportTimelineOption option) => option.enabled,
+      ),
+      _AiReportPeriod.yearly => _yearlyOption().enabled,
+    };
+
+    final Widget content =
+        hasEnabledOption && (selectedOption?.enabled ?? false)
+        ? _buildSelectedReportContent()
+        : _AiDataAlert(message: _unavailablePeriodMessage(_selected));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2230,51 +2774,13 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
           ),
         ),
         const SizedBox(height: AppSpacing.s24),
-        Wrap(
-          spacing: AppSpacing.s8,
-          runSpacing: AppSpacing.s8,
-          children: <Widget>[
-            _AiPeriodChip(
-              label: "주간",
-              enabled: true,
-              selected: _selected == _AiReportPeriod.weekly,
-              onTap: () => _handlePeriodTap(_AiReportPeriod.weekly),
-            ),
-            _AiPeriodChip(
-              label: "월간",
-              enabled: monthlyEnabled,
-              selected: monthlyEnabled && _selected == _AiReportPeriod.monthly,
-              onTap: () => _handlePeriodTap(_AiReportPeriod.monthly),
-            ),
-            _AiPeriodChip(
-              label: "분기",
-              enabled: quarterlyEnabled,
-              selected:
-                  quarterlyEnabled && _selected == _AiReportPeriod.quarterly,
-              onTap: () => _handlePeriodTap(_AiReportPeriod.quarterly),
-            ),
-            _AiPeriodChip(
-              label: "연간",
-              enabled: yearlyEnabled,
-              selected: yearlyEnabled && _selected == _AiReportPeriod.yearly,
-              onTap: () => _handlePeriodTap(_AiReportPeriod.yearly),
-            ),
-          ],
-        ),
-        if (_selected == _AiReportPeriod.weekly) ...<Widget>[
-          _buildWeeklyReportContent(),
-        ] else if (!monthlyEnabled) ...<Widget>[
-          const SizedBox(height: AppSpacing.s24),
-          const _AiDataAlert(message: "아직 데이터가 부족합니다.\n월말까지 기다려주세요!"),
-        ] else if (_selected == _AiReportPeriod.quarterly &&
-            !quarterlyEnabled) ...<Widget>[
-          const SizedBox(height: AppSpacing.s24),
-          const _AiDataAlert(message: "분기 리포트는 3·6·9·12월 말에 생성돼요."),
-        ] else if (_selected == _AiReportPeriod.yearly &&
-            !yearlyEnabled) ...<Widget>[
-          const SizedBox(height: AppSpacing.s24),
-          const _AiDataAlert(message: "연간 리포트는 12월 말에 생성돼요."),
-        ] else ...<Widget>[_buildCalendarPeriodReportContent()],
+        _AiPrimaryTabBar(selected: _selected, onChanged: _handlePeriodTap),
+        const SizedBox(height: AppSpacing.s8),
+        _AiSecondaryChipRow(chips: _secondaryChips()),
+        const SizedBox(height: AppSpacing.s24),
+        _AiScheduleBanner(message: _scheduleBannerMessage()),
+        const SizedBox(height: AppSpacing.s24),
+        content,
       ],
     );
   }
@@ -2287,24 +2793,25 @@ class _AiDataAlert extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: 200,
-      child: Center(
-        child: Text(
-          message,
-          textAlign: TextAlign.center,
-          style: AppTypography.bodyMediumRegular.copyWith(
-            color: AppNeutralColors.grey500,
-          ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s20,
+        vertical: AppSpacing.s24,
+      ),
+      child: Text(
+        message,
+        textAlign: TextAlign.center,
+        style: AppTypography.bodyMediumRegular.copyWith(
+          color: AppNeutralColors.grey500,
         ),
       ),
     );
   }
 }
 
-class _AiPendingHint extends StatelessWidget {
-  const _AiPendingHint({required this.message});
+class _AiScheduleBanner extends StatelessWidget {
+  const _AiScheduleBanner({required this.message});
 
   final String message;
 
@@ -2320,55 +2827,198 @@ class _AiPendingHint extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: AppTypography.bodySmallMedium.copyWith(
-          color: AppNeutralColors.grey700,
+        style: AppTypography.bodySmallRegular.copyWith(
+          color: AppNeutralColors.grey800,
         ),
       ),
     );
   }
 }
 
-class _AiPeriodChip extends StatelessWidget {
-  const _AiPeriodChip({
+String _aiReportPeriodLabel(_AiReportPeriod period) {
+  return switch (period) {
+    _AiReportPeriod.weekly => "주간",
+    _AiReportPeriod.monthly => "월간",
+    _AiReportPeriod.quarterly => "분기",
+    _AiReportPeriod.yearly => "연간",
+  };
+}
+
+class _AiPrimaryTabBar extends StatelessWidget {
+  const _AiPrimaryTabBar({required this.selected, required this.onChanged});
+
+  final _AiReportPeriod selected;
+  final ValueChanged<_AiReportPeriod> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        border: Border(bottom: AppTabTokens.containerBottomBorder),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: _AiReportPeriod.values
+            .map(
+              (_AiReportPeriod period) => _AiPrimaryTabButton(
+                label: _aiReportPeriodLabel(period),
+                selected: selected == period,
+                onTap: () => onChanged(period),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+}
+
+class _AiPrimaryTabButton extends StatelessWidget {
+  const _AiPrimaryTabButton({
     required this.label,
-    required this.enabled,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
-  final bool enabled;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final AppSegmentedButtonStyle style = AppSegmentedTokens.style(
-      !enabled
-          ? AppControlState.disabled
-          : selected
-          ? AppControlState.selected
-          : AppControlState.defaultState,
+    final BrandScale brand = context.appBrandScale;
+    final AppTabButtonStyle style = AppTabTokens.style(
+      selected ? AppControlState.selected : AppControlState.defaultState,
     );
+    final Color textColor = selected ? brand.c500 : style.textColor;
+    final Color borderColor = selected ? brand.c500 : style.borderColor;
     return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: style.borderRadius,
-      child: Opacity(
-        opacity: enabled ? 1 : 0.48,
+      onTap: onTap,
+      child: Container(
+        width: AppTabTokens.width,
+        padding: style.padding,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: borderColor,
+              width: selected
+                  ? AppTabTokens.selectedBottomBorderWidth
+                  : AppSpacing.s0,
+            ),
+          ),
+        ),
+        child: Text(label, style: style.textStyle.copyWith(color: textColor)),
+      ),
+    );
+  }
+}
+
+class _AiSecondaryChipRow extends StatelessWidget {
+  const _AiSecondaryChipRow({required this.chips});
+
+  final List<_AiSecondaryChipData> chips;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(
+        children: List<Widget>.generate(chips.length, (int index) {
+          return Padding(
+            padding: EdgeInsets.only(
+              right: index == chips.length - 1 ? AppSpacing.s0 : AppSpacing.s8,
+            ),
+            child: _AiSecondaryChip(data: chips[index]),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _AiSecondaryChip extends StatelessWidget {
+  const _AiSecondaryChip({required this.data});
+
+  final _AiSecondaryChipData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
+    final bool isSelected = data.state == _AiSecondaryChipState.selected;
+    final bool isDisabled = data.state == _AiSecondaryChipState.disabled;
+    final Color backgroundColor = isSelected
+        ? brand.c100
+        : isDisabled
+        ? AppNeutralColors.grey50
+        : AppNeutralColors.white;
+    final Color borderColor = isSelected ? brand.c500 : Colors.transparent;
+    final Color textColor = isSelected
+        ? brand.c500
+        : isDisabled
+        ? AppNeutralColors.grey200
+        : AppNeutralColors.grey600;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: AppRadius.pill,
+        onTap: isDisabled ? null : data.onTap,
         child: Container(
-          padding: style.padding,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.s20,
+            vertical: AppSpacing.s6,
+          ),
           decoration: BoxDecoration(
-            color: style.backgroundColor,
-            borderRadius: style.borderRadius,
-            border: Border.all(color: style.borderColor, width: 1),
-            boxShadow: style.shadows,
+            color: backgroundColor,
+            borderRadius: AppRadius.pill,
+            border: Border.all(color: borderColor),
+            boxShadow: AppElevation.level1,
           ),
           child: Text(
-            label,
-            style: style.textStyle.copyWith(color: style.textColor),
+            data.label,
+            style: AppTypography.bodySmallSemiBold.copyWith(color: textColor),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AiReportTextGroup extends StatelessWidget {
+  const _AiReportTextGroup({required this.lines, this.bulleted = false});
+
+  final List<String> lines;
+  final bool bulleted;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle style = AppTypography.bodyMediumRegular.copyWith(
+      color: AppNeutralColors.grey900,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List<Widget>.generate(lines.length, (int index) {
+        final Widget child = bulleted
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text("•", style: style),
+                  const SizedBox(width: AppSpacing.s8),
+                  Expanded(child: AppEmojiText(lines[index], style: style)),
+                ],
+              )
+            : AppEmojiText(lines[index], style: style);
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: index == lines.length - 1 ? AppSpacing.s0 : AppSpacing.s4,
+          ),
+          child: child,
+        );
+      }),
     );
   }
 }
@@ -2383,7 +3033,7 @@ class _AiReportPreviewCard extends StatelessWidget {
 
   final String iconAsset;
   final String title;
-  final String body;
+  final Widget body;
   final bool showAiBadge;
 
   @override
@@ -2447,54 +3097,98 @@ class _AiReportPreviewCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.s20),
-          AppEmojiText(
-            body,
-            style: AppTypography.bodyMediumRegular.copyWith(
-              color: AppNeutralColors.grey900,
-            ),
-          ),
+          body,
         ],
       ),
     );
   }
 }
 
-enum _PeriodAiReportLoadStatus { idle, loading, success, error }
+enum _AiGeneratedReportLoadStatus { idle, loading, success, error }
 
-class _PeriodAiReportLoadState {
-  const _PeriodAiReportLoadState({
+class _AiGeneratedReportLoadState {
+  const _AiGeneratedReportLoadState({
     required this.status,
     this.report,
+    this.payload,
+    this.generatedAt,
     this.errorMessage,
   });
 
-  const _PeriodAiReportLoadState.idle()
-    : this(status: _PeriodAiReportLoadStatus.idle);
+  const _AiGeneratedReportLoadState.idle()
+    : this(status: _AiGeneratedReportLoadStatus.idle);
 
-  const _PeriodAiReportLoadState.loading()
-    : this(status: _PeriodAiReportLoadStatus.loading);
+  const _AiGeneratedReportLoadState.loading()
+    : this(status: _AiGeneratedReportLoadStatus.loading);
 
-  const _PeriodAiReportLoadState.success(WeeklyAiReport report)
-    : this(status: _PeriodAiReportLoadStatus.success, report: report);
+  const _AiGeneratedReportLoadState.success({
+    required WeeklyAiReport report,
+    required ReportAnalyzePayload payload,
+    required DateTime generatedAt,
+  }) : this(
+         status: _AiGeneratedReportLoadStatus.success,
+         report: report,
+         payload: payload,
+         generatedAt: generatedAt,
+       );
 
-  const _PeriodAiReportLoadState.error(String errorMessage)
-    : this(status: _PeriodAiReportLoadStatus.error, errorMessage: errorMessage);
+  const _AiGeneratedReportLoadState.error(String errorMessage)
+    : this(
+        status: _AiGeneratedReportLoadStatus.error,
+        errorMessage: errorMessage,
+      );
 
-  final _PeriodAiReportLoadStatus status;
+  final _AiGeneratedReportLoadStatus status;
   final WeeklyAiReport? report;
+  final ReportAnalyzePayload? payload;
+  final DateTime? generatedAt;
   final String? errorMessage;
+
+  bool get isCompact {
+    final ReportAnalyzePayload? currentPayload = payload;
+    if (currentPayload == null) {
+      return false;
+    }
+    final int? recordedDays = _metricInt(
+      currentPayload.metrics["recorded_days"],
+    );
+    return (recordedDays ?? currentPayload.days.length) < 3;
+  }
+
+  static int? _metricInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.round();
+    }
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    return null;
+  }
 }
 
-class _WeeklyReportPendingProgress {
-  const _WeeklyReportPendingProgress({
+class _AiReportTarget {
+  const _AiReportTarget({
+    required this.cacheKey,
+    required this.period,
     required this.startDate,
     required this.endDate,
-    required this.nextGenerationDateTime,
+    required this.generatedAt,
+    required this.summaryTitle,
+    required this.actionTitle,
+    required this.enabled,
   });
 
+  final String cacheKey;
+  final _AiReportPeriod period;
   final DateTime startDate;
   final DateTime endDate;
-  final DateTime nextGenerationDateTime;
+  final DateTime generatedAt;
+  final String summaryTitle;
+  final String actionTitle;
+  final bool enabled;
 }
 
 class _StreakCardCopy {
@@ -3369,953 +4063,6 @@ class _PastRecordRow extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _MonthlyKeywordPieCard extends StatelessWidget {
-  const _MonthlyKeywordPieCard({
-    required this.selectedYear,
-    required this.selectedMonth,
-  });
-
-  final int selectedYear;
-  final int selectedMonth;
-
-  static const List<Color> _sliceColors = <Color>[
-    Color(0xFF0069D6),
-    Color(0xFF017AF7),
-    Color(0xFF86CAFF),
-    Color(0xFFB6E2FF),
-    Color(0xFFD3EEFF),
-  ];
-
-  static const Set<String> _stopWords = <String>{
-    "오늘",
-    "이번",
-    "그리고",
-    "그냥",
-    "계속",
-    "많이",
-    "말고",
-    "진짜",
-    "조금",
-    "약간",
-    "아직",
-    "이미",
-    "먼저",
-    "다시",
-    "또",
-    "더",
-    "덜",
-    "자꾸",
-    "바로",
-    "새로",
-    "가득",
-    "이런",
-    "그런",
-    "저런",
-    "돼요",
-    "되요",
-    "되고",
-    "정말",
-    "너무",
-    "같은",
-    "대한",
-    "에서",
-    "으로",
-    "하다",
-    "했다",
-    "하고",
-    "있다",
-    "없다",
-    "나는",
-    "내가",
-    "우리",
-    "요즘",
-    "지금",
-    "그래",
-    "그래도",
-    "그래서",
-    "근데",
-    "하지만",
-  };
-  static const Set<String> _lowInfoWords = <String>{
-    "사람",
-    "하루",
-    "기분",
-    "마음",
-    "생각",
-    "시간",
-    "생활",
-    "정상",
-    "요즘",
-    "오늘",
-    "이번",
-    "상태",
-  };
-  static const Set<String> _blockedKeywordWords = <String>{
-    "이야기",
-    "얘기",
-    "다녀오기",
-    "돌아오기",
-    "보기",
-    "가기",
-    "오기",
-    "하기",
-    "해보기",
-    "보내기",
-    "지내기",
-    "나가기",
-    "들어가기",
-    "그래",
-    "그래도",
-    "그래서",
-    "근데",
-    "하지만",
-  };
-  static const Set<String> _domainBoostWords = <String>{
-    "행복",
-    "기쁨",
-    "설렘",
-    "불안",
-    "우울",
-    "외로움",
-    "스트레스",
-    "안정",
-    "가족",
-    "친구",
-    "연인",
-    "엄마",
-    "아빠",
-    "동생",
-    "고양이",
-    "강아지",
-    "운동",
-    "공부",
-    "산책",
-    "여행",
-    "취업",
-    "이직",
-    "퇴사",
-    "건강",
-    "독서",
-    "기록",
-    "집",
-    "회사",
-    "학교",
-    "카페",
-    "병원",
-  };
-
-  static const Set<String> _nonNounSuffixes = <String>{
-    "하다",
-    "했다",
-    "해요",
-    "합니다",
-    "되는",
-    "되다",
-    "됐다",
-    "이다",
-    "예요",
-    "어요",
-    "아요",
-    "네요",
-    "하게",
-    "하며",
-    "같다",
-    "같은",
-    "좋다",
-    "좋은",
-    "싶다",
-    "싶은",
-    "하기",
-    "가기",
-    "보기",
-    "먹기",
-    "듣기",
-    "한다",
-    "된다",
-    "했다가",
-    "하려",
-    "하려고",
-    "하도록",
-    "되도록",
-    "시키다",
-    "시킨다",
-    "시키는",
-    "시키고",
-    "하기로",
-    "되기로",
-    "하려면",
-    "된다면",
-    "되게",
-    "할수록",
-    "될수록",
-    "해보자",
-    "해보기",
-    "아서",
-    "어서",
-    "여서",
-    "워서",
-    "고서",
-    "면서",
-    "고",
-    "어",
-    "나",
-  };
-
-  static const List<String> _verbLikeFragments = <String>[
-    "하도록",
-    "되도록",
-    "하려고",
-    "하려",
-    "한다",
-    "된다",
-    "했다",
-    "되고",
-    "되는",
-    "되게",
-    "하기로",
-    "되기로",
-    "하려면",
-    "한다면",
-    "된다면",
-    "할수록",
-    "될수록",
-    "해보자",
-    "해보기",
-    "하며",
-    "하면",
-    "가서",
-    "와서",
-    "해서",
-    "이사가서",
-    "했으면",
-    "겠다",
-    "으면",
-    "들으면",
-    "아서",
-    "어서",
-    "여서",
-    "워서",
-    "고서",
-    "면서",
-  ];
-
-  static const Set<String> _singleCharAllowedNouns = <String>{
-    "비",
-    "밥",
-    "술",
-    "잠",
-    "집",
-    "일",
-    "물",
-    "눈",
-    "돈",
-    "말",
-    "밤",
-    "낮",
-    "길",
-    "차",
-    "책",
-    "꽃",
-    "몸",
-    "힘",
-    "맛",
-    "꿈",
-    "옷",
-    "손",
-    "발",
-    "산",
-    "달",
-    "별",
-    "빵",
-  };
-
-  static const List<String> _inlineJosaSuffixes = <String>[
-    "이라서",
-    "라서",
-    "에서",
-    "에게",
-    "으로",
-    "이며",
-    "이고",
-    "은",
-    "는",
-    "이",
-    "가",
-    "을",
-    "를",
-    "에",
-    "도",
-    "와",
-    "과",
-    "랑",
-    "야",
-  ];
-
-  static const List<String> _clauseTailEndings = <String>[
-    "라면",
-    "다면",
-    "으면",
-    "면서",
-    "려고",
-    "려면",
-    "해야",
-    "해요",
-    "네요",
-    "아요",
-    "어요",
-    "했어",
-    "하면",
-    "한다",
-    "된다",
-    "하다",
-    "되다",
-    "가요",
-    "와요",
-    "오면",
-    "가면",
-    "면",
-    "다",
-    "고",
-    "서",
-    "요",
-    "자",
-    "네",
-    "까",
-    "게",
-    "지",
-    "며",
-  ];
-
-  static const List<String> _predicateTailStarters = <String>[
-    "하",
-    "되",
-    "가",
-    "오",
-    "보",
-    "먹",
-    "듣",
-    "읽",
-    "쓰",
-    "누",
-    "마시",
-    "걷",
-    "놀",
-    "쉬",
-    "좋",
-    "싫",
-    "있",
-    "없",
-    "많",
-    "적",
-    "크",
-    "작",
-    "같",
-    "남",
-    "살",
-    "웃",
-    "울",
-    "떠",
-    "타",
-    "입",
-  ];
-  static const List<String> _keywordTailReplacements = <String>["이야기", "다녀오기"];
-  static const List<String> _compoundActionSuffixes = <String>[
-    "보기",
-    "가기",
-    "오기",
-    "먹기",
-    "듣기",
-    "읽기",
-    "쓰기",
-    "마시기",
-    "타기",
-  ];
-  static const Set<String> _blockedCompoundActionPrefixes = <String>{
-    "다녀",
-    "돌아",
-    "보내",
-    "지내",
-    "들어",
-    "나가",
-    "해",
-    "해보",
-    "챙기",
-    "챙겨",
-    "놀러",
-  };
-
-  static const List<String> _josaSuffixes = <String>[
-    "으로부터",
-    "에게서",
-    "이라서",
-    "라서",
-    "에서",
-    "에게",
-    "으로",
-    "처럼",
-    "보다",
-    "까지",
-    "부터",
-    "하고",
-    "이며",
-    "이고",
-    "이나",
-    "거나",
-    "라도",
-    "만의",
-    "의",
-    "은",
-    "는",
-    "이",
-    "가",
-    "을",
-    "를",
-    "에",
-    "도",
-    "만",
-    "와",
-    "과",
-    "랑",
-    "야",
-  ];
-
-  List<_KeywordSlice> _buildKeywordSlices(List<TodayQuestionRecord> records) {
-    final Iterable<TodayQuestionRecord> monthlyRecords = records.where((
-      TodayQuestionRecord item,
-    ) {
-      final DateTime displayDate = myRecordsDisplayDate(item);
-      return displayDate.year == selectedYear &&
-          displayDate.month == selectedMonth;
-    });
-
-    final Map<String, int> priorityScores = <String, int>{};
-    final Map<String, int> occurrences = <String, int>{};
-    for (final TodayQuestionRecord record in monthlyRecords) {
-      final Map<String, int> perRecord = <String, int>{};
-      final List<String> bucketKeywords = record.bucketTags.isNotEmpty
-          ? record.bucketTags
-          : (record.bucketTag == null || record.bucketTag!.trim().isEmpty)
-          ? const <String>[]
-          : <String>[record.bucketTag!.trim()];
-
-      for (final String keyword in bucketKeywords) {
-        final List<String> nouns = _extractNouns(keyword);
-        for (final String noun in nouns) {
-          int score = 2;
-          if (_domainBoostWords.contains(noun)) {
-            score += 1;
-          }
-          if (_lowInfoWords.contains(noun)) {
-            score -= 1;
-          }
-          _setMaxScore(perRecord, noun, score);
-        }
-      }
-
-      final List<String> nouns = _extractNouns(record.answer);
-      for (final String noun in nouns) {
-        int score = 1;
-        if (_domainBoostWords.contains(noun)) {
-          score += 1;
-        }
-        if (_lowInfoWords.contains(noun)) {
-          score -= 1;
-        }
-        _setMaxScore(perRecord, noun, score);
-      }
-      _applySemanticKeywords(perRecord, record.answer, score: 2);
-      for (final MapEntry<String, int> entry in perRecord.entries) {
-        _addScore(priorityScores, entry.key, entry.value);
-        _addScore(occurrences, entry.key, 1);
-      }
-    }
-
-    final Map<String, int> filteredPriorityScores = _removeSubTokens(
-      priorityScores,
-    );
-    final List<MapEntry<String, int>> sorted =
-        filteredPriorityScores.entries
-            .where((MapEntry<String, int> e) => (occurrences[e.key] ?? 0) > 0)
-            .toList()
-          ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
-            final int aOccurrence = occurrences[a.key] ?? 0;
-            final int bOccurrence = occurrences[b.key] ?? 0;
-            if (bOccurrence != aOccurrence) {
-              return bOccurrence.compareTo(aOccurrence);
-            }
-            if (b.value != a.value) {
-              return b.value.compareTo(a.value);
-            }
-            return a.key.compareTo(b.key);
-          });
-    final List<MapEntry<String, int>> effective = sorted
-        .take(_sliceColors.length)
-        .toList(growable: false);
-    if (effective.isEmpty) {
-      return const <_KeywordSlice>[];
-    }
-
-    final List<_KeywordSlice> result = List<_KeywordSlice>.generate(
-      effective.length > _sliceColors.length
-          ? _sliceColors.length
-          : effective.length,
-      (int index) {
-        final MapEntry<String, int> item = effective[index];
-        final int mentionCount = occurrences[item.key] ?? 0;
-        return _KeywordSlice(
-          label: item.key,
-          weight: mentionCount,
-          recordCount: mentionCount,
-          rank: index + 1,
-          color: _sliceColors[index % _sliceColors.length],
-        );
-      },
-    );
-    return result;
-  }
-
-  List<String> _extractNouns(String text) {
-    final List<String> result = <String>[];
-    final Iterable<String> tokens = RegExp(
-      r"[가-힣A-Za-z0-9]{1,}",
-    ).allMatches(text).map((Match m) => m.group(0) ?? "");
-    for (final String token in tokens) {
-      final String? noun = _normalizeNounToken(token);
-      if (noun == null || _stopWords.contains(noun)) {
-        continue;
-      }
-      result.add(noun);
-    }
-    return result;
-  }
-
-  Map<String, int> _removeSubTokens(Map<String, int> source) {
-    final List<MapEntry<String, int>> all = source.entries.toList();
-    final Map<String, int> result = <String, int>{};
-    for (final MapEntry<String, int> item in all) {
-      final bool remove = all.any((MapEntry<String, int> other) {
-        if (identical(item, other) || item.key == other.key) {
-          return false;
-        }
-        final bool contained =
-            other.key.length > item.key.length && other.key.contains(item.key);
-        final bool stronger =
-            other.value >= item.value && _wordCount(other.key) > 1;
-        return contained && stronger;
-      });
-      if (!remove) {
-        result[item.key] = item.value;
-      }
-    }
-    return result;
-  }
-
-  int _wordCount(String text) =>
-      text.split(" ").where((String w) => w.isNotEmpty).length;
-
-  void _addScore(Map<String, int> counter, String token, int amount) {
-    if (amount == 0) {
-      return;
-    }
-    counter[token] = (counter[token] ?? 0) + amount;
-  }
-
-  void _setMaxScore(Map<String, int> counter, String token, int amount) {
-    if (amount == 0) {
-      return;
-    }
-    final int existing = counter[token] ?? 0;
-    if (amount > existing) {
-      counter[token] = amount;
-    }
-  }
-
-  void _applySemanticKeywords(
-    Map<String, int> counter,
-    String text, {
-    required int score,
-  }) {
-    for (final String keyword in semanticKeywordsFromText(text)) {
-      _setMaxScore(counter, keyword, score);
-    }
-    for (final String artifact in artifactKeywordsForText(text)) {
-      counter.remove(artifact);
-    }
-  }
-
-  String? _normalizeNounToken(String token) {
-    final String rawValue = token.trim().toLowerCase();
-    String value = rawValue;
-    if (value.isEmpty) {
-      return null;
-    }
-    final String? semanticAlias = semanticKeywordAliasForToken(rawValue);
-    if (semanticAlias != null) {
-      return semanticAlias;
-    }
-    value = _extractLeadingNounCandidate(value);
-    if (value.startsWith("이사가")) {
-      value = "이사";
-    }
-    if (value.startsWith("같")) {
-      return null;
-    }
-    for (final String suffix in _josaSuffixes) {
-      if (value.length > suffix.length && value.endsWith(suffix)) {
-        value = value.substring(0, value.length - suffix.length);
-        break;
-      }
-    }
-    value = _normalizeKeywordTail(value);
-    if (!_isLikelyNoun(value)) {
-      final String? compoundAction = _normalizeCompoundActionNoun(value);
-      if (compoundAction == null) {
-        return null;
-      }
-      return compoundAction;
-    }
-    for (final String fragment in _verbLikeFragments) {
-      if (value == fragment ||
-          value.endsWith(fragment) ||
-          value.contains(fragment)) {
-        return null;
-      }
-    }
-    if (_blockedKeywordWords.contains(value)) {
-      return null;
-    }
-    for (final String noise in <String>["계속", "많이", "말고", "돼요", "되요", "되고"]) {
-      if (value.contains(noise)) {
-        return null;
-      }
-    }
-    return value;
-  }
-
-  String _normalizeKeywordTail(String value) {
-    if (_blockedKeywordWords.contains(value)) {
-      return value;
-    }
-    for (final String suffix in _keywordTailReplacements) {
-      if (value.length <= suffix.length + 1 || !value.endsWith(suffix)) {
-        continue;
-      }
-      final String prefix = value.substring(0, value.length - suffix.length);
-      if (_isMeaningfulKeywordStem(prefix)) {
-        return prefix;
-      }
-    }
-    return value;
-  }
-
-  String? _normalizeCompoundActionNoun(String value) {
-    if (_blockedKeywordWords.contains(value)) {
-      return null;
-    }
-    for (final String suffix in _compoundActionSuffixes) {
-      if (value.length <= suffix.length + 1 || !value.endsWith(suffix)) {
-        continue;
-      }
-      final String prefix = value.substring(0, value.length - suffix.length);
-      if (!_isMeaningfulKeywordStem(prefix)) {
-        continue;
-      }
-      final bool blocked = _blockedCompoundActionPrefixes.any(prefix.endsWith);
-      if (blocked) {
-        continue;
-      }
-      return value;
-    }
-    return null;
-  }
-
-  bool _isMeaningfulKeywordStem(String value) {
-    if (value.isEmpty ||
-        _stopWords.contains(value) ||
-        _lowInfoWords.contains(value) ||
-        _blockedKeywordWords.contains(value)) {
-      return false;
-    }
-    if (!_isLikelyNoun(value)) {
-      return false;
-    }
-    for (final String fragment in _verbLikeFragments) {
-      if (value == fragment ||
-          value.endsWith(fragment) ||
-          value.contains(fragment)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  bool _isLikelyNoun(String token) {
-    if (token.isEmpty) return false;
-    if (token.length < 2) return _singleCharAllowedNouns.contains(token);
-    for (final String suffix in _nonNounSuffixes) {
-      if (token.endsWith(suffix)) return false;
-    }
-    if (token.endsWith("히") || token.endsWith("게")) return false;
-    return true;
-  }
-
-  String _extractLeadingNounCandidate(String value) {
-    for (final String suffix in _inlineJosaSuffixes) {
-      final int index = value.indexOf(suffix, 1);
-      if (index <= 0) {
-        continue;
-      }
-      final String noun = value.substring(0, index);
-      final String tail = value.substring(index + suffix.length);
-      if (noun.isEmpty || tail.isEmpty) {
-        continue;
-      }
-      if (_looksLikeClauseTail(tail)) {
-        return noun;
-      }
-    }
-    return value;
-  }
-
-  bool _looksLikeClauseTail(String tail) {
-    if (tail.isEmpty) {
-      return false;
-    }
-    for (final String ending in _clauseTailEndings) {
-      if (tail.length > ending.length && tail.endsWith(ending)) {
-        return true;
-      }
-    }
-    for (final String fragment in _verbLikeFragments) {
-      if (tail == fragment ||
-          tail.endsWith(fragment) ||
-          tail.contains(fragment)) {
-        return true;
-      }
-    }
-    for (final String starter in _predicateTailStarters) {
-      if (tail.startsWith(starter)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<List<TodayQuestionRecord>>(
-      valueListenable: TodayQuestionStore.instance,
-      builder: (BuildContext context, List<TodayQuestionRecord> records, _) {
-        final int monthlyRecordCount = records.where((
-          TodayQuestionRecord item,
-        ) {
-          final DateTime displayDate = myRecordsDisplayDate(item);
-          return displayDate.year == selectedYear &&
-              displayDate.month == selectedMonth &&
-              item.answer.trim().isNotEmpty;
-        }).length;
-        final List<_KeywordSlice> slices = _buildKeywordSlices(records);
-        final bool showNoKeywordDonut =
-            monthlyRecordCount == 0 || slices.isEmpty;
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.s24),
-          decoration: BoxDecoration(
-            color: AppNeutralColors.white,
-            borderRadius: AppRadius.br16,
-            boxShadow: AppElevation.level1,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                "$selectedMonth월 키워드",
-                style: AppTypography.headingXSmall.copyWith(
-                  color: AppNeutralColors.grey900,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.s4),
-              Text(
-                "이번 달 기록 $monthlyRecordCount건 기준",
-                style: AppTypography.captionMedium.copyWith(
-                  color: AppNeutralColors.grey500,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.s16),
-              if (showNoKeywordDonut)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s24),
-                  child: Column(
-                    children: <Widget>[
-                      Center(
-                        child: SizedBox(
-                          width: 180,
-                          height: 180,
-                          child: CustomPaint(
-                            size: const Size(180, 180),
-                            painter: const _KeywordNoDataDonutPainter(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.s12),
-                      Text(
-                        "아직 분석할 답변이 부족해요",
-                        style: AppTypography.bodyMediumRegular.copyWith(
-                          color: AppNeutralColors.grey500,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else ...<Widget>[
-                Center(
-                  child: SizedBox(
-                    width: 180,
-                    height: 180,
-                    child: CustomPaint(
-                      size: const Size(180, 180),
-                      painter: _KeywordPieChartPainter(slices: slices),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.s16),
-                Column(
-                  children: slices
-                      .map((_KeywordSlice slice) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpacing.s4),
-                          child: Row(
-                            children: <Widget>[
-                              Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: slice.color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.s4),
-                              Expanded(
-                                child: Text(
-                                  slice.label,
-                                  style: AppTypography.bodySmallRegular
-                                      .copyWith(
-                                        color: AppNeutralColors.grey900,
-                                      ),
-                                ),
-                              ),
-                              Text(
-                                "${slice.recordCount}건",
-                                style: AppTypography.bodySmallRegular.copyWith(
-                                  color: AppNeutralColors.grey900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      })
-                      .toList(growable: false),
-                ),
-                const SizedBox(height: AppSpacing.s8),
-                Text(
-                  "이번 달 기록 전체에서 키워드가 언급된 건수를 보여줘요.",
-                  style: AppTypography.captionSmall.copyWith(
-                    color: AppNeutralColors.grey500,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _KeywordSlice {
-  const _KeywordSlice({
-    required this.label,
-    required this.weight,
-    required this.recordCount,
-    required this.rank,
-    required this.color,
-  });
-
-  final String label;
-  final int weight;
-  final int recordCount;
-  final int rank;
-  final Color color;
-}
-
-class _KeywordPieChartPainter extends CustomPainter {
-  const _KeywordPieChartPainter({required this.slices});
-
-  final List<_KeywordSlice> slices;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final int total = slices.fold(
-      0,
-      (int acc, _KeywordSlice e) => acc + e.weight,
-    );
-    if (total == 0) return;
-
-    final double strokeWidth = 60;
-    final Rect rect = Rect.fromLTWH(
-      strokeWidth / 2,
-      strokeWidth / 2,
-      size.width - strokeWidth,
-      size.height - strokeWidth,
-    );
-    final Paint paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt;
-
-    double startAngle = -math.pi / 2;
-    for (final _KeywordSlice slice in slices) {
-      final double sweep = (slice.weight / total) * math.pi * 2;
-      paint.color = slice.color;
-      canvas.drawArc(rect, startAngle, sweep, false, paint);
-      startAngle += sweep;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _KeywordPieChartPainter oldDelegate) {
-    return true;
-  }
-}
-
-class _KeywordNoDataDonutPainter extends CustomPainter {
-  const _KeywordNoDataDonutPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final double strokeWidth = 60;
-    final Rect rect = Rect.fromLTWH(
-      strokeWidth / 2,
-      strokeWidth / 2,
-      size.width - strokeWidth,
-      size.height - strokeWidth,
-    );
-    final Paint ringPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.butt
-      ..color = AppNeutralColors.grey100;
-
-    canvas.drawArc(rect, 0, math.pi * 2, false, ringPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _KeywordNoDataDonutPainter oldDelegate) {
-    return false;
   }
 }
 

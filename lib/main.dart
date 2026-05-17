@@ -11,16 +11,28 @@ import "core/app_route_observer.dart";
 import "design_system/design_system.dart";
 import "firebase_options.dart";
 import "features/auth/login_screen.dart";
+import "features/home/home_theme_progression.dart";
 import "features/home/home_screen.dart";
+import "features/home/next_theme_unlock_screen.dart";
 import "features/notifications/daily_question_notification_scheduler.dart";
+import "features/onboarding/onboarding_screen.dart";
 import "features/profile/initial_terms_consent_screen.dart";
 import "features/profile/nickname_complete_screen.dart";
 import "features/profile/nickname_setup_screen.dart";
+import "features/question/today_question_store.dart";
 import "features/question/user_answer_backup_service.dart";
 import "features/report/weekly_report_store.dart";
 import "features/splash/splash_screen.dart";
 
 const Duration _firebaseInitializationTimeout = Duration(seconds: 4);
+const String _debugPreviewScreenEnv = String.fromEnvironment(
+  "DEBUG_PREVIEW_SCREEN",
+  defaultValue: "",
+);
+const String _debugPreviewRecordCountEnv = String.fromEnvironment(
+  "DEBUG_PREVIEW_RECORD_COUNT",
+  defaultValue: "",
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,6 +78,9 @@ Future<void> _initializeFirebaseSafely() async {
     if (error is TimeoutException) {
       return;
     }
+    if (kDebugMode && _debugPreviewScreenEnv.trim().isNotEmpty) {
+      return;
+    }
     if (!kIsWeb) {
       rethrow;
     }
@@ -78,14 +93,16 @@ class DailyQuestionApp extends StatefulWidget {
 
   static const Locale _appLocale = Locale("ko");
   static const bool _forceNicknameSetupPreview = false;
-  static const String _debugPreviewScreen = String.fromEnvironment(
-    "DEBUG_PREVIEW_SCREEN",
-    defaultValue: "",
-  );
+  static const String _debugPreviewScreen = _debugPreviewScreenEnv;
   static const String _debugPreviewNickname = String.fromEnvironment(
     "DEBUG_PREVIEW_NICKNAME",
     defaultValue: "혜선",
   );
+  static const String _debugPreviewTheme = String.fromEnvironment(
+    "DEBUG_PREVIEW_THEME",
+    defaultValue: "",
+  );
+  static const String _debugPreviewRecordCount = _debugPreviewRecordCountEnv;
   static const String _selectedCharacterName = "물고기";
   static const SystemUiOverlayStyle _systemUiStyle = SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -107,11 +124,42 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
   @override
   void initState() {
     super.initState();
+    _applyDebugPreviewRecordsIfNeeded();
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_initializeNotificationSchedulerSafely());
       unawaited(_prepareWeeklyReportSafely());
     });
+  }
+
+  void _applyDebugPreviewRecordsIfNeeded() {
+    if (!kDebugMode) {
+      return;
+    }
+    if (_resolveDebugPreviewScreen(DailyQuestionApp._debugPreviewScreen) !=
+        _DebugPreviewScreen.home) {
+      return;
+    }
+    final int? previewRecordCount = int.tryParse(
+      DailyQuestionApp._debugPreviewRecordCount.trim(),
+    );
+    if (previewRecordCount == null || previewRecordCount < 0) {
+      return;
+    }
+    final DateTime now = DateTime.now();
+    TodayQuestionStore.instance.value = List<TodayQuestionRecord>.generate(
+      previewRecordCount,
+      (int index) {
+        final DateTime createdAt = now.subtract(Duration(days: index));
+        return TodayQuestionRecord(
+          createdAt: createdAt,
+          answer: "프리뷰 기록 ${index + 1}",
+          author: "프리뷰",
+          questionText: "프리뷰 질문",
+        );
+      },
+      growable: false,
+    );
   }
 
   @override
@@ -151,24 +199,37 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      navigatorObservers: <NavigatorObserver>[appRouteObserver],
-      locale: DailyQuestionApp._appLocale,
-      supportedLocales: const <Locale>[DailyQuestionApp._appLocale],
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      builder: (BuildContext context, Widget? child) {
-        return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: DailyQuestionApp._systemUiStyle,
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-      theme: AppTheme.of(
-        AppCharacterThemeMapper.fromCharacterName(
-          DailyQuestionApp._selectedCharacterName,
-        ),
-      ),
-      home: _buildInitialScreen(),
+    final Widget initialScreen = _buildInitialScreen();
+    return ValueListenableBuilder<List<TodayQuestionRecord>>(
+      valueListenable: TodayQuestionStore.instance,
+      child: initialScreen,
+      builder:
+          (
+            BuildContext context,
+            List<TodayQuestionRecord> records,
+            Widget? child,
+          ) {
+            final AppBrandTheme brandTheme = resolveHomeBrandTheme(
+              characterName: DailyQuestionApp._selectedCharacterName,
+              totalRecordCount: records.length,
+              debugThemeOverride: DailyQuestionApp._debugPreviewTheme,
+            );
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              navigatorObservers: <NavigatorObserver>[appRouteObserver],
+              locale: DailyQuestionApp._appLocale,
+              supportedLocales: const <Locale>[DailyQuestionApp._appLocale],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              builder: (BuildContext context, Widget? materialChild) {
+                return AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: DailyQuestionApp._systemUiStyle,
+                  child: materialChild ?? const SizedBox.shrink(),
+                );
+              },
+              theme: AppTheme.of(brandTheme),
+              home: child,
+            );
+          },
     );
   }
 
@@ -180,8 +241,12 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
     switch (_resolveDebugPreviewScreen(previewScreen)) {
       case _DebugPreviewScreen.home:
         return const HomeScreen();
+      case _DebugPreviewScreen.themePreview:
+        return const NextThemeUnlockScreen();
       case _DebugPreviewScreen.login:
         return const LoginScreen(mode: LoginScreenMode.onboarding);
+      case _DebugPreviewScreen.onboarding:
+        return const OnboardingScreen();
       case _DebugPreviewScreen.termsConsent:
         return const InitialTermsConsentScreen();
       case _DebugPreviewScreen.nicknameSetup:
@@ -204,7 +269,9 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
 enum _DebugPreviewScreen {
   none,
   home,
+  themePreview,
   login,
+  onboarding,
   termsConsent,
   nicknameSetup,
   nicknameComplete,
@@ -214,8 +281,13 @@ _DebugPreviewScreen _resolveDebugPreviewScreen(String raw) {
   switch (raw.trim().toLowerCase()) {
     case "home":
       return _DebugPreviewScreen.home;
+    case "theme_preview":
+    case "tree_theme":
+      return _DebugPreviewScreen.themePreview;
     case "login":
       return _DebugPreviewScreen.login;
+    case "onboarding":
+      return _DebugPreviewScreen.onboarding;
     case "terms":
     case "terms_consent":
       return _DebugPreviewScreen.termsConsent;

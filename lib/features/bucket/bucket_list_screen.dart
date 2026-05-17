@@ -27,8 +27,10 @@ class BucketListScreen extends StatefulWidget {
 
 class _BucketListScreenState extends State<BucketListScreen>
     with SingleTickerProviderStateMixin {
-  static const String _emptyBucketAsset =
-      "assets/images/bucket/bucketlist_empty_state_note.webp";
+  static const String _emptyBucketFishAsset =
+      "assets/images/bucket/bucketlist_empty_state_note_fish.webp";
+  static const String _emptyBucketTreeAsset =
+      "assets/images/bucket/bucketlist_empty_state_note_tree.webp";
   static const String _allCategoryName = "ALL";
   static const Color _allCategoryColor = AppNeutralColors.grey100;
   int _selectedTabIndex = 0;
@@ -154,6 +156,12 @@ class _BucketListScreenState extends State<BucketListScreen>
       return entries;
     }
     return <_BucketEntry>[];
+  }
+
+  String _emptyBucketAssetFor(BrandScale brand) {
+    return brand.c500 == AppBrandThemes.green.c500
+        ? _emptyBucketTreeAsset
+        : _emptyBucketFishAsset;
   }
 
   Future<void> _watchPersistedDataChanges() async {
@@ -889,6 +897,7 @@ class _BucketListScreenState extends State<BucketListScreen>
   }
 
   Widget _buildEmptyView(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -975,7 +984,7 @@ class _BucketListScreenState extends State<BucketListScreen>
                       );
                     },
                     child: Image.asset(
-                      _emptyBucketAsset,
+                      _emptyBucketAssetFor(brand),
                       width: 160,
                       height: 160,
                       fit: BoxFit.contain,
