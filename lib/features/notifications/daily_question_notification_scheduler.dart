@@ -65,3 +65,7 @@ Future<bool> areDailyQuestionAlarmPermissionsGrantedOnDevice() async {
 Future<bool> requestDailyQuestionAlarmPermissionsOnDevice() async {
   return impl.requestDailyQuestionAlarmPermissionsOnDevice();
 }
+
+Future<bool> requestBatteryOptimizationExemption() async {
+  return impl.requestBatteryOptimizationExemption();
+}

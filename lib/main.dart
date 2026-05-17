@@ -171,6 +171,22 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     handleUserAnswerBackupAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshNotificationSchedulerOnResume());
+    }
+  }
+
+  Future<void> _refreshNotificationSchedulerOnResume() async {
+    try {
+      await refreshDailyQuestionNotificationSchedulerState();
+    } catch (error, stackTrace) {
+      if (kDebugMode) {
+        debugPrint(
+          "[main] refreshDailyQuestionNotificationSchedulerState failed: $error",
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
   }
 
   Future<void> _initializeNotificationSchedulerSafely() async {

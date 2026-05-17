@@ -196,7 +196,52 @@ Future<bool> areDailyQuestionAlarmPermissionsGrantedOnDevice() async {
     return true;
   }
 
-  return areNotificationsEnabledOnDevice();
+  final bool hasNotificationPermission = await areNotificationsEnabledOnDevice();
+  if (!hasNotificationPermission) {
+    return false;
+  }
+
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    final bool hasBatteryOptimizationExemption =
+        await _isBatteryOptimizationDisabled();
+    if (!hasBatteryOptimizationExemption) {
+      _logNotification(
+        "battery optimization not disabled, alarms may be delayed",
+      );
+    }
+  }
+
+  return true;
+}
+
+Future<bool> _isBatteryOptimizationDisabled() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    return true;
+  }
+  try {
+    final PermissionStatus status =
+        await Permission.ignoreBatteryOptimizations.status;
+    return status == PermissionStatus.granted;
+  } catch (error) {
+    _logNotification("failed to check battery optimization status: $error");
+    return false;
+  }
+}
+
+Future<bool> requestBatteryOptimizationExemption() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+    return true;
+  }
+  try {
+    final PermissionStatus status =
+        await Permission.ignoreBatteryOptimizations.request();
+    final bool granted = status == PermissionStatus.granted;
+    _logNotification("battery optimization exemption request result=$granted");
+    return granted;
+  } catch (error) {
+    _logNotification("failed to request battery optimization exemption: $error");
+    return false;
+  }
 }
 
 Future<bool> requestDailyQuestionAlarmPermissionsOnDevice() async {
@@ -225,6 +270,18 @@ Future<bool> requestDailyQuestionAlarmPermissionsOnDevice() async {
       );
     }
   }
+
+  // Request battery optimization exemption for reliable alarm delivery
+  if (!await _isBatteryOptimizationDisabled()) {
+    try {
+      await requestBatteryOptimizationExemption();
+    } catch (error) {
+      _logNotification(
+        "optional battery optimization exemption request failed: $error",
+      );
+    }
+  }
+
   return true;
 }
 

@@ -26,8 +26,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   int _bucketDdayDaysBefore = NotificationPrefsKeys.defaultBucketDdayDaysBefore;
   bool _hasNotificationPermission = false;
   bool _hasExactAlarmPermission = true;
+  bool _hasBatteryOptimizationExemption = true;
   bool _showDeviceNotificationBanner = true;
   bool _showExactAlarmBanner = false;
+  bool _showBatteryOptimizationBanner = false;
   bool _openingSystemSettings = false;
   int _settingsInteractionVersion = 0;
   TimeOfDay _todayQuestionTime = const TimeOfDay(
@@ -74,8 +76,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       setState(() {
         _hasNotificationPermission = false;
         _hasExactAlarmPermission = true;
+        _hasBatteryOptimizationExemption = true;
         _showDeviceNotificationBanner = false;
         _showExactAlarmBanner = false;
+        _showBatteryOptimizationBanner = false;
       });
       return;
     }
@@ -87,6 +91,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             defaultTargetPlatform == TargetPlatform.android
         ? await canScheduleExactAlarmsOnDevice()
         : true;
+    final bool hasBatteryOptimizationExemption =
+        hasNotificationPermission &&
+            defaultTargetPlatform == TargetPlatform.android
+        ? await _checkBatteryOptimizationStatus()
+        : true;
 
     if (!mounted) {
       return;
@@ -95,16 +104,35 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     setState(() {
       _hasNotificationPermission = hasNotificationPermission;
       _hasExactAlarmPermission = hasExactAlarmPermission;
+      _hasBatteryOptimizationExemption = hasBatteryOptimizationExemption;
       _showDeviceNotificationBanner = !_hasNotificationPermission;
       _showExactAlarmBanner =
           _hasNotificationPermission &&
           defaultTargetPlatform == TargetPlatform.android &&
           !_hasExactAlarmPermission;
+      _showBatteryOptimizationBanner =
+          _hasNotificationPermission &&
+          defaultTargetPlatform == TargetPlatform.android &&
+          _hasExactAlarmPermission &&
+          !_hasBatteryOptimizationExemption;
     });
     _logNotificationSettings(
-      "notificationGranted=$_hasNotificationPermission exactAlarmGranted=$_hasExactAlarmPermission notificationBanner=$_showDeviceNotificationBanner exactAlarmBanner=$_showExactAlarmBanner",
+      "notificationGranted=$_hasNotificationPermission exactAlarmGranted=$_hasExactAlarmPermission batteryOptExemption=$_hasBatteryOptimizationExemption notificationBanner=$_showDeviceNotificationBanner exactAlarmBanner=$_showExactAlarmBanner batteryBanner=$_showBatteryOptimizationBanner",
     );
     await _syncNotificationSchedules();
+  }
+
+  Future<bool> _checkBatteryOptimizationStatus() async {
+    try {
+      final PermissionStatus status =
+          await Permission.ignoreBatteryOptimizations.status;
+      return status == PermissionStatus.granted;
+    } catch (error) {
+      _logNotificationSettings(
+        "failed to check battery optimization status: $error",
+      );
+      return true;
+    }
   }
 
   Future<void> _openNotificationPermissionSettings() async {
@@ -391,6 +419,119 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       _logNotificationSettings("request exact alarm permission result=$opened");
     } on PlatformException catch (error) {
       _logNotificationSettings("request exact alarm permission failed: $error");
+      await openAppSettings();
+    } catch (_) {
+      await openAppSettings();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingSystemSettings = false;
+        });
+      } else {
+        _openingSystemSettings = false;
+      }
+    }
+    await _refreshNotificationPermissionBanner();
+  }
+
+  Future<bool?> _showBatteryOptimizationDialog() {
+    final BrandScale brand = context.appBrandScale;
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: AppPopupTokens.dimmed,
+      builder: (BuildContext dialogContext) {
+        return Center(
+          child: AppPopup(
+            width: AppPopupTokens.maxWidth,
+            title: "배터리 최적화 제외",
+            body: "알림을 제시간에 받으려면\n배터리 최적화에서 제외해주세요.",
+            actions: <Widget>[
+              SizedBox(
+                width: 100,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppNeutralColors.grey100,
+                    foregroundColor: AppNeutralColors.grey600,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "취소",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.grey600,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 170,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: brand.c500,
+                    foregroundColor: AppNeutralColors.white,
+                    surfaceTintColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    overlayColor: Colors.transparent,
+                    splashFactory: NoSplash.splashFactory,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.s8),
+                    ),
+                    textStyle: AppTypography.buttonLarge,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    "설정하기",
+                    style: AppTypography.buttonLarge.copyWith(
+                      color: AppNeutralColors.white,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openBatteryOptimizationSettings() async {
+    if (kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android ||
+        _openingSystemSettings) {
+      return;
+    }
+    final bool? shouldOpenSettings = await _showBatteryOptimizationDialog();
+    if (!mounted || shouldOpenSettings != true) {
+      await _refreshNotificationPermissionBanner();
+      return;
+    }
+    setState(() {
+      _openingSystemSettings = true;
+    });
+    try {
+      final PermissionStatus status =
+          await Permission.ignoreBatteryOptimizations.request();
+      _logNotificationSettings(
+        "battery optimization exemption request result=$status",
+      );
+    } on PlatformException catch (error) {
+      _logNotificationSettings(
+        "battery optimization exemption request failed: $error",
+      );
       await openAppSettings();
     } catch (_) {
       await openAppSettings();
@@ -1104,6 +1245,52 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               ),
                               Text(
                                 "실기기에서 제시간에 받으려면 정확한 알람 권한을 켜주세요.",
+                                style: AppTypography.captionSmall.copyWith(
+                                  color: AppNeutralColors.grey600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right,
+                          size: 20,
+                          color: AppNeutralColors.grey700,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.s24),
+              ],
+              if (_showBatteryOptimizationBanner) ...<Widget>[
+                GestureDetector(
+                  onTap: _openBatteryOptimizationSettings,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.s20,
+                      vertical: AppSpacing.s12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppSemanticColors.warning100,
+                      borderRadius: BorderRadius.circular(AppSpacing.s16),
+                      boxShadow: AppElevation.level1,
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                "🔋 배터리 최적화가 켜져 있어요",
+                                style: AppTypography.heading2XSmall.copyWith(
+                                  color: AppNeutralColors.grey900,
+                                ),
+                              ),
+                              Text(
+                                "알림이 늦게 오거나 안 올 수 있어요. 배터리 최적화에서 제외해주세요.",
                                 style: AppTypography.captionSmall.copyWith(
                                   color: AppNeutralColors.grey600,
                                 ),

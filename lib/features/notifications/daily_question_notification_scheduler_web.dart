@@ -30,3 +30,5 @@ Future<bool> requestExactAlarmPermissionOnDevice() async => true;
 Future<bool> areDailyQuestionAlarmPermissionsGrantedOnDevice() async => true;
 
 Future<bool> requestDailyQuestionAlarmPermissionsOnDevice() async => true;
+
+Future<bool> requestBatteryOptimizationExemption() async => true;
