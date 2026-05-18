@@ -82,7 +82,12 @@ class _RequiredAlarmPermissionGateState
     try {
       granted = await requestDailyQuestionAlarmPermissionsOnDevice();
       if (!granted) {
-        await openAppSettings();
+        // Exact alarm and battery optimization permissions open their own UI,
+        // so only fall back to app settings when notification is still missing.
+        final bool notificationEnabled = await areNotificationsEnabledOnDevice();
+        if (!notificationEnabled) {
+          await openAppSettings();
+        }
       }
     } catch (_) {
       granted = false;
@@ -97,21 +102,17 @@ class _RequiredAlarmPermissionGateState
       _submitting = false;
       if (!_hasRequiredPermissions && !granted) {
         _errorMessage = defaultTargetPlatform == TargetPlatform.android
-            ? "알림과 정시 알람 권한을 모두 허용해야 계속할 수 있어요."
+            ? "알림, 정시 알람, 배터리 최적화 제외 권한을 모두 허용해야 계속할 수 있어요."
             : "알림 권한을 허용해야 계속할 수 있어요.";
       }
     });
   }
 
   String _defaultAlarmTimeLabel() {
-    final TimeOfDay time = const TimeOfDay(
-      hour: NotificationPrefsKeys.defaultTodayQuestionHour,
-      minute: NotificationPrefsKeys.defaultTodayQuestionMinute,
-    );
-    final bool isAm = time.hour < 12;
-    final int hour12 = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
-    final String minute = time.minute.toString().padLeft(2, "0");
-    return "${isAm ? "오전" : "오후"} $hour12:$minute";
+    const int hour = NotificationPrefsKeys.defaultTodayQuestionHour;
+    final bool isAm = hour < 12;
+    final int hour12 = (hour % 12) == 0 ? 12 : hour % 12;
+    return "${isAm ? "오전" : "오후"} $hour12시";
   }
 
   @override
@@ -122,7 +123,9 @@ class _RequiredAlarmPermissionGateState
 
     final BrandScale brand = context.appBrandScale;
     final String permissionDescription =
-        "알림을 받으려면 기기 알림 권한이 필요해요.\n권한을 허용하면 매일 설정한 시간, 설정 전이라면 기본 시간 ${_defaultAlarmTimeLabel()}에 알림을 보내드려요.";
+        defaultTargetPlatform == TargetPlatform.android
+        ? "정시 알람을 받으려면 알림, 정시 알람, 배터리 최적화 제외 권한이 모두 필요해요.\n권한을 허용하면 매일 설정한 시간, 설정 전이라면 기본 시간 ${_defaultAlarmTimeLabel()}에 알림을 보내드려요."
+        : "알림을 받으려면 기기 알림 권한이 필요해요.\n권한을 허용하면 매일 설정한 시간, 설정 전이라면 기본 시간 ${_defaultAlarmTimeLabel()}에 알림을 보내드려요.";
 
     return Stack(
       children: <Widget>[

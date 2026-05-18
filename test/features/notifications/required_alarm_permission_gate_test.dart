@@ -21,6 +21,8 @@ bool _notificationsEnabled = false;
 bool _requestNotificationsPermissionResult = false;
 bool _canScheduleExactNotifications = true;
 bool _requestExactAlarmsPermissionResult = true;
+bool _batteryOptimizationGranted = false;
+bool _requestBatteryOptimizationResult = false;
 int _requestExactAlarmsPermissionCallCount = 0;
 int _openAppSettingsCallCount = 0;
 
@@ -32,6 +34,8 @@ void main() {
     _requestNotificationsPermissionResult = false;
     _canScheduleExactNotifications = true;
     _requestExactAlarmsPermissionResult = true;
+    _batteryOptimizationGranted = false;
+    _requestBatteryOptimizationResult = false;
     _requestExactAlarmsPermissionCallCount = 0;
     _openAppSettingsCallCount = 0;
     FlutterLocalNotificationsPlatform.instance =
@@ -66,9 +70,11 @@ void main() {
         ) async {
           switch (methodCall.method) {
             case "checkPermissionStatus":
-              return 0;
+              // PermissionStatus.granted = 1, denied = 0
+              return _batteryOptimizationGranted ? 1 : 0;
             case "requestPermissions":
-              return <int, int>{17: 0};
+              _batteryOptimizationGranted = _requestBatteryOptimizationResult;
+              return <int, int>{};
             case "openAppSettings":
               _openAppSettingsCallCount++;
               return true;
@@ -118,6 +124,7 @@ void main() {
     _requestNotificationsPermissionResult = true;
     _canScheduleExactNotifications = false;
     _requestExactAlarmsPermissionResult = true;
+    _requestBatteryOptimizationResult = true;
 
     await tester.pumpWidget(buildGate());
     await tester.pumpAndSettle();
@@ -146,11 +153,56 @@ void main() {
     expect(find.text("알림 권한이 필요해요"), findsOneWidget);
   });
 
-  testWidgets("does not block when only exact alarm permission is missing", (
+  testWidgets("blocks when exact alarm permission is missing", (
     WidgetTester tester,
   ) async {
     _notificationsEnabled = true;
     _canScheduleExactNotifications = false;
+
+    await tester.pumpWidget(buildGate());
+    await tester.pumpAndSettle();
+
+    expect(find.text("알림 권한이 필요해요"), findsOneWidget);
+  });
+
+  testWidgets(
+    "does not open app settings when exact alarm is denied (opens its own UI)",
+    (WidgetTester tester) async {
+      _notificationsEnabled = true;
+      _canScheduleExactNotifications = false;
+      _requestExactAlarmsPermissionResult = false;
+
+      await tester.pumpWidget(buildGate());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text("권한 설정하기"));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(_openAppSettingsCallCount, 0);
+      expect(find.text("알림 권한이 필요해요"), findsOneWidget);
+    },
+  );
+
+  testWidgets("blocks when battery optimization exemption is missing", (
+    WidgetTester tester,
+  ) async {
+    _notificationsEnabled = true;
+    _canScheduleExactNotifications = true;
+    _batteryOptimizationGranted = false;
+
+    await tester.pumpWidget(buildGate());
+    await tester.pumpAndSettle();
+
+    expect(find.text("알림 권한이 필요해요"), findsOneWidget);
+  });
+
+  testWidgets("does not block when all permissions are granted", (
+    WidgetTester tester,
+  ) async {
+    _notificationsEnabled = true;
+    _canScheduleExactNotifications = true;
+    _batteryOptimizationGranted = true;
 
     await tester.pumpWidget(buildGate());
     await tester.pumpAndSettle();

@@ -578,7 +578,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     setState(() {
       _todayQuestionEnabled = todayEnabled;
       _bucketDdayEnabled = bucketEnabled;
-      _todayQuestionTime = TimeOfDay(hour: hour, minute: minute);
+      _todayQuestionTime = TimeOfDay(hour: hour, minute: 0);
       _bucketDdayDaysBefore = bucketDdayDaysBefore;
     });
     await _syncNotificationSchedules();
@@ -602,7 +602,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   Future<void> _saveTodayQuestionTime(TimeOfDay time) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setInt(NotificationPrefsKeys.todayQuestionHour, time.hour);
-    await prefs.setInt(NotificationPrefsKeys.todayQuestionMinute, time.minute);
+    await prefs.setInt(NotificationPrefsKeys.todayQuestionMinute, 0);
   }
 
   Future<void> _syncNotificationSchedules() async {
@@ -639,8 +639,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   String _formatKoreanTime(TimeOfDay time) {
     final bool isAm = time.hour < 12;
     final int hour12 = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
-    final String minute = time.minute.toString().padLeft(2, "0");
-    return "${isAm ? "오전" : "오후"} $hour12:$minute";
+    return "${isAm ? "오전" : "오후"} $hour12시";
   }
 
   Future<void> _handleTodayQuestionToggle(bool enabled) async {
@@ -682,7 +681,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     int selectedHour12 = _todayQuestionTime.hourOfPeriod == 0
         ? 12
         : _todayQuestionTime.hourOfPeriod;
-    int selectedMinute = _todayQuestionTime.minute;
 
     final TimeOfDay? picked = await showModalBottomSheet<TimeOfDay>(
       context: context,
@@ -796,33 +794,16 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               },
                             ),
                             const SizedBox(width: AppSpacing.s32),
-                            Row(
-                              children: <Widget>[
-                                buildArrowButton(
-                                  icon: Icons.keyboard_arrow_up,
-                                  width: 55,
-                                  onTap: () {
-                                    setModalState(() {
-                                      selectedHour12 = selectedHour12 == 12
-                                          ? 1
-                                          : selectedHour12 + 1;
-                                    });
-                                  },
-                                ),
-                                const SizedBox(width: AppSpacing.s16),
-                                const SizedBox(width: 7),
-                                const SizedBox(width: AppSpacing.s16),
-                                buildArrowButton(
-                                  icon: Icons.keyboard_arrow_up,
-                                  width: 59,
-                                  onTap: () {
-                                    setModalState(() {
-                                      selectedMinute =
-                                          (selectedMinute + 1) % 60;
-                                    });
-                                  },
-                                ),
-                              ],
+                            buildArrowButton(
+                              icon: Icons.keyboard_arrow_up,
+                              width: 55,
+                              onTap: () {
+                                setModalState(() {
+                                  selectedHour12 = selectedHour12 == 12
+                                      ? 1
+                                      : selectedHour12 + 1;
+                                });
+                              },
                             ),
                           ],
                         ),
@@ -835,29 +816,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               width: 71,
                             ),
                             const SizedBox(width: AppSpacing.s32),
-                            Row(
-                              children: <Widget>[
-                                buildSelectedPill(
-                                  text: selectedHour12.toString(),
-                                  width: 55,
-                                ),
-                                const SizedBox(width: AppSpacing.s16),
-                                Text(
-                                  ":",
-                                  style: AppTypography.headingMediumExtraBold
-                                      .copyWith(
-                                        color: AppNeutralColors.grey900,
-                                      ),
-                                ),
-                                const SizedBox(width: AppSpacing.s16),
-                                buildSelectedPill(
-                                  text: selectedMinute.toString().padLeft(
-                                    2,
-                                    "0",
-                                  ),
-                                  width: 59,
-                                ),
-                              ],
+                            buildSelectedPill(
+                              text: selectedHour12.toString(),
+                              width: 55,
                             ),
                           ],
                         ),
@@ -875,33 +836,16 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               },
                             ),
                             const SizedBox(width: AppSpacing.s32),
-                            Row(
-                              children: <Widget>[
-                                buildArrowButton(
-                                  icon: Icons.keyboard_arrow_down,
-                                  width: 55,
-                                  onTap: () {
-                                    setModalState(() {
-                                      selectedHour12 = selectedHour12 == 1
-                                          ? 12
-                                          : selectedHour12 - 1;
-                                    });
-                                  },
-                                ),
-                                const SizedBox(width: AppSpacing.s16),
-                                const SizedBox(width: 7),
-                                const SizedBox(width: AppSpacing.s16),
-                                buildArrowButton(
-                                  icon: Icons.keyboard_arrow_down,
-                                  width: 59,
-                                  onTap: () {
-                                    setModalState(() {
-                                      selectedMinute =
-                                          (selectedMinute + 59) % 60;
-                                    });
-                                  },
-                                ),
-                              ],
+                            buildArrowButton(
+                              icon: Icons.keyboard_arrow_down,
+                              width: 55,
+                              onTap: () {
+                                setModalState(() {
+                                  selectedHour12 = selectedHour12 == 1
+                                      ? 12
+                                      : selectedHour12 - 1;
+                                });
+                              },
                             ),
                           ],
                         ),
@@ -943,7 +887,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ? (selectedHour12 % 12)
                                 : (selectedHour12 % 12) + 12;
                             Navigator.of(sheetContext).pop(
-                              TimeOfDay(hour: hour24, minute: selectedMinute),
+                              TimeOfDay(hour: hour24, minute: 0),
                             );
                           },
                           style: FilledButton.styleFrom(
