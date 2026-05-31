@@ -5,13 +5,13 @@ void main() {
   test("parses the current app version from pubspec contents", () {
     const String pubspec = """
 name: dailyquestion
-version: 2.0.4+43
+version: 2.0.5+44
 """;
 
     final AppVersionInfo versionInfo = AppVersionInfo.parsePubspec(pubspec);
 
-    expect(versionInfo.rawVersion, "2.0.4+43");
-    expect(versionInfo.displayLabel, "v2.0.4+43 최신 버전");
+    expect(versionInfo.rawVersion, "2.0.5+44");
+    expect(versionInfo.displayLabel, "v2.0.5+44 최신 버전");
   });
 
   test("falls back when the version line is missing", () {

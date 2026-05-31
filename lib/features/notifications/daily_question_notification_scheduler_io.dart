@@ -204,15 +204,17 @@ Future<bool> areDailyQuestionAlarmPermissionsGrantedOnDevice() async {
   if (defaultTargetPlatform == TargetPlatform.android) {
     final bool canScheduleExact = await canScheduleExactAlarmsOnDevice();
     if (!canScheduleExact) {
-      _logNotification("exact alarm permission not granted");
-      return false;
+      _logNotification(
+        "exact alarm permission not granted; inexact schedule fallback is available",
+      );
     }
 
     final bool hasBatteryOptimizationExemption =
         await _isBatteryOptimizationDisabled();
     if (!hasBatteryOptimizationExemption) {
-      _logNotification("battery optimization not disabled");
-      return false;
+      _logNotification(
+        "battery optimization not disabled; notifications may be delayed",
+      );
     }
   }
 
@@ -272,9 +274,6 @@ Future<bool> requestDailyQuestionAlarmPermissionsOnDevice() async {
     } catch (error) {
       _logNotification("exact alarm permission request failed: $error");
     }
-    if (!await canScheduleExactAlarmsOnDevice()) {
-      return false;
-    }
   }
 
   if (!await _isBatteryOptimizationDisabled()) {
@@ -282,9 +281,6 @@ Future<bool> requestDailyQuestionAlarmPermissionsOnDevice() async {
       await requestBatteryOptimizationExemption();
     } catch (error) {
       _logNotification("battery optimization exemption request failed: $error");
-    }
-    if (!await _isBatteryOptimizationDisabled()) {
-      return false;
     }
   }
 

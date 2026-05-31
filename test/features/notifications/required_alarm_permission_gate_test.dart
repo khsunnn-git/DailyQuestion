@@ -123,8 +123,8 @@ void main() {
   ) async {
     _requestNotificationsPermissionResult = true;
     _canScheduleExactNotifications = false;
-    _requestExactAlarmsPermissionResult = true;
-    _requestBatteryOptimizationResult = true;
+    _requestExactAlarmsPermissionResult = false;
+    _requestBatteryOptimizationResult = false;
 
     await tester.pumpWidget(buildGate());
     await tester.pumpAndSettle();
@@ -153,7 +153,7 @@ void main() {
     expect(find.text("알림 권한이 필요해요"), findsOneWidget);
   });
 
-  testWidgets("blocks when exact alarm permission is missing", (
+  testWidgets("does not block when exact alarm permission is missing", (
     WidgetTester tester,
   ) async {
     _notificationsEnabled = true;
@@ -162,13 +162,14 @@ void main() {
     await tester.pumpWidget(buildGate());
     await tester.pumpAndSettle();
 
-    expect(find.text("알림 권한이 필요해요"), findsOneWidget);
+    expect(find.text("알림 권한이 필요해요"), findsNothing);
   });
 
   testWidgets(
-    "does not open app settings when exact alarm is denied (opens its own UI)",
+    "does not open app settings when optional exact alarm is denied",
     (WidgetTester tester) async {
-      _notificationsEnabled = true;
+      _notificationsEnabled = false;
+      _requestNotificationsPermissionResult = true;
       _canScheduleExactNotifications = false;
       _requestExactAlarmsPermissionResult = false;
 
@@ -180,11 +181,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_openAppSettingsCallCount, 0);
-      expect(find.text("알림 권한이 필요해요"), findsOneWidget);
+      expect(find.text("알림 권한이 필요해요"), findsNothing);
     },
   );
 
-  testWidgets("blocks when battery optimization exemption is missing", (
+  testWidgets("does not block when battery optimization exemption is missing", (
     WidgetTester tester,
   ) async {
     _notificationsEnabled = true;
@@ -194,7 +195,7 @@ void main() {
     await tester.pumpWidget(buildGate());
     await tester.pumpAndSettle();
 
-    expect(find.text("알림 권한이 필요해요"), findsOneWidget);
+    expect(find.text("알림 권한이 필요해요"), findsNothing);
   });
 
   testWidgets("does not block when all permissions are granted", (

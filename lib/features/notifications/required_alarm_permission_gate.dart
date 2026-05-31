@@ -102,7 +102,7 @@ class _RequiredAlarmPermissionGateState
       _submitting = false;
       if (!_hasRequiredPermissions && !granted) {
         _errorMessage = defaultTargetPlatform == TargetPlatform.android
-            ? "알림, 정시 알람, 배터리 최적화 제외 권한을 모두 허용해야 계속할 수 있어요."
+            ? "알림 권한을 허용해야 계속할 수 있어요. 정시 알림과 배터리 최적화 설정은 알림 안정성을 높이기 위한 선택 설정이에요."
             : "알림 권한을 허용해야 계속할 수 있어요.";
       }
     });
@@ -124,7 +124,7 @@ class _RequiredAlarmPermissionGateState
     final BrandScale brand = context.appBrandScale;
     final String permissionDescription =
         defaultTargetPlatform == TargetPlatform.android
-        ? "정시 알람을 받으려면 알림, 정시 알람, 배터리 최적화 제외 권한이 모두 필요해요.\n권한을 허용하면 매일 설정한 시간, 설정 전이라면 기본 시간 ${_defaultAlarmTimeLabel()}에 알림을 보내드려요."
+        ? "알림을 받으려면 기기 알림 권한이 필요해요.\n정시 알림과 배터리 최적화 설정은 이후 설정 화면에서 보강할 수 있어요.\n권한을 허용하면 매일 설정한 시간, 설정 전이라면 기본 시간 ${_defaultAlarmTimeLabel()}에 알림을 보내드려요."
         : "알림을 받으려면 기기 알림 권한이 필요해요.\n권한을 허용하면 매일 설정한 시간, 설정 전이라면 기본 시간 ${_defaultAlarmTimeLabel()}에 알림을 보내드려요.";
 
     return Stack(
