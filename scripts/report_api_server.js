@@ -133,6 +133,24 @@ const RECOVERY_ACTION_CUES = [
     shortLabel: "짧게 기록하기",
     recommendation: "지금 드는 생각을 3줄만 적어보세요.",
   },
+  {
+    patterns: ["드라마", "정주행", "넷플릭스", "시리즈"],
+    subject: "드라마를 보는 시간이",
+    shortLabel: "좋아하는 드라마 보기",
+    recommendation: "전에 언급한 드라마와 비슷한 다음 에피소드나 새 시리즈 한 편을 골라보세요.",
+  },
+  {
+    patterns: ["영화", "극장", "시네마"],
+    subject: "영화를 보는 시간이",
+    shortLabel: "영화 보기",
+    recommendation: "부담 없는 영화 한 편을 골라 마음을 잠깐 다른 장면에 맡겨보세요.",
+  },
+  {
+    patterns: ["야구", "야구장", "직관", "경기", "응원"],
+    subject: "야구를 보는 시간이",
+    shortLabel: "야구 관람",
+    recommendation: "집에서 경기 하이라이트를 보거나 여유가 있으면 가까운 야구 경기 관람을 계획해보세요.",
+  },
 ];
 
 function bestDayText(payload) {
@@ -238,6 +256,15 @@ function buildWeeklyInsights({
     insights.push(`최근 자주 나온 키워드는 ${topKeywords.slice(0, 3).join(", ")} 입니다.`);
   } else {
     insights.push("최근 자주 나온 키워드는 아직 더 모이면 선명해질 거예요.");
+  }
+
+  const cues = collectPreferredActionCues(payload, hardestDay ? hardestDay.answer : "");
+  if (cues.length > 0) {
+    const cue = cues[0];
+    const lead = hardestDay
+      ? `${hardestDay.weekdayLabel}처럼 컨디션이 낮았던 날에도 회복 단서가 남아 있었어요.`
+      : `기록에서 ${cue.shortLabel}가 반복해서 보여요.`;
+    insights.push(`${lead} 다음에 비슷하게 지치는 날엔 ${cue.recommendation}`);
   }
   return insights;
 }
@@ -598,9 +625,10 @@ async function createOpenAIReport(payload) {
                 "가능하면 metrics의 positive_day_count, burden_day_count, trend_delta, top_keywords, representative_answers를 근거로 쓴다. " +
                 "summary와 insights는 추상적이기보다 구체적으로 쓰고, '좋았던 순간과 힘들었던 순간이 분명하게 구분됐다' 같은 모호한 문장은 피한다. " +
                 "metrics.checkin_recorded_days가 0이거나 avg_mood, avg_energy, avg_stress가 모두 0이면 평균 점수를 실제 0점처럼 쓰지 말고 감정 체크인 데이터가 아직 부족하다고 표현한다. " +
-                "insights는 가능하면 4개 이내로 쓰고, 첫 문장은 기분/에너지/스트레스 평균 점수, 다음 문장은 컨디션이 좋았던 요일과 자주 언급한 키워드, 그다음 문장은 상대적으로 컨디션이 저조했던 요일, 마지막 문장은 최근 자주 나온 키워드 2~3개를 정리하는 형식으로 작성한다. " +
+                "insights는 가능하면 4개 이내로 쓰고, 첫 문장은 기분/에너지/스트레스 평균 점수, 다음 문장은 컨디션이 좋았던 요일과 자주 언급한 키워드, 그다음 문장은 상대적으로 컨디션이 저조했던 요일과 그 날의 답변 단서, 마지막 문장은 최근 자주 나온 키워드 2~3개가 어떤 회복 행동으로 이어질 수 있는지 정리하는 형식으로 작성한다. " +
                 "'긍정 신호 n일/부담 신호 n일', '최고 컨디션 데이터', '저점 데이터 부족' 같은 메타 표현은 쓰지 않는다. " +
                 "actions는 사용자의 representative_answers와 top_keywords를 바탕으로 개인화한다. " +
+                "actions는 '안부를 보내라'처럼 추상적으로 끝내지 말고, 기록에 나온 드라마, 야구, 음악, 산책, 카페, 책 같은 구체 활동이 있으면 다음 에피소드 보기, 야구 경기 관람 계획하기, 플레이리스트 2곡 듣기처럼 한 단계 큰 제안으로 확장한다. " +
                 "community_recovery_ideas가 있으면 그중 1개 정도는 다른 사람들의 공개답변에서 보인 아이디어로 자연스럽게 녹여도 된다. " +
                 "직장인, 학생, 부모 같은 생활 패턴을 임의로 가정하지 말고, '퇴근 후', '출근 전', '점심시간' 같은 표현은 입력에 그런 맥락이 있을 때만 쓴다. " +
                 "기록에 직접 등장하지 않은 활동을 '이미 잘 맞는 방식'처럼 단정하지 않는다. " +

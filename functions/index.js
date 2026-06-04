@@ -1,6 +1,6 @@
 /* eslint-disable require-jsdoc */
 const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
+const {HttpsError, onCall, onRequest} = require("firebase-functions/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
@@ -10,11 +10,165 @@ admin.initializeApp();
 const OPENAI_API_URL = "https://api.openai.com/v1/responses";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
+function normalizedString(value) {
+  return `${value || ""}`.trim();
+}
+
+function normalizedSlot(value) {
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return value;
+  }
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    return Number.parseInt(value.trim(), 10);
+  }
+  return -1;
+}
+
+function validateLikePayload(data) {
+  const questionDateKey = normalizedString(data && data.questionDateKey);
+  const questionSlot = normalizedSlot(data && data.questionSlot);
+  const answerDocId = normalizedString(data && data.answerDocId);
+
+  if (!/^\d{8}$/.test(questionDateKey)) {
+    throw new HttpsError(
+        "invalid-argument",
+        "questionDateKey must be yyyyMMdd.",
+    );
+  }
+  if (questionSlot < 0 || questionSlot > 2) {
+    throw new HttpsError(
+        "invalid-argument",
+        "questionSlot must be 0, 1, or 2.",
+    );
+  }
+  if (!answerDocId || answerDocId.length > 160 || answerDocId.includes("/")) {
+    throw new HttpsError(
+        "invalid-argument",
+        "answerDocId is invalid.",
+    );
+  }
+
+  return {questionDateKey, questionSlot, answerDocId};
+}
+
 function setCorsHeaders(response) {
   response.set("Access-Control-Allow-Origin", "*");
   response.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   response.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
+
+exports.togglePublicAnswerLike = onCall(async (request) => {
+  const uid = request.auth && request.auth.uid ?
+    `${request.auth.uid}`.trim() :
+    "";
+  if (!uid) {
+    throw new HttpsError(
+        "unauthenticated",
+        "Sign in is required to like a public answer.",
+    );
+  }
+
+  const payload = validateLikePayload(request.data || {});
+  return togglePublicAnswerLikeForUid(uid, payload);
+});
+
+async function togglePublicAnswerLikeForUid(uid, payload) {
+  const {questionDateKey, questionSlot, answerDocId} = payload;
+  const db = admin.firestore();
+  const answerRef = db
+      .collection("public_answers")
+      .doc(questionDateKey)
+      .collection("slots")
+      .doc(`slot_${questionSlot}`)
+      .collection("answers")
+      .doc(answerDocId);
+  const likeRef = answerRef.collection("likes").doc(uid);
+
+  return db.runTransaction(async (transaction) => {
+    const answerSnapshot = await transaction.get(answerRef);
+    if (!answerSnapshot.exists) {
+      throw new HttpsError(
+          "not-found",
+          "Public answer does not exist.",
+      );
+    }
+
+    const likeSnapshot = await transaction.get(likeRef);
+    const currentCount = Math.max(
+        0,
+        Math.trunc(asNumber(answerSnapshot.get("likeCount")) || 0),
+    );
+    const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+    if (likeSnapshot.exists) {
+      const nextCount = Math.max(0, currentCount - 1);
+      transaction.delete(likeRef);
+      transaction.update(answerRef, {
+        likeCount: nextCount,
+        updatedAt: timestamp,
+      });
+      return {liked: false, likeCount: nextCount};
+    }
+
+    const nextCount = currentCount + 1;
+    transaction.set(likeRef, {
+      userUid: uid,
+      createdAt: timestamp,
+    });
+    transaction.update(answerRef, {
+      likeCount: nextCount,
+      updatedAt: timestamp,
+    });
+    return {liked: true, likeCount: nextCount};
+  });
+}
+
+exports.togglePublicAnswerLikeApi = onRequest(async (request, response) => {
+  setCorsHeaders(response);
+  if (request.method === "OPTIONS") {
+    return response.status(204).send("");
+  }
+  if (request.method !== "POST") {
+    response.set("Allow", "POST");
+    return response.status(405).json({message: "Method Not Allowed"});
+  }
+
+  try {
+    const authHeader = `${request.headers.authorization || ""}`;
+    const token = authHeader.startsWith("Bearer ") ?
+      authHeader.slice(7).trim() :
+      "";
+    if (!token) {
+      return response.status(401).json({message: "Authorization required."});
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const uid = `${decodedToken.uid || ""}`.trim();
+    if (!uid) {
+      return response.status(401).json({message: "Authorization required."});
+    }
+
+    const result = await togglePublicAnswerLikeForUid(
+        uid,
+        validateLikePayload(request.body || {}),
+    );
+    return response.status(200).json(result);
+  } catch (error) {
+    logger.error("togglePublicAnswerLikeApi failed", error);
+    if (error instanceof HttpsError) {
+      const statusByCode = {
+        "invalid-argument": 400,
+        "unauthenticated": 401,
+        "permission-denied": 403,
+        "not-found": 404,
+      };
+      return response
+          .status(statusByCode[error.code] || 500)
+          .json({message: error.message, code: error.code});
+    }
+    return response.status(500).json({message: "Internal Server Error"});
+  }
+});
 
 function asNumber(value) {
   if (typeof value === "number") {
@@ -118,6 +272,24 @@ const RECOVERY_ACTION_CUES = [
     subject: "생각을 적어보는 시간이",
     shortLabel: "짧게 기록하기",
     recommendation: "지금 드는 생각을 3줄만 적어보세요.",
+  },
+  {
+    patterns: ["드라마", "정주행", "넷플릭스", "시리즈"],
+    subject: "드라마를 보는 시간이",
+    shortLabel: "좋아하는 드라마 보기",
+    recommendation: "전에 언급한 드라마와 비슷한 다음 에피소드나 새 시리즈 한 편을 골라보세요.",
+  },
+  {
+    patterns: ["영화", "극장", "시네마"],
+    subject: "영화를 보는 시간이",
+    shortLabel: "영화 보기",
+    recommendation: "부담 없는 영화 한 편을 골라 마음을 잠깐 다른 장면에 맡겨보세요.",
+  },
+  {
+    patterns: ["야구", "야구장", "직관", "경기", "응원"],
+    subject: "야구를 보는 시간이",
+    shortLabel: "야구 관람",
+    recommendation: "집에서 경기 하이라이트를 보거나 여유가 있으면 가까운 야구 경기 관람을 계획해보세요.",
   },
 ];
 
@@ -233,6 +405,18 @@ function buildWeeklyInsights({
     insights.push(`최근 자주 나온 키워드는 ${topKeywords.slice(0, 3).join(", ")} 입니다.`);
   } else {
     insights.push("최근 자주 나온 키워드는 아직 더 모이면 선명해질 거예요.");
+  }
+
+  const cues = collectPreferredActionCues(
+      payload,
+      hardestDay ? hardestDay.answer : "",
+  );
+  if (cues.length > 0) {
+    const cue = cues[0];
+    const lead = hardestDay ?
+      `${hardestDay.weekdayLabel}처럼 컨디션이 낮았던 날에도 회복 단서가 남아 있었어요.` :
+      `기록에서 ${cue.shortLabel}가 반복해서 보여요.`;
+    insights.push(`${lead} 다음에 비슷하게 지치는 날엔 ${cue.recommendation}`);
   }
   return insights;
 }
@@ -641,12 +825,16 @@ async function createOpenAIReport(payload) {
                 "insights는 가능하면 4개 이내로 쓰고, 첫 문장은 " +
                 "기분/에너지/스트레스 평균 점수, " +
                 "다음 문장은 컨디션이 좋았던 요일과 자주 언급한 키워드, " +
-                "그다음 문장은 상대적으로 컨디션이 저조했던 요일, " +
-                "마지막 문장은 최근 자주 나온 키워드 2~3개를 정리하는 형식으로 작성한다. " +
+                "그다음 문장은 상대적으로 컨디션이 저조했던 요일과 그 날의 답변 단서, " +
+                "마지막 문장은 최근 자주 나온 키워드 2~3개가 어떤 회복 행동으로 이어질 수 있는지 정리한다. " +
                 "'긍정 신호 n일/부담 신호 n일', '최고 컨디션 데이터', " +
                 "'저점 데이터 부족' 같은 메타 표현은 쓰지 않는다. " +
                 "actions는 사용자의 representative_answers와 " +
                 "top_keywords를 바탕으로 개인화한다. " +
+                "actions는 '안부를 보내라'처럼 추상적으로 끝내지 말고, " +
+                "기록에 나온 드라마, 야구, 음악, 산책, 카페, 책 같은 " +
+                "구체 활동이 있으면 다음 에피소드 보기, 야구 경기 관람 계획하기, " +
+                "플레이리스트 2곡 듣기처럼 한 단계 큰 제안으로 확장한다. " +
                 "community_recovery_ideas가 있으면 그중 1개 정도는 " +
                 "다른 사람들의 공개답변에서 보인 아이디어로 자연스럽게 녹여도 된다. " +
                 "직장인, 학생, 부모 같은 생활 패턴을 임의로 가정하지 말고, " +

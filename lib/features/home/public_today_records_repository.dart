@@ -1,7 +1,11 @@
 import "dart:async";
+import "dart:convert";
 
 import "package:cloud_firestore/cloud_firestore.dart";
+import "package:firebase_auth/firebase_auth.dart";
+import "package:http/http.dart" as http;
 
+import "../auth/auth_service.dart";
 import "../question/public_answer_retention.dart";
 import "../moderation/public_record_moderation.dart";
 
@@ -10,11 +14,34 @@ class PublicTodayRecord {
     required this.body,
     required this.author,
     required this.createdAt,
+    required this.questionDateKey,
+    required this.questionSlot,
+    required this.answerDocId,
+    this.likeCount = 0,
   });
 
   final String body;
   final String author;
   final DateTime createdAt;
+  final String questionDateKey;
+  final int questionSlot;
+  final String answerDocId;
+  final int likeCount;
+
+  bool get canToggleLike => answerDocId.isNotEmpty && questionSlot >= 0;
+}
+
+class PublicRecordLikeResult {
+  const PublicRecordLikeResult({required this.liked, required this.likeCount});
+
+  final bool liked;
+  final int likeCount;
+}
+
+class PublicRecordLikeException implements Exception {
+  const PublicRecordLikeException(this.message);
+
+  final String message;
 }
 
 class PublicTodayRecordsRepository {
@@ -24,6 +51,9 @@ class PublicTodayRecordsRepository {
       PublicTodayRecordsRepository._();
 
   static const String _rootCollection = "public_answers";
+  static final Uri _toggleLikeEndpoint = Uri.parse(
+    "https://us-central1-dailyquestion-29840.cloudfunctions.net/togglePublicAnswerLikeApi",
+  );
 
   Future<List<PublicTodayRecord>> fetchByDateKey(String questionDateKey) async {
     final FirebaseFirestore db = FirebaseFirestore.instance;
@@ -62,6 +92,10 @@ class PublicTodayRecordsRepository {
             body: body,
             author: author.isEmpty ? "익명의 사용자님" : author,
             createdAt: ts?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
+            questionDateKey: questionDateKey,
+            questionSlot: _slotFromDocument(doc),
+            answerDocId: doc.id,
+            likeCount: _parseLikeCount(data["likeCount"]),
           ),
         );
       }
@@ -85,12 +119,13 @@ class PublicTodayRecordsRepository {
         await Future.wait<List<PublicTodayRecord>>(
           dateKeys.map(fetchByDateKey),
         );
-    final List<PublicTodayRecord> records = recordsByDate
-        .expand((List<PublicTodayRecord> items) => items)
-        .toList(growable: false)
-      ..sort((PublicTodayRecord a, PublicTodayRecord b) {
-        return b.createdAt.compareTo(a.createdAt);
-      });
+    final List<PublicTodayRecord> records =
+        recordsByDate
+            .expand((List<PublicTodayRecord> items) => items)
+            .toList(growable: false)
+          ..sort((PublicTodayRecord a, PublicTodayRecord b) {
+            return b.createdAt.compareTo(a.createdAt);
+          });
     return records;
   }
 
@@ -191,10 +226,56 @@ class PublicTodayRecordsRepository {
           body: body,
           author: author.isEmpty ? "익명의 사용자님" : author,
           createdAt: ts?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
+          questionDateKey:
+              (data["questionDateKey"] as String?)?.trim().isNotEmpty == true
+              ? (data["questionDateKey"] as String).trim()
+              : _dateKeyFromDocument(doc),
+          questionSlot: _slotFromDocument(doc),
+          answerDocId: doc.id,
+          likeCount: _parseLikeCount(data["likeCount"]),
         ),
       );
     }
     return records;
+  }
+
+  Future<PublicRecordLikeResult> toggleLike(PublicTodayRecord record) async {
+    if (!record.canToggleLike) {
+      return PublicRecordLikeResult(liked: false, likeCount: record.likeCount);
+    }
+
+    final User user = await AuthService.instance.ensureSignedInUser();
+    final String? idToken = await user.getIdToken();
+    if (idToken == null || idToken.trim().isEmpty) {
+      return PublicRecordLikeResult(liked: false, likeCount: record.likeCount);
+    }
+
+    final http.Response response = await http.post(
+      _toggleLikeEndpoint,
+      headers: <String, String>{
+        "Authorization": "Bearer ${idToken.trim()}",
+        "Content-Type": "application/json",
+      },
+      body: jsonEncode(<String, Object?>{
+        "questionDateKey": record.questionDateKey,
+        "questionSlot": record.questionSlot,
+        "answerDocId": record.answerDocId,
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw PublicRecordLikeException(
+        "togglePublicAnswerLikeApi failed (${response.statusCode})",
+      );
+    }
+
+    final Object? data = jsonDecode(response.body);
+    if (data is Map) {
+      return PublicRecordLikeResult(
+        liked: data["liked"] == true,
+        likeCount: _parseLikeCount(data["likeCount"]),
+      );
+    }
+    return PublicRecordLikeResult(liked: false, likeCount: record.likeCount);
   }
 
   double? _parseSentimentScore(Object? raw) {
@@ -205,6 +286,36 @@ class PublicTodayRecordsRepository {
       return double.tryParse(raw);
     }
     return null;
+  }
+
+  int _parseLikeCount(Object? raw) {
+    if (raw is int) {
+      return raw < 0 ? 0 : raw;
+    }
+    if (raw is num) {
+      final int value = raw.toInt();
+      return value < 0 ? 0 : value;
+    }
+    if (raw is String) {
+      final int? value = int.tryParse(raw);
+      if (value == null || value < 0) {
+        return 0;
+      }
+      return value;
+    }
+    return 0;
+  }
+
+  int _slotFromDocument(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final String slotDocId = doc.reference.parent.parent?.id ?? "";
+    if (!slotDocId.startsWith("slot_")) {
+      return -1;
+    }
+    return int.tryParse(slotDocId.substring("slot_".length)) ?? -1;
+  }
+
+  String _dateKeyFromDocument(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    return doc.reference.parent.parent?.parent.parent?.id ?? "";
   }
 
   Query<Map<String, dynamic>> _slotQuery(

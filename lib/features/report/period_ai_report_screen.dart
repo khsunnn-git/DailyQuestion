@@ -238,23 +238,7 @@ class _Card extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (isOpenAiReportSource(source))
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s8,
-                          vertical: AppSpacing.s2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEAF5FF),
-                          borderRadius: AppRadius.pill,
-                        ),
-                        child: Text(
-                          "AI",
-                          style: AppTypography.captionSmall.copyWith(
-                            color: const Color(0xFF017AF7),
-                          ),
-                        ),
-                      ),
+                    if (isOpenAiReportSource(source)) const AppAiBadge(),
                     if (source != null) ...<Widget>[
                       const SizedBox(width: AppSpacing.s6),
                       Builder(

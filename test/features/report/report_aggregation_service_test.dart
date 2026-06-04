@@ -220,6 +220,89 @@ void main() {
     expect(report.actions[1], contains("파란색 계열"));
     expect(report.actions[2], contains("좋아하는 음료"));
   });
+
+  test("weekly report expands personal media and sports cues into actions", () {
+    final WeeklyAggregationSnapshot snapshot = _snapshot(
+      recordedDays: 5,
+      weeklyScore: 3,
+      averageMood: 2.6,
+      averageEnergy: 2.4,
+      averageStress: 4.0,
+      trendDelta: -0.3,
+      topKeywords: const <String>["드라마", "야구", "휴식"],
+      representativeAnswers: const <String>[
+        "피곤한 날에는 드라마를 한 편 보면 마음이 풀렸다.",
+        "야구 보는 시간이 생각보다 큰 힘이 됐다.",
+      ],
+      days: const <Map<String, Object?>>[
+        <String, Object?>{
+          "date_key": "20260310",
+          "mood_score": 2,
+          "energy_score": 2,
+          "stress_score": 5,
+          "day_score": 2,
+          "answer": "너무 지쳐서 드라마 한 편만 보고 쉬었다.",
+        },
+        <String, Object?>{
+          "date_key": "20260311",
+          "mood_score": 4,
+          "energy_score": 3,
+          "stress_score": 3,
+          "day_score": 4,
+          "answer": "야구 하이라이트를 보니 기분이 조금 나아졌다.",
+        },
+      ],
+    );
+
+    final WeeklyAiReport report = service.buildLocalFallbackReport(snapshot);
+    final String joinedInsights = report.insights.join(" ");
+    final String joinedActions = report.actions.join(" ");
+
+    expect(joinedInsights, contains("드라마 한 편"));
+    expect(joinedInsights, contains("다음 에피소드"));
+    expect(joinedActions, contains("다음 에피소드"));
+    expect(joinedActions, contains("야구"));
+    expect(joinedActions, contains("경기 관람"));
+    expect(joinedActions, isNot(contains("안부")));
+  });
+
+  test("tuneWeeklyReport keeps OpenAI insights and actions when present", () {
+    final WeeklyAggregationSnapshot snapshot = _snapshot(
+      recordedDays: 5,
+      weeklyScore: 3,
+      averageMood: 2.6,
+      averageEnergy: 2.4,
+      averageStress: 4.0,
+      trendDelta: -0.3,
+      topKeywords: const <String>["드라마"],
+      days: const <Map<String, Object?>>[
+        <String, Object?>{
+          "date_key": "20260310",
+          "mood_score": 2,
+          "energy_score": 2,
+          "stress_score": 5,
+          "day_score": 2,
+          "answer": "드라마를 보고 쉬었다.",
+        },
+      ],
+    );
+    const WeeklyAiReport aiReport = WeeklyAiReport(
+      summary: "ai summary",
+      emotionSummary: "ai emotion",
+      insights: <String>["AI가 답변 속 드라마 패턴을 직접 해석한 인사이트"],
+      actions: <String>["다음 에피소드를 정해두고 쉬는 시간을 만들어보세요."],
+      weeklyScore: 3,
+      source: "ai",
+    );
+
+    final WeeklyAiReport tuned = service.tuneWeeklyReport(
+      report: aiReport,
+      snapshot: snapshot,
+    );
+
+    expect(tuned.insights, aiReport.insights);
+    expect(tuned.actions, aiReport.actions);
+  });
 }
 
 WeeklyAggregationSnapshot _snapshot({

@@ -2550,7 +2550,13 @@ class _TodayRecordSectionState extends State<_TodayRecordSection>
   static const String _hiddenRecordsPrefsKey =
       "today_records_hidden_record_ids";
   static const String _blockedAuthorsPrefsKey = "today_records_blocked_authors";
+  static const String _likedRecordIdsPrefsKey =
+      "today_records_liked_record_ids";
+  static const double _recordCardHeight = 154;
   String _todayKey = kstDateKeyNow();
+  Set<String> _likedRecordIds = <String>{};
+  Set<String> _togglingLikeRecordIds = <String>{};
+  Map<String, int> _likeCountOverrides = <String, int>{};
 
   Timer? _dateRefreshTimer;
   PageController? _pageController;
@@ -2561,6 +2567,7 @@ class _TodayRecordSectionState extends State<_TodayRecordSection>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _scheduleDateRefreshTimer();
+    unawaited(_loadLikedRecordIds());
   }
 
   void _scheduleDateRefreshTimer() {
@@ -2646,173 +2653,272 @@ class _TodayRecordSectionState extends State<_TodayRecordSection>
     return "${item.createdAt.millisecondsSinceEpoch}|${item.author}|${item.body}";
   }
 
+  String _likeTargetId(PublicTodayRecord item) {
+    if (item.canToggleLike) {
+      return "${item.questionDateKey}/slot_${item.questionSlot}/${item.answerDocId}";
+    }
+    return _recordKey(item);
+  }
+
+  Future<void> _loadLikedRecordIds() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final List<String> saved =
+        prefs.getStringList(_likedRecordIdsPrefsKey) ?? const <String>[];
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _likedRecordIds = saved.toSet();
+    });
+  }
+
+  Future<void> _persistLikedRecordIds() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _likedRecordIdsPrefsKey,
+      _likedRecordIds.toList(growable: false),
+    );
+  }
+
+  Future<void> _toggleRecordLike(PublicTodayRecord record) async {
+    if (!record.canToggleLike) {
+      return;
+    }
+    final String likeTargetId = _likeTargetId(record);
+    if (_togglingLikeRecordIds.contains(likeTargetId)) {
+      return;
+    }
+
+    final bool wasLiked = _likedRecordIds.contains(likeTargetId);
+    final int currentCount =
+        _likeCountOverrides[likeTargetId] ?? record.likeCount;
+    final bool nextLiked = !wasLiked;
+    final int nextCount = nextLiked
+        ? currentCount + 1
+        : (currentCount > 0 ? currentCount - 1 : 0);
+    final Set<String> previousLikedRecordIds = <String>{..._likedRecordIds};
+    final Map<String, int> previousLikeCountOverrides = <String, int>{
+      ..._likeCountOverrides,
+    };
+
+    setState(() {
+      _togglingLikeRecordIds = <String>{
+        ..._togglingLikeRecordIds,
+        likeTargetId,
+      };
+      _likedRecordIds = <String>{..._likedRecordIds};
+      if (nextLiked) {
+        _likedRecordIds.add(likeTargetId);
+      } else {
+        _likedRecordIds.remove(likeTargetId);
+      }
+      _likeCountOverrides = <String, int>{
+        ..._likeCountOverrides,
+        likeTargetId: nextCount,
+      };
+    });
+
+    try {
+      final PublicRecordLikeResult result = await PublicTodayRecordsRepository
+          .instance
+          .toggleLike(record);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _likedRecordIds = <String>{..._likedRecordIds};
+        if (result.liked) {
+          _likedRecordIds.add(likeTargetId);
+        } else {
+          _likedRecordIds.remove(likeTargetId);
+        }
+        _likeCountOverrides = <String, int>{
+          ..._likeCountOverrides,
+          likeTargetId: result.likeCount,
+        };
+        _togglingLikeRecordIds = <String>{..._togglingLikeRecordIds}
+          ..remove(likeTargetId);
+      });
+      await _persistLikedRecordIds();
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _likedRecordIds = previousLikedRecordIds;
+        _likeCountOverrides = previousLikeCountOverrides;
+        _togglingLikeRecordIds = <String>{..._togglingLikeRecordIds}
+          ..remove(likeTargetId);
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(
+              "좋아요를 반영하지 못했어요. 잠시 후 다시 시도해주세요.",
+              style: AppTypography.captionMedium.copyWith(
+                color: AppNeutralColors.white,
+              ),
+            ),
+          ),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<List<TodayQuestionRecord>>(
       valueListenable: TodayQuestionStore.instance,
-      builder:
-          (
-            BuildContext context,
-            List<TodayQuestionRecord> allRecords,
-            Widget? child,
-          ) {
-            final int totalRecordCount = allRecords.length;
-            return FutureBuilder<List<PublicTodayRecord>>(
-              future: _loadVisiblePublicRecords(),
-              builder:
-                  (
-                    BuildContext context,
-                    AsyncSnapshot<List<PublicTodayRecord>> snapshot,
-                  ) {
-                    final List<PublicTodayRecord> fetchedRecords =
-                        snapshot.data ?? const <PublicTodayRecord>[];
-                    final String questionText = TodayQuestionPromptStore
-                        .instance
-                        .value
-                        .currentQuestionText;
-                    final List<PublicTodayRecord> records = fetchedRecords
-                        .take(5)
-                        .toList(growable: false);
-                    final bool hasRecords = records.isNotEmpty;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        InkWell(
-                          onTap: hasRecords
-                              ? () async {
-                                  await HomeScreen.openTodayRecords(
-                                    context,
-                                    questionDateKey: _todayKey,
-                                    questionText: questionText,
-                                    initialRecords: fetchedRecords,
-                                  );
-                                  if (!mounted) {
-                                    return;
-                                  }
-                                  setState(() {});
-                                }
-                              : null,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Row(
-                            children: <Widget>[
-                              Expanded(
-                                child: Text(
-                                  "타인의 기록",
-                                  style: AppTypography.headingSmall.copyWith(
-                                    color: AppNeutralColors.grey900,
+      builder: (BuildContext context, List<TodayQuestionRecord> allRecords, Widget? child) {
+        final int totalRecordCount = allRecords.length;
+        return FutureBuilder<List<PublicTodayRecord>>(
+          future: _loadVisiblePublicRecords(),
+          builder:
+              (
+                BuildContext context,
+                AsyncSnapshot<List<PublicTodayRecord>> snapshot,
+              ) {
+                final List<PublicTodayRecord> fetchedRecords =
+                    snapshot.data ?? const <PublicTodayRecord>[];
+                final String questionText =
+                    TodayQuestionPromptStore.instance.value.currentQuestionText;
+                final List<PublicTodayRecord> records = fetchedRecords
+                    .take(5)
+                    .toList(growable: false);
+                final bool hasRecords = records.isNotEmpty;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    InkWell(
+                      onTap: hasRecords
+                          ? () async {
+                              await HomeScreen.openTodayRecords(
+                                context,
+                                questionDateKey: _todayKey,
+                                questionText: questionText,
+                                initialRecords: fetchedRecords,
+                              );
+                              if (!mounted) {
+                                return;
+                              }
+                              setState(() {});
+                            }
+                          : null,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: Text(
+                              "타인의 기록",
+                              style: AppTypography.headingSmall.copyWith(
+                                color: AppNeutralColors.grey900,
+                              ),
+                            ),
+                          ),
+                          const Icon(
+                            Icons.chevron_right,
+                            size: 24,
+                            color: AppNeutralColors.grey900,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (hasRecords)
+                      LayoutBuilder(
+                        builder: (BuildContext context, BoxConstraints constraints) {
+                          final double listWidth = constraints.maxWidth;
+                          final double viewportFraction =
+                              ((_recordCardWidth + _recordCardGap) / listWidth)
+                                  .clamp(0.0, 1.0);
+                          final PageController controller = _resolveController(
+                            viewportFraction,
+                          );
+                          return SizedBox(
+                            height: _recordCardHeight + 6,
+                            child: SizedBox(
+                              width: listWidth,
+                              child: SizedBox(
+                                width: listWidth,
+                                child: ScrollConfiguration(
+                                  behavior: const MaterialScrollBehavior()
+                                      .copyWith(
+                                        dragDevices: <PointerDeviceKind>{
+                                          PointerDeviceKind.touch,
+                                          PointerDeviceKind.mouse,
+                                          PointerDeviceKind.trackpad,
+                                          PointerDeviceKind.stylus,
+                                          PointerDeviceKind.invertedStylus,
+                                        },
+                                      ),
+                                  child: PageView.builder(
+                                    controller: controller,
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const ClampingScrollPhysics(),
+                                    clipBehavior: Clip.none,
+                                    padEnds: true,
+                                    itemCount: records.length,
+                                    itemBuilder:
+                                        (
+                                          BuildContext context,
+                                          int index,
+                                        ) => Padding(
+                                          padding: EdgeInsets.only(
+                                            top: 3,
+                                            bottom: 3,
+                                            right: index == records.length - 1
+                                                ? 0
+                                                : _recordCardGap,
+                                          ),
+                                          child: _TodayRecordCard(
+                                            record: records[index],
+                                            isLiked: _likedRecordIds.contains(
+                                              _likeTargetId(records[index]),
+                                            ),
+                                            likeCount:
+                                                _likeCountOverrides[_likeTargetId(
+                                                  records[index],
+                                                )] ??
+                                                records[index].likeCount,
+                                            width: _recordCardWidth,
+                                            onLikeTap: () => _toggleRecordLike(
+                                              records[index],
+                                            ),
+                                            onTap: () async {
+                                              final PublicRecordDetailResult?
+                                              result =
+                                                  await HomeScreen.openPublicRecordDetail(
+                                                    context,
+                                                    record: records[index],
+                                                    questionDateKey: _todayKey,
+                                                    questionText: questionText,
+                                                  );
+                                              if (!mounted || result == null) {
+                                                return;
+                                              }
+                                              setState(() {});
+                                            },
+                                          ),
+                                        ),
                                   ),
                                 ),
                               ),
-                              const Icon(
-                                Icons.chevron_right,
-                                size: 24,
-                                color: AppNeutralColors.grey900,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (hasRecords)
-                          LayoutBuilder(
-                            builder:
-                                (
-                                  BuildContext context,
-                                  BoxConstraints constraints,
-                                ) {
-                                  final double listWidth = constraints.maxWidth;
-                                  final double viewportFraction =
-                                      ((_recordCardWidth + _recordCardGap) /
-                                              listWidth)
-                                          .clamp(0.0, 1.0);
-                                  final PageController controller =
-                                      _resolveController(viewportFraction);
-                                  return SizedBox(
-                                    height: 160,
-                                    child: SizedBox(
-                                      width: listWidth,
-                                      child: SizedBox(
-                                        width: listWidth,
-                                        child: ScrollConfiguration(
-                                          behavior:
-                                              const MaterialScrollBehavior()
-                                                  .copyWith(
-                                                    dragDevices:
-                                                        <PointerDeviceKind>{
-                                                          PointerDeviceKind
-                                                              .touch,
-                                                          PointerDeviceKind
-                                                              .mouse,
-                                                          PointerDeviceKind
-                                                              .trackpad,
-                                                          PointerDeviceKind
-                                                              .stylus,
-                                                          PointerDeviceKind
-                                                              .invertedStylus,
-                                                        },
-                                                  ),
-                                          child: PageView.builder(
-                                            controller: controller,
-                                            scrollDirection: Axis.horizontal,
-                                            physics:
-                                                const ClampingScrollPhysics(),
-                                            clipBehavior: Clip.none,
-                                            padEnds: true,
-                                            itemCount: records.length,
-                                            itemBuilder:
-                                                (
-                                                  BuildContext context,
-                                                  int index,
-                                                ) => Padding(
-                                                  padding: EdgeInsets.only(
-                                                    top: 3,
-                                                    bottom: 3,
-                                                    right:
-                                                        index ==
-                                                            records.length - 1
-                                                        ? 0
-                                                        : _recordCardGap,
-                                                  ),
-                                                  child: _TodayRecordCard(
-                                                    record: records[index],
-                                                    width: _recordCardWidth,
-                                                    onTap: () async {
-                                                      final PublicRecordDetailResult?
-                                                      result =
-                                                          await HomeScreen.openPublicRecordDetail(
-                                                            context,
-                                                            record:
-                                                                records[index],
-                                                            questionDateKey:
-                                                                _todayKey,
-                                                            questionText:
-                                                                questionText,
-                                                          );
-                                                      if (!mounted ||
-                                                          result == null) {
-                                                        return;
-                                                      }
-                                                      setState(() {});
-                                                    },
-                                                  ),
-                                                ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                          )
-                        else
-                          _TodayRecordEmptyCard(
-                            recordCount: totalRecordCount,
-                            onTap: () =>
-                                HomeScreen.openTodayQuestionAnswer(context),
-                          ),
-                      ],
-                    );
-                  },
-            );
-          },
+                            ),
+                          );
+                        },
+                      )
+                    else
+                      _TodayRecordEmptyCard(
+                        recordCount: totalRecordCount,
+                        onTap: () =>
+                            HomeScreen.openTodayQuestionAnswer(context),
+                      ),
+                  ],
+                );
+              },
+        );
+      },
     );
   }
 }
@@ -2881,12 +2987,18 @@ class _TodayRecordEmptyCard extends StatelessWidget {
 class _TodayRecordCard extends StatelessWidget {
   const _TodayRecordCard({
     required this.record,
+    required this.isLiked,
+    required this.likeCount,
     required this.width,
+    required this.onLikeTap,
     required this.onTap,
   });
 
   final PublicTodayRecord record;
+  final bool isLiked;
+  final int likeCount;
   final double width;
+  final VoidCallback onLikeTap;
   final Future<void> Function() onTap;
 
   @override
@@ -2900,6 +3012,7 @@ class _TodayRecordCard extends StatelessWidget {
         borderRadius: AppRadius.br16,
         child: Container(
           width: width,
+          height: _TodayRecordSectionState._recordCardHeight,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: AppNeutralColors.white,
@@ -2915,19 +3028,64 @@ class _TodayRecordCard extends StatelessWidget {
                   style: AppTypography.bodyMediumMedium.copyWith(
                     color: AppNeutralColors.grey900,
                   ),
+                  textHeightBehavior: const TextHeightBehavior(
+                    applyHeightToFirstAscent: false,
+                    applyHeightToLastDescent: false,
+                  ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 3,
                 ),
               ),
               const SizedBox(height: AppSpacing.s12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  record.author,
-                  style: AppTypography.bodyMediumSemiBold.copyWith(
-                    color: brand.c500,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onLikeTap,
+                        child: SizedBox(
+                          height: 24,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: <Widget>[
+                              AppLikeIcon(
+                                selected: isLiked,
+                                size: AppIconSize.s20,
+                                color: isLiked ? brand.c500 : brand.c300,
+                              ),
+                              const SizedBox(width: AppSpacing.s2),
+                              Text(
+                                "$likeCount",
+                                style: AppTypography.captionMedium.copyWith(
+                                  color: brand.c500,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(width: AppSpacing.s12),
+                  Flexible(
+                    child: Text(
+                      record.author,
+                      textAlign: TextAlign.right,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      style: AppTypography.bodyMediumSemiBold.copyWith(
+                        color: brand.c500,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -2937,11 +3095,7 @@ class _TodayRecordCard extends StatelessWidget {
   }
 
   String _toPreviewText(String raw) {
-    final String singleLine = raw.replaceAll("\n", " ");
-    if (singleLine.length <= 56) {
-      return singleLine;
-    }
-    return "${singleLine.substring(0, 56)}...";
+    return raw.replaceAll("\n", " ");
   }
 }
 

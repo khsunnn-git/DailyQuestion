@@ -67,9 +67,7 @@ class _SplashScreenState extends State<SplashScreen> {
     switch (target) {
       case SplashRouteTarget.onboarding:
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(
-            builder: (_) => OnboardingScreen(onCompleted: _routeNext),
-          ),
+          MaterialPageRoute<void>(builder: (_) => const OnboardingScreen()),
         );
         return;
       case SplashRouteTarget.login:

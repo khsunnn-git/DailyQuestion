@@ -31,13 +31,20 @@ class AppBucketTagStyle {
 
 abstract final class AppBadgeTokens {
   static const double bucketHeight = 24;
+  static const double aiHeight = 22;
   static const EdgeInsets bucketPadding = EdgeInsets.symmetric(
     horizontal: AppSpacing.s8,
     vertical: AppSpacing.s4,
   );
+  static const EdgeInsets aiPadding = EdgeInsets.symmetric(
+    horizontal: AppSpacing.s8,
+    vertical: AppSpacing.s2,
+  );
   static const TextStyle bucketTextStyle = AppTypography.captionSmall;
+  static const TextStyle aiTextStyle = AppTypography.captionSmall;
   static const Color bucketTextColor = AppNeutralColors.grey900;
   static const BorderRadius bucketRadius = AppRadius.pill;
+  static const BorderRadius aiRadius = AppRadius.pill;
 }
 
 abstract final class AppBucketTagTokens {

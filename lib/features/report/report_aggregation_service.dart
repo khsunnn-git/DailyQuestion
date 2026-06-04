@@ -672,19 +672,25 @@ class ReportAggregationService {
       snapshot.payload.days,
       pickMax: false,
     );
+    final List<String> tunedInsights = _buildWeeklyInsights(
+      snapshot: snapshot,
+      bestDay: bestDay,
+      hardestDay: hardestDay,
+    );
+    final List<String> tunedActions = _buildNextWeekMissions(
+      snapshot: snapshot,
+      bestDay: bestDay,
+      hardestDay: hardestDay,
+    ).take(3).toList(growable: false);
     return WeeklyAiReport(
       summary: _buildWeeklySummary(snapshot),
       emotionSummary: report.emotionSummary,
-      insights: _buildWeeklyInsights(
-        snapshot: snapshot,
-        bestDay: bestDay,
-        hardestDay: hardestDay,
-      ),
-      actions: _buildNextWeekMissions(
-        snapshot: snapshot,
-        bestDay: bestDay,
-        hardestDay: hardestDay,
-      ).take(3).toList(growable: false),
+      insights: report.isFromOpenAi && report.insights.isNotEmpty
+          ? report.insights
+          : tunedInsights,
+      actions: report.isFromOpenAi && report.actions.isNotEmpty
+          ? report.actions
+          : tunedActions,
       weeklyScore: report.weeklyScore,
       monthlyScore: report.monthlyScore,
       source: report.source,
@@ -1328,6 +1334,18 @@ class ReportAggregationService {
           category: cue.category,
           text: "몸을 쉬게 하는 흐름이 중요해 보여요. 오늘은 평소보다 조금 일찍 쉬어보세요.",
         );
+      case "screen":
+        return _ActionSuggestion(
+          category: cue.category,
+          text:
+              "답변에서 ${cue.shortLabel}가 회복 단서로 보여요. 다음에 지치는 날엔 ${cue.recommendation}",
+        );
+      case "sports":
+        return _ActionSuggestion(
+          category: cue.category,
+          text:
+              "기록에서 ${cue.shortLabel}를 좋아하는 흐름이 보여요. 이번엔 ${cue.recommendation}",
+        );
       default:
         return _ActionSuggestion(
           category: cue.category,
@@ -1513,6 +1531,14 @@ class ReportAggregationService {
       );
     }
 
+    final String? recoveryInsight = _personalizedRecoveryInsight(
+      snapshot: snapshot,
+      hardestDay: hardestDay,
+    );
+    if (recoveryInsight != null) {
+      insights.add(recoveryInsight);
+    }
+
     if (snapshot.hasCheckinData) {
       if (hardestDay != null &&
           (bestDay == null || hardestDay.dateLabel != bestDay.dateLabel)) {
@@ -1530,6 +1556,24 @@ class ReportAggregationService {
       );
     }
     return insights;
+  }
+
+  String? _personalizedRecoveryInsight({
+    required WeeklyAggregationSnapshot snapshot,
+    required _DayScoreEvidence? hardestDay,
+  }) {
+    final List<_RecoveryActionCue> cues = _preferredRecoveryCues(
+      snapshot,
+      prioritizedText: hardestDay?.answerSnippet ?? "",
+    );
+    if (cues.isEmpty) {
+      return null;
+    }
+    final _RecoveryActionCue cue = cues.first;
+    final String lead = hardestDay == null
+        ? "기록에서 ${cue.shortLabel}가 반복해서 보여요."
+        : "${hardestDay.weekdayLabel}처럼 컨디션이 낮았던 날에도 \"${hardestDay.answerSnippet}\" 같은 단서가 남아 있었어요.";
+    return "$lead 그래서 다음에 비슷하게 지치는 날엔 ${cue.recommendation}";
   }
 
   List<_RecoveryActionCue> _preferredRecoveryCues(
@@ -2112,6 +2156,27 @@ const List<_RecoveryActionCue> _recoveryActionCues = <_RecoveryActionCue>[
     subject: "몸을 쉬게 하는 시간이",
     shortLabel: "충분히 쉬기",
     recommendation: "조금 일찍 쉬며 몸을 먼저 회복해보세요.",
+  ),
+  _RecoveryActionCue(
+    category: "screen",
+    patterns: <String>["드라마", "정주행", "넷플릭스", "시리즈"],
+    subject: "드라마를 보는 시간이",
+    shortLabel: "좋아하는 드라마 보기",
+    recommendation: "전에 언급한 드라마와 비슷한 다음 에피소드나 새 시리즈 한 편을 골라보세요.",
+  ),
+  _RecoveryActionCue(
+    category: "screen",
+    patterns: <String>["영화", "극장", "시네마"],
+    subject: "영화를 보는 시간이",
+    shortLabel: "영화 보기",
+    recommendation: "부담 없는 영화 한 편을 골라 마음을 잠깐 다른 장면에 맡겨보세요.",
+  ),
+  _RecoveryActionCue(
+    category: "sports",
+    patterns: <String>["야구", "야구장", "직관", "경기", "응원"],
+    subject: "야구를 보는 시간이",
+    shortLabel: "야구 관람",
+    recommendation: "집에서 경기 하이라이트를 보거나 여유가 있으면 가까운 야구 경기 관람을 계획해보세요.",
   ),
 ];
 

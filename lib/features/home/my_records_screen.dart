@@ -3077,23 +3077,7 @@ class _AiReportPreviewCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (showAiBadge)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.s8,
-                    vertical: AppSpacing.s2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppSemanticColors.info100,
-                    borderRadius: AppRadius.pill,
-                  ),
-                  child: Text(
-                    "AI",
-                    style: AppTypography.captionSmall.copyWith(
-                      color: brand.c500,
-                    ),
-                  ),
-                ),
+              if (showAiBadge) const AppAiBadge(),
             ],
           ),
           const SizedBox(height: AppSpacing.s20),

@@ -7,6 +7,7 @@ export "components/app_loading_indicator.dart";
 export "components/app_header.dart";
 export "components/app_input.dart";
 export "components/app_item_card.dart";
+export "components/app_like_icon.dart";
 export "components/app_navigation_bar.dart";
 export "components/app_popup.dart";
 export "components/app_tooltip_toast.dart";

@@ -1,6 +1,32 @@
 import "package:flutter/material.dart";
 
+import "../theme/app_theme.dart";
+import "../tokens/app_colors.dart";
 import "../tokens/app_badge_tag_tokens.dart";
+
+class AppAiBadge extends StatelessWidget {
+  const AppAiBadge({super.key, this.label = "AI"});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
+    return Container(
+      height: AppBadgeTokens.aiHeight,
+      padding: AppBadgeTokens.aiPadding,
+      decoration: BoxDecoration(
+        color: brand.c100,
+        borderRadius: AppBadgeTokens.aiRadius,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: AppBadgeTokens.aiTextStyle.copyWith(color: brand.c500),
+      ),
+    );
+  }
+}
 
 class AppBucketBadge extends StatelessWidget {
   const AppBucketBadge({
@@ -24,7 +50,9 @@ class AppBucketBadge extends StatelessWidget {
       child: Center(
         child: Text(
           text,
-          style: AppBadgeTokens.bucketTextStyle.copyWith(color: AppBadgeTokens.bucketTextColor),
+          style: AppBadgeTokens.bucketTextStyle.copyWith(
+            color: AppBadgeTokens.bucketTextColor,
+          ),
         ),
       ),
     );
@@ -61,24 +89,36 @@ class AppBucketTag extends StatelessWidget {
           if (style.showHash)
             Text(
               "# ",
-              style: AppBucketTagTokens.textStyle.copyWith(color: style.textColor),
+              style: AppBucketTagTokens.textStyle.copyWith(
+                color: style.textColor,
+              ),
             ),
           Text(
             text,
-            style: AppBucketTagTokens.textStyle.copyWith(color: style.textColor),
+            style: AppBucketTagTokens.textStyle.copyWith(
+              color: style.textColor,
+            ),
           ),
           if (style.showDelete) ...<Widget>[
             const SizedBox(width: AppBucketTagTokens.innerGap),
             GestureDetector(
               onTap: onDeleteTap,
-              child: Icon(Icons.close, size: AppBucketTagTokens.iconSize, color: style.textColor),
+              child: Icon(
+                Icons.close,
+                size: AppBucketTagTokens.iconSize,
+                color: style.textColor,
+              ),
             ),
           ],
           if (style.showAdd) ...<Widget>[
             const SizedBox(width: AppBucketTagTokens.innerGap),
             GestureDetector(
               onTap: onAddTap,
-              child: Icon(Icons.add, size: AppBucketTagTokens.iconSize, color: style.textColor),
+              child: Icon(
+                Icons.add,
+                size: AppBucketTagTokens.iconSize,
+                color: style.textColor,
+              ),
             ),
           ],
         ],

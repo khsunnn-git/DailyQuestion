@@ -12,6 +12,7 @@
 - Icon:
   - Sizes: `16, 20, 24, 40`
   - Base color: `Grey900 #111111`
+  - Like icon: outline/default and filled/selected states
 - Buttons:
   - Hierarchy: Primary/Secondary/Tertiary/Outline/Noline/Text (+ `-R`)
   - Types: Text-only, Text-Icon, Icon-only
