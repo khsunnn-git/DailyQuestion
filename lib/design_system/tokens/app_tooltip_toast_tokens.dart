@@ -57,15 +57,26 @@ abstract final class AppToastTokens {
 }
 
 abstract final class AppSpeechBubbleTokens {
+  static const double height = 44;
+  static const Size pointerSize = Size(10, 6);
+  static const Size sidePointerSize = Size(6, 10);
   static Color primaryBackground(BrandScale brand) => brand.c500;
   static const Color primaryText = AppNeutralColors.white;
   static const Color whiteBackground = AppNeutralColors.white;
   static const Color whiteText = AppNeutralColors.grey700;
-  static const BorderRadius radius = AppRadius.br16;
+  static const BorderRadius radius = BorderRadius.all(Radius.circular(14));
+  static const List<BoxShadow> primaryShadow = <BoxShadow>[
+    BoxShadow(
+      color: Color(0x0A000000),
+      offset: Offset(0, 4),
+      blurRadius: 2,
+      spreadRadius: 0,
+    ),
+  ];
   static const List<BoxShadow> whiteShadow = AppElevation.level1;
   static const TextStyle textStyle = AppTypography.bodySmallMedium;
   static const EdgeInsets padding = EdgeInsets.symmetric(
-    horizontal: AppSpacing.s12,
+    horizontal: AppSpacing.s16,
     vertical: AppSpacing.s8,
   );
 }

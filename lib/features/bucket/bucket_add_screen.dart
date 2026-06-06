@@ -6,6 +6,7 @@ import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
 import "bucket_backup_service.dart";
 import "bucket_category_empty_screen.dart";
+import "bucket_completion_screen.dart";
 import "bucket_save_success_screen.dart";
 
 class BucketCreatedItem {
@@ -16,6 +17,8 @@ class BucketCreatedItem {
     required this.createdAt,
     required this.isCompleted,
     this.dueDate,
+    this.achievementImagePath,
+    this.achievementNote,
   });
 
   final String title;
@@ -24,6 +27,8 @@ class BucketCreatedItem {
   final DateTime createdAt;
   final bool isCompleted;
   final DateTime? dueDate;
+  final String? achievementImagePath;
+  final String? achievementNote;
 }
 
 class BucketAddResult {
@@ -59,6 +64,8 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
   BucketCategorySelection? _selectedCategory;
   DateTime? _selectedDueDate;
   DateTime? _selectedCompletedDate;
+  String? _achievementImagePath;
+  String? _achievementNote;
 
   bool get _canSave =>
       _titleController.text.trim().isNotEmpty && _selectedCategory != null;
@@ -122,6 +129,8 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
     );
     _categories = List<BucketCategorySelection>.from(widget.initialCategories);
     _isCompleted = widget.initialItem?.isCompleted ?? false;
+    _achievementImagePath = widget.initialItem?.achievementImagePath;
+    _achievementNote = widget.initialItem?.achievementNote;
     if (_isCompleted) {
       _selectedCompletedDate = widget.initialItem?.dueDate;
       _selectedDueDate = null;
@@ -148,6 +157,87 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
         (BucketCategorySelection e) => e.name == initialItem.categoryName,
       );
     }
+  }
+
+  Future<BucketCategorySelection?> _openCategorySelector() async {
+    final List<BucketCategorySelection> previousCategories =
+        List<BucketCategorySelection>.from(_categories);
+    final BucketCategoryResult? result = await Navigator.of(context)
+        .push<BucketCategoryResult>(
+          MaterialPageRoute<BucketCategoryResult>(
+            builder: (_) => BucketCategoryEmptyScreen(
+              initialCategories: _categories,
+              initialSelectedName: _selectedCategory?.name,
+            ),
+          ),
+        );
+    if (result == null || !mounted) {
+      return null;
+    }
+    await _reassignDeletedCategoriesToAll(
+      previousCategories: previousCategories,
+      nextCategories: result.categories,
+    );
+    if (!mounted) {
+      return null;
+    }
+    setState(() {
+      _categories
+        ..clear()
+        ..addAll(result.categories);
+      _selectedCategory = result.selected;
+    });
+    return result.selected;
+  }
+
+  Future<void> _openCompletionScreen() async {
+    final BucketCategorySelection? category = _selectedCategory;
+    if (category == null || _titleController.text.trim().isEmpty) {
+      setState(() {
+        _isCompleted = false;
+      });
+      return;
+    }
+    final DateTime completedDate = _selectedCompletedDate ?? DateTime.now();
+    final BucketCompletionResult? result = await Navigator.of(context)
+        .push<BucketCompletionResult>(
+          MaterialPageRoute<BucketCompletionResult>(
+            builder: (_) => BucketCompletionScreen(
+              title: _titleController.text.trim(),
+              category: category,
+              completedDate: completedDate,
+              initialImagePath: _achievementImagePath,
+              initialNote: _achievementNote,
+              onChangeCategory: _openCategorySelector,
+              onChangeCompletedDate: (DateTime current) {
+                return _showCalendarPopup(
+                  initialDate: current,
+                  firstDate: DateTime(2000, 1, 1),
+                );
+              },
+            ),
+          ),
+        );
+    if (!mounted) {
+      return;
+    }
+    if (result == null) {
+      setState(() {
+        _isCompleted = widget.initialItem?.isCompleted ?? false;
+        _selectedCompletedDate = widget.initialItem?.isCompleted == true
+            ? widget.initialItem?.dueDate
+            : null;
+      });
+      return;
+    }
+    setState(() {
+      _isCompleted = true;
+      _selectedCompletedDate = result.completedDate;
+      _selectedDueDate = null;
+      _isDdayAlertEnabled = false;
+      _achievementImagePath = result.imagePath;
+      _achievementNote = result.note;
+    });
   }
 
   @override
@@ -270,35 +360,7 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                   const SizedBox(height: AppSpacing.s20),
                   _InputCard(
                     onTap: () async {
-                      final List<BucketCategorySelection> previousCategories =
-                          List<BucketCategorySelection>.from(_categories);
-                      final BucketCategoryResult? result =
-                          await Navigator.of(
-                            context,
-                          ).push<BucketCategoryResult>(
-                            MaterialPageRoute<BucketCategoryResult>(
-                              builder: (_) => BucketCategoryEmptyScreen(
-                                initialCategories: _categories,
-                                initialSelectedName: _selectedCategory?.name,
-                              ),
-                            ),
-                          );
-                      if (result == null || !mounted) {
-                        return;
-                      }
-                      await _reassignDeletedCategoriesToAll(
-                        previousCategories: previousCategories,
-                        nextCategories: result.categories,
-                      );
-                      if (!mounted) {
-                        return;
-                      }
-                      setState(() {
-                        _categories
-                          ..clear()
-                          ..addAll(result.categories);
-                        _selectedCategory = result.selected;
-                      });
+                      await _openCategorySelector();
                     },
                     child: Row(
                       children: <Widget>[
@@ -349,7 +411,7 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                   const SizedBox(height: AppSpacing.s20),
                   _InputCard(
                     child: _OptionalToggleCard(
-                      title: "D-Day 알림 설정",
+                      title: "목표 날짜 설정",
                       subtitle: "디데이 알림이 설정됩니다.",
                       value: _isDdayAlertEnabled,
                       dateLabel: "D-Day",
@@ -405,14 +467,19 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                         });
                       },
                       onChanged: (bool value) {
+                        if (value) {
+                          setState(() {
+                            _isCompleted = true;
+                            _selectedCompletedDate ??= DateTime.now();
+                          });
+                          _openCompletionScreen();
+                          return;
+                        }
                         setState(() {
-                          _isCompleted = value;
-                          if (value && _selectedCompletedDate == null) {
-                            _selectedCompletedDate = DateTime.now();
-                          }
-                          if (!value) {
-                            _selectedCompletedDate = null;
-                          }
+                          _isCompleted = false;
+                          _selectedCompletedDate = null;
+                          _achievementImagePath = null;
+                          _achievementNote = null;
                         });
                       },
                     ),
@@ -455,6 +522,12 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
                                   : (_isDdayAlertEnabled
                                         ? _selectedDueDate
                                         : null),
+                              achievementImagePath: _isCompleted
+                                  ? _achievementImagePath
+                                  : null,
+                              achievementNote: _isCompleted
+                                  ? _achievementNote
+                                  : null,
                             ),
                             categories:
                                 List<BucketCategorySelection>.unmodifiable(

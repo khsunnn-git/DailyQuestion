@@ -215,6 +215,8 @@ class LocalBackupService {
       "createdAt": item.createdAt.toUtc().toIso8601String(),
       "dueDate": item.dueDate?.toUtc().toIso8601String(),
       "isCompleted": item.isCompleted,
+      "achievementImagePath": item.achievementImagePath,
+      "achievementNote": item.achievementNote,
       "updatedAt": item.updatedAt.toUtc().toIso8601String(),
     };
   }
@@ -301,6 +303,8 @@ class LocalBackupService {
           item.createdAt = _parseDateTime(json["createdAt"]) ?? DateTime.now();
           item.dueDate = _parseDateTime(json["dueDate"]);
           item.isCompleted = json["isCompleted"] == true;
+          item.achievementImagePath = json["achievementImagePath"] as String?;
+          item.achievementNote = json["achievementNote"] as String?;
           item.updatedAt = _parseDateTime(json["updatedAt"]) ?? item.createdAt;
           return item;
         })

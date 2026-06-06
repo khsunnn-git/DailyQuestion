@@ -84,7 +84,8 @@ class _RequiredAlarmPermissionGateState
       if (!granted) {
         // Exact alarm and battery optimization permissions open their own UI,
         // so only fall back to app settings when notification is still missing.
-        final bool notificationEnabled = await areNotificationsEnabledOnDevice();
+        final bool notificationEnabled =
+            await areNotificationsEnabledOnDevice();
         if (!notificationEnabled) {
           await openAppSettings();
         }
@@ -122,6 +123,11 @@ class _RequiredAlarmPermissionGateState
     }
 
     final BrandScale brand = context.appBrandScale;
+    final Widget stableBackground = ColoredBox(color: brand.bg);
+    if (_loading) {
+      return stableBackground;
+    }
+
     final String permissionDescription =
         defaultTargetPlatform == TargetPlatform.android
         ? "알림을 받으려면 기기 알림 권한이 필요해요.\n정시 알림과 배터리 최적화 설정은 이후 설정 화면에서 보강할 수 있어요.\n권한을 허용하면 매일 설정한 시간, 설정 전이라면 기본 시간 ${_defaultAlarmTimeLabel()}에 알림을 보내드려요."
@@ -129,10 +135,10 @@ class _RequiredAlarmPermissionGateState
 
     return Stack(
       children: <Widget>[
-        widget.child,
+        stableBackground,
         Positioned.fill(
           child: ColoredBox(
-            color: AppNeutralColors.white,
+            color: brand.bg,
             child: SafeArea(
               child: Center(
                 child: Padding(

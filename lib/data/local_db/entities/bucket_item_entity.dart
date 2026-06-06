@@ -12,5 +12,7 @@ class BucketItemEntity {
   late DateTime createdAt;
   DateTime? dueDate;
   late bool isCompleted;
+  String? achievementImagePath;
+  String? achievementNote;
   late DateTime updatedAt;
 }

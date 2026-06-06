@@ -140,24 +140,24 @@ class AppSpeechBubble extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         borderRadius: AppSpeechBubbleTokens.radius,
-        boxShadow: _primary ? null : AppSpeechBubbleTokens.whiteShadow,
+        boxShadow: _primary
+            ? AppSpeechBubbleTokens.primaryShadow
+            : AppSpeechBubbleTokens.whiteShadow,
       ),
       child: AppEmojiText(
         text,
+        textAlign: TextAlign.center,
         style: AppSpeechBubbleTokens.textStyle.copyWith(color: textColor),
       ),
     );
 
     final Widget pointer = CustomPaint(
-      size: const Size(10, 6),
-      painter: _TrianglePainter(
+      size: left || right
+          ? AppSpeechBubbleTokens.sidePointerSize
+          : AppSpeechBubbleTokens.pointerSize,
+      painter: _SpeechBubbleTrianglePainter(
         color: background,
-        up: up,
-        rotateQuarterTurns: left
-            ? 3
-            : right
-            ? 1
-            : 0,
+        direction: direction,
       ),
     );
 
@@ -168,33 +168,68 @@ class AppSpeechBubble extends StatelessWidget {
       );
     }
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: left ? <Widget>[pointer, bubble] : <Widget>[bubble, pointer],
+    return SizedBox(
+      height: AppSpeechBubbleTokens.height,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: left ? <Widget>[pointer, bubble] : <Widget>[bubble, pointer],
+      ),
     );
   }
 }
 
-class _TrianglePainter extends CustomPainter {
-  const _TrianglePainter({
+class _SpeechBubbleTrianglePainter extends CustomPainter {
+  const _SpeechBubbleTrianglePainter({
     required this.color,
-    required this.up,
-    this.rotateQuarterTurns = 0,
+    required this.direction,
   });
 
   final Color color;
-  final bool up;
-  final int rotateQuarterTurns;
+  final AppBubbleDirection direction;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.save();
-    for (int i = 0; i < rotateQuarterTurns; i++) {
-      canvas.translate(size.width / 2, size.height / 2);
-      canvas.rotate(1.5708);
-      canvas.translate(-size.width / 2, -size.height / 2);
-    }
+    final Paint paint = Paint()..color = color;
+    final Path path = switch (direction) {
+      AppBubbleDirection.left =>
+        Path()
+          ..moveTo(size.width, 0)
+          ..lineTo(0, size.height / 2)
+          ..lineTo(size.width, size.height),
+      AppBubbleDirection.right =>
+        Path()
+          ..moveTo(0, 0)
+          ..lineTo(size.width, size.height / 2)
+          ..lineTo(0, size.height),
+      AppBubbleDirection.up =>
+        Path()
+          ..moveTo(size.width / 2, 0)
+          ..lineTo(0, size.height)
+          ..lineTo(size.width, size.height),
+      _ =>
+        Path()
+          ..moveTo(0, 0)
+          ..lineTo(size.width, 0)
+          ..lineTo(size.width / 2, size.height),
+    };
+    path.close();
+    canvas.drawPath(path, paint);
+  }
 
+  @override
+  bool shouldRepaint(covariant _SpeechBubbleTrianglePainter oldDelegate) {
+    return color != oldDelegate.color || direction != oldDelegate.direction;
+  }
+}
+
+class _TrianglePainter extends CustomPainter {
+  const _TrianglePainter({required this.color, required this.up});
+
+  final Color color;
+  final bool up;
+
+  @override
+  void paint(Canvas canvas, Size size) {
     final Paint paint = Paint()..color = color;
     final Path path = Path();
     if (up) {
@@ -208,13 +243,10 @@ class _TrianglePainter extends CustomPainter {
     }
     path.close();
     canvas.drawPath(path, paint);
-    canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant _TrianglePainter oldDelegate) {
-    return color != oldDelegate.color ||
-        up != oldDelegate.up ||
-        rotateQuarterTurns != oldDelegate.rotateQuarterTurns;
+    return color != oldDelegate.color || up != oldDelegate.up;
   }
 }

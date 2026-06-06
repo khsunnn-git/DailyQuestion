@@ -17,34 +17,44 @@ const BucketItemEntitySchema = CollectionSchema(
   name: r'BucketItemEntity',
   id: -393703773447136614,
   properties: {
-    r'category': PropertySchema(
+    r'achievementImagePath': PropertySchema(
       id: 0,
+      name: r'achievementImagePath',
+      type: IsarType.string,
+    ),
+    r'achievementNote': PropertySchema(
+      id: 1,
+      name: r'achievementNote',
+      type: IsarType.string,
+    ),
+    r'category': PropertySchema(
+      id: 2,
       name: r'category',
       type: IsarType.string,
     ),
     r'categoryColorValue': PropertySchema(
-      id: 1,
+      id: 3,
       name: r'categoryColorValue',
       type: IsarType.long,
     ),
     r'createdAt': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'dueDate': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'dueDate',
       type: IsarType.dateTime,
     ),
     r'isCompleted': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'isCompleted',
       type: IsarType.bool,
     ),
-    r'title': PropertySchema(id: 5, name: r'title', type: IsarType.string),
+    r'title': PropertySchema(id: 7, name: r'title', type: IsarType.string),
     r'updatedAt': PropertySchema(
-      id: 6,
+      id: 8,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
@@ -71,6 +81,18 @@ int _bucketItemEntityEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.achievementImagePath;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
+    final value = object.achievementNote;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.category.length * 3;
   bytesCount += 3 + object.title.length * 3;
   return bytesCount;
@@ -82,13 +104,15 @@ void _bucketItemEntitySerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.category);
-  writer.writeLong(offsets[1], object.categoryColorValue);
-  writer.writeDateTime(offsets[2], object.createdAt);
-  writer.writeDateTime(offsets[3], object.dueDate);
-  writer.writeBool(offsets[4], object.isCompleted);
-  writer.writeString(offsets[5], object.title);
-  writer.writeDateTime(offsets[6], object.updatedAt);
+  writer.writeString(offsets[0], object.achievementImagePath);
+  writer.writeString(offsets[1], object.achievementNote);
+  writer.writeString(offsets[2], object.category);
+  writer.writeLong(offsets[3], object.categoryColorValue);
+  writer.writeDateTime(offsets[4], object.createdAt);
+  writer.writeDateTime(offsets[5], object.dueDate);
+  writer.writeBool(offsets[6], object.isCompleted);
+  writer.writeString(offsets[7], object.title);
+  writer.writeDateTime(offsets[8], object.updatedAt);
 }
 
 BucketItemEntity _bucketItemEntityDeserialize(
@@ -98,14 +122,16 @@ BucketItemEntity _bucketItemEntityDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = BucketItemEntity();
-  object.category = reader.readString(offsets[0]);
-  object.categoryColorValue = reader.readLong(offsets[1]);
-  object.createdAt = reader.readDateTime(offsets[2]);
-  object.dueDate = reader.readDateTimeOrNull(offsets[3]);
+  object.achievementImagePath = reader.readStringOrNull(offsets[0]);
+  object.achievementNote = reader.readStringOrNull(offsets[1]);
+  object.category = reader.readString(offsets[2]);
+  object.categoryColorValue = reader.readLong(offsets[3]);
+  object.createdAt = reader.readDateTime(offsets[4]);
+  object.dueDate = reader.readDateTimeOrNull(offsets[5]);
   object.id = id;
-  object.isCompleted = reader.readBool(offsets[4]);
-  object.title = reader.readString(offsets[5]);
-  object.updatedAt = reader.readDateTime(offsets[6]);
+  object.isCompleted = reader.readBool(offsets[6]);
+  object.title = reader.readString(offsets[7]);
+  object.updatedAt = reader.readDateTime(offsets[8]);
   return object;
 }
 
@@ -117,18 +143,22 @@ P _bucketItemEntityDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 1:
-      return (reader.readLong(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readDateTime(offset)) as P;
-    case 3:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 4:
-      return (reader.readBool(offset)) as P;
-    case 5:
       return (reader.readString(offset)) as P;
+    case 3:
+      return (reader.readLong(offset)) as P;
+    case 4:
+      return (reader.readDateTime(offset)) as P;
+    case 5:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 6:
+      return (reader.readBool(offset)) as P;
+    case 7:
+      return (reader.readString(offset)) as P;
+    case 8:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -232,6 +262,327 @@ extension BucketItemEntityQueryWhere
 
 extension BucketItemEntityQueryFilter
     on QueryBuilder<BucketItemEntity, BucketItemEntity, QFilterCondition> {
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'achievementImagePath'),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'achievementImagePath'),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'achievementImagePath',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'achievementImagePath',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'achievementImagePath',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'achievementImagePath',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'achievementImagePath',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'achievementImagePath',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'achievementImagePath',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'achievementImagePath',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'achievementImagePath', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementImagePathIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          property: r'achievementImagePath',
+          value: '',
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNull(property: r'achievementNote'),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        const FilterCondition.isNotNull(property: r'achievementNote'),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteEqualTo(String? value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(
+          property: r'achievementNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(
+          include: include,
+          property: r'achievementNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.lessThan(
+          include: include,
+          property: r'achievementNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.between(
+          property: r'achievementNote',
+          lower: lower,
+          includeLower: includeLower,
+          upper: upper,
+          includeUpper: includeUpper,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteStartsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.startsWith(
+          property: r'achievementNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteEndsWith(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.endsWith(
+          property: r'achievementNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.contains(
+          property: r'achievementNote',
+          value: value,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.matches(
+          property: r'achievementNote',
+          wildcard: pattern,
+          caseSensitive: caseSensitive,
+        ),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.equalTo(property: r'achievementNote', value: ''),
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
+  achievementNoteIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(
+        FilterCondition.greaterThan(property: r'achievementNote', value: ''),
+      );
+    });
+  }
+
   QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterFilterCondition>
   categoryEqualTo(String value, {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -826,6 +1177,34 @@ extension BucketItemEntityQueryLinks
 extension BucketItemEntityQuerySortBy
     on QueryBuilder<BucketItemEntity, BucketItemEntity, QSortBy> {
   QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
+  sortByAchievementImagePath() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'achievementImagePath', Sort.asc);
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
+  sortByAchievementImagePathDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'achievementImagePath', Sort.desc);
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
+  sortByAchievementNote() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'achievementNote', Sort.asc);
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
+  sortByAchievementNoteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'achievementNote', Sort.desc);
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
   sortByCategory() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'category', Sort.asc);
@@ -925,6 +1304,34 @@ extension BucketItemEntityQuerySortBy
 
 extension BucketItemEntityQuerySortThenBy
     on QueryBuilder<BucketItemEntity, BucketItemEntity, QSortThenBy> {
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
+  thenByAchievementImagePath() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'achievementImagePath', Sort.asc);
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
+  thenByAchievementImagePathDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'achievementImagePath', Sort.desc);
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
+  thenByAchievementNote() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'achievementNote', Sort.asc);
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
+  thenByAchievementNoteDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'achievementNote', Sort.desc);
+    });
+  }
+
   QueryBuilder<BucketItemEntity, BucketItemEntity, QAfterSortBy>
   thenByCategory() {
     return QueryBuilder.apply(this, (query) {
@@ -1039,6 +1446,26 @@ extension BucketItemEntityQuerySortThenBy
 extension BucketItemEntityQueryWhereDistinct
     on QueryBuilder<BucketItemEntity, BucketItemEntity, QDistinct> {
   QueryBuilder<BucketItemEntity, BucketItemEntity, QDistinct>
+  distinctByAchievementImagePath({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'achievementImagePath',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QDistinct>
+  distinctByAchievementNote({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(
+        r'achievementNote',
+        caseSensitive: caseSensitive,
+      );
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, BucketItemEntity, QDistinct>
   distinctByCategory({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'category', caseSensitive: caseSensitive);
@@ -1094,6 +1521,20 @@ extension BucketItemEntityQueryProperty
   QueryBuilder<BucketItemEntity, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, String?, QQueryOperations>
+  achievementImagePathProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'achievementImagePath');
+    });
+  }
+
+  QueryBuilder<BucketItemEntity, String?, QQueryOperations>
+  achievementNoteProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'achievementNote');
     });
   }
 

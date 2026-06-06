@@ -1,18 +1,24 @@
 import "dart:async";
+import "dart:io";
 import "dart:ui" show ImageFilter;
 
 import "package:flutter/material.dart";
 import "package:isar_community/isar.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
+import "../../data/local_db/entities/answer_record_entity.dart";
 import "../../data/local_db/entities/bucket_category_entity.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
+import "../home/home_character_assets.dart";
+import "../home/home_theme_progression.dart";
 import "../navigation/main_tab_shell.dart";
 import "bucket_backup_service.dart";
 import "bucket_add_screen.dart";
 import "bucket_category_empty_screen.dart";
+import "bucket_completion_screen.dart";
+import "bucket_recommendation_screen.dart";
 import "bucket_save_success_screen.dart";
 import "../more/notification_prefs_keys.dart";
 import "../notifications/daily_question_notification_scheduler.dart";
@@ -32,6 +38,11 @@ class _BucketListScreenState extends State<BucketListScreen>
       "assets/images/bucket/bucketlist_empty_state_note_fish.webp";
   static const String _emptyBucketTreeAsset =
       "assets/images/bucket/bucketlist_empty_state_note_tree.webp";
+  static const List<String> _bucketHelperMessages = <String>[
+    "버킷리스트 너무 어려우신가요?",
+    "제가 도움을 드릴게요! 눌러보세요!",
+    "하고싶은 일을 적으면 됩니다",
+  ];
   static const String _allCategoryName = "ALL";
   static const Color _allCategoryColor = AppNeutralColors.grey100;
   int _selectedTabIndex = 0;
@@ -39,8 +50,13 @@ class _BucketListScreenState extends State<BucketListScreen>
   final List<BucketCategorySelection> _customCategories =
       <BucketCategorySelection>[];
   bool _isLoading = true;
+  int _totalRecordCount = 0;
+  int _helperMessageIndex = 0;
+  late final PageController _pageController;
+  late final ScrollController _tabScrollController;
   late final AnimationController _floatingController;
   late final Animation<double> _floatingOffset;
+  Timer? _helperMessageTimer;
   StreamSubscription<void>? _bucketItemsSubscription;
   StreamSubscription<void>? _bucketCategoriesSubscription;
   int _persistedDataRequestId = 0;
@@ -48,6 +64,8 @@ class _BucketListScreenState extends State<BucketListScreen>
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
+    _tabScrollController = ScrollController();
     _floatingController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
@@ -55,6 +73,15 @@ class _BucketListScreenState extends State<BucketListScreen>
     _floatingOffset = Tween<double>(begin: -6, end: 6).animate(
       CurvedAnimation(parent: _floatingController, curve: Curves.easeInOut),
     );
+    _helperMessageTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _helperMessageIndex =
+            (_helperMessageIndex + 1) % _bucketHelperMessages.length;
+      });
+    });
     unawaited(_watchPersistedDataChanges());
     unawaited(_loadPersistedData(syncNotifications: true));
   }
@@ -63,6 +90,9 @@ class _BucketListScreenState extends State<BucketListScreen>
   void dispose() {
     _bucketItemsSubscription?.cancel();
     _bucketCategoriesSubscription?.cancel();
+    _helperMessageTimer?.cancel();
+    _pageController.dispose();
+    _tabScrollController.dispose();
     _floatingController.dispose();
     super.dispose();
   }
@@ -117,6 +147,54 @@ class _BucketListScreenState extends State<BucketListScreen>
     return true;
   }
 
+  BucketCategorySelection? _findCustomCategory(String name) {
+    final String key = _normalizeCategoryKey(name);
+    for (final BucketCategorySelection category in _customCategories) {
+      if (_normalizeCategoryKey(category.name) == key) {
+        return category;
+      }
+    }
+    return null;
+  }
+
+  Color? _categoryColorFrom(
+    String name,
+    Iterable<BucketCategorySelection> categories,
+  ) {
+    final String key = _normalizeCategoryKey(name);
+    for (final BucketCategorySelection category in categories) {
+      if (_normalizeCategoryKey(category.name) == key) {
+        return category.color;
+      }
+    }
+    return null;
+  }
+
+  Future<List<_BucketEntry>> _applyCategoryColorsToEntries({
+    required List<_BucketEntry> entries,
+    required List<BucketCategorySelection> categories,
+  }) async {
+    final List<_BucketEntry> nextEntries = List<_BucketEntry>.from(entries);
+    for (int index = 0; index < nextEntries.length; index++) {
+      final _BucketEntry current = nextEntries[index];
+      if (_isAllCategoryName(current.category)) {
+        continue;
+      }
+      final Color? categoryColor = _categoryColorFrom(
+        current.category,
+        categories,
+      );
+      if (categoryColor == null ||
+          categoryColor.toARGB32() == current.categoryColor.toARGB32()) {
+        continue;
+      }
+      nextEntries[index] = await _putEntry(
+        current.copyWith(categoryColor: categoryColor),
+      );
+    }
+    return nextEntries;
+  }
+
   List<String> get _tabs {
     return <String>[
       _allCategoryName,
@@ -127,26 +205,33 @@ class _BucketListScreenState extends State<BucketListScreen>
 
   int get _safeSelectedTabIndex {
     final int lastIndex = _tabs.length - 1;
-    if (_selectedTabIndex < 0) {
-      return 0;
-    }
-    if (_selectedTabIndex > lastIndex) {
-      return lastIndex;
-    }
-    return _selectedTabIndex;
+    return _clampTabIndex(_selectedTabIndex, lastIndex: lastIndex);
   }
 
-  List<_BucketEntry> get _filteredEntries {
-    final int selectedTab = _safeSelectedTabIndex;
+  int _clampTabIndex(int index, {int? lastIndex}) {
+    final int last = lastIndex ?? _tabs.length - 1;
+    if (index < 0) {
+      return 0;
+    }
+    if (index > last) {
+      return last;
+    }
+    return index;
+  }
+
+  List<_BucketEntry> _filteredEntriesForTab(int tabIndex) {
+    final List<String> tabs = _tabs;
+    final int lastIndex = tabs.length - 1;
+    final int selectedTab = _clampTabIndex(tabIndex, lastIndex: lastIndex);
     if (selectedTab == 0) {
       return _entries.where((_BucketEntry e) => !e.isCompleted).toList();
     }
-    if (selectedTab == _tabs.length - 1) {
+    if (selectedTab == tabs.length - 1) {
       return _entries.where((_BucketEntry e) => e.isCompleted).toList();
     }
-    if (selectedTab > 0 && selectedTab < _tabs.length - 1) {
+    if (selectedTab > 0 && selectedTab < tabs.length - 1) {
       final List<_BucketEntry> entries = _entries
-          .where((_BucketEntry e) => e.category == _tabs[selectedTab])
+          .where((_BucketEntry e) => e.category == tabs[selectedTab])
           .toList();
       entries.sort((_BucketEntry a, _BucketEntry b) {
         if (a.isCompleted == b.isCompleted) {
@@ -157,6 +242,48 @@ class _BucketListScreenState extends State<BucketListScreen>
       return entries;
     }
     return <_BucketEntry>[];
+  }
+
+  void _selectTab(int index) {
+    final int target = _clampTabIndex(index);
+    if (_selectedTabIndex != target) {
+      setState(() {
+        _selectedTabIndex = target;
+      });
+    }
+    if (!_pageController.hasClients) {
+      _scrollSelectedTabIntoView(target);
+      return;
+    }
+    _pageController.animateToPage(
+      target,
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+    );
+    _scrollSelectedTabIntoView(target);
+  }
+
+  void _jumpToTabPage(int index) {
+    if (!_pageController.hasClients) {
+      return;
+    }
+    _pageController.jumpToPage(_clampTabIndex(index));
+    _scrollSelectedTabIntoView(index);
+  }
+
+  void _scrollSelectedTabIntoView(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_tabScrollController.hasClients) {
+        return;
+      }
+      final double maxOffset = _tabScrollController.position.maxScrollExtent;
+      final double targetOffset = (index * 88.0).clamp(0.0, maxOffset);
+      _tabScrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   String _emptyBucketAssetFor(BrandScale brand) {
@@ -192,6 +319,7 @@ class _BucketListScreenState extends State<BucketListScreen>
     final List<BucketItemEntity> items = await isar.bucketItemEntitys
         .where()
         .findAll();
+    final int totalRecordCount = await isar.answerRecordEntitys.where().count();
     final List<BucketCategorySelection> rawCategories = persistedCategories
         .map((BucketCategoryEntity item) {
           return BucketCategorySelection(
@@ -209,6 +337,11 @@ class _BucketListScreenState extends State<BucketListScreen>
     final List<_BucketEntry> entries =
         items.map(_fromBucketEntity).toList(growable: false)
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final int nextLastTabIndex = categories.length + 1;
+    final int nextSelectedTabIndex = _clampTabIndex(
+      _selectedTabIndex,
+      lastIndex: nextLastTabIndex,
+    );
     setState(() {
       _customCategories
         ..clear()
@@ -216,8 +349,11 @@ class _BucketListScreenState extends State<BucketListScreen>
       _entries
         ..clear()
         ..addAll(entries);
+      _selectedTabIndex = nextSelectedTabIndex;
+      _totalRecordCount = totalRecordCount;
       _isLoading = false;
     });
+    _jumpToTabPage(nextSelectedTabIndex);
     if (!_sameCategorySet(rawCategories, categories)) {
       await _saveCategories(categories: categories);
     }
@@ -276,6 +412,8 @@ class _BucketListScreenState extends State<BucketListScreen>
     entity.createdAt = entry.createdAt;
     entity.dueDate = entry.dueDate;
     entity.isCompleted = entry.isCompleted;
+    entity.achievementImagePath = entry.achievementImagePath;
+    entity.achievementNote = entry.achievementNote;
     entity.updatedAt = DateTime.now();
     final int savedId = await isar.writeTxn(() async {
       return isar.bucketItemEntitys.put(entity);
@@ -306,6 +444,8 @@ class _BucketListScreenState extends State<BucketListScreen>
       createdAt: entity.createdAt,
       dueDate: entity.dueDate,
       isCompleted: entity.isCompleted,
+      achievementImagePath: entity.achievementImagePath,
+      achievementNote: entity.achievementNote,
     );
   }
 
@@ -321,26 +461,44 @@ class _BucketListScreenState extends State<BucketListScreen>
       return;
     }
 
+    final List<BucketCategorySelection> nextCategories =
+        _sanitizeCustomCategories(result.categories);
+    final Color categoryColor =
+        _categoryColorFrom(result.item.categoryName, nextCategories) ??
+        result.item.categoryColor;
     final _BucketEntry saved = await _putEntry(
       _BucketEntry(
         title: result.item.title,
         category: result.item.categoryName,
-        categoryColor: result.item.categoryColor,
+        categoryColor: categoryColor,
         createdAt: result.item.createdAt,
         dueDate: result.item.dueDate,
         isCompleted: result.item.isCompleted,
+        achievementImagePath: result.item.achievementImagePath,
+        achievementNote: result.item.achievementNote,
       ),
     );
+    if (!mounted) {
+      return;
+    }
+    final List<_BucketEntry> recoloredEntries =
+        await _applyCategoryColorsToEntries(
+          entries: _entries,
+          categories: nextCategories,
+        );
     if (!mounted) {
       return;
     }
     setState(() {
       _customCategories
         ..clear()
-        ..addAll(_sanitizeCustomCategories(result.categories));
-      _entries.insert(0, saved);
+        ..addAll(nextCategories);
+      _entries
+        ..clear()
+        ..addAll(<_BucketEntry>[saved, ...recoloredEntries]);
       _selectedTabIndex = 0;
     });
+    _jumpToTabPage(0);
     await _saveCategories();
   }
 
@@ -370,15 +528,80 @@ class _BucketListScreenState extends State<BucketListScreen>
     if (!mounted) {
       return;
     }
+    final List<BucketCategorySelection> nextCategories =
+        _sanitizeCustomCategories(result.categories);
+    final List<_BucketEntry> recoloredEntries =
+        await _applyCategoryColorsToEntries(
+          entries: updatedEntries,
+          categories: nextCategories,
+        );
+    if (!mounted) {
+      return;
+    }
+    final int nextLastTabIndex = nextCategories.length + 1;
+    final int nextSelectedTabIndex = _clampTabIndex(
+      _selectedTabIndex,
+      lastIndex: nextLastTabIndex,
+    );
     setState(() {
       _customCategories
         ..clear()
-        ..addAll(_sanitizeCustomCategories(result.categories));
+        ..addAll(nextCategories);
       _entries
         ..clear()
-        ..addAll(updatedEntries);
+        ..addAll(recoloredEntries);
+      _selectedTabIndex = nextSelectedTabIndex;
     });
+    _jumpToTabPage(nextSelectedTabIndex);
     await _saveCategories();
+  }
+
+  Future<void> _openRecommendationScreen() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => BucketRecommendationScreen(
+          onAddRecommendation: _addRecommendedBucket,
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _addRecommendedBucket(BucketRecommendationItem item) async {
+    if (_entries.any(
+      (_BucketEntry entry) => entry.title.trim() == item.title.trim(),
+    )) {
+      return false;
+    }
+    final BucketCategorySelection? matchingCategory = _findCustomCategory(
+      item.category,
+    );
+    final Color categoryColor = matchingCategory?.color ?? item.color;
+    final _BucketEntry saved = await _putEntry(
+      _BucketEntry(
+        title: item.title,
+        category: item.category,
+        categoryColor: categoryColor,
+        createdAt: DateTime.now(),
+      ),
+    );
+    if (!mounted) {
+      return true;
+    }
+    final bool hasCategory = matchingCategory != null;
+    setState(() {
+      if (!hasCategory) {
+        _customCategories.add(
+          BucketCategorySelection(name: item.category, color: categoryColor),
+        );
+      }
+      _entries.insert(0, saved);
+      _selectedTabIndex = 0;
+    });
+    _jumpToTabPage(0);
+    if (!hasCategory) {
+      await _saveCategories();
+    }
+    return true;
   }
 
   Future<List<_BucketEntry>> _reassignEntriesToAll(
@@ -408,133 +631,128 @@ class _BucketListScreenState extends State<BucketListScreen>
     }
     switch (action) {
       case _BucketItemMenuAction.edit:
+        if (entry.isCompleted) {
+          await _openCompletionEditor(entry);
+          return;
+        }
         await _openEditScreen(entry);
         return;
       case _BucketItemMenuAction.delete:
-        final bool canDelete = await _confirmDeleteBucket();
-        if (!canDelete || !mounted) {
-          return;
-        }
-        setState(() {
-          _entries.remove(entry);
-        });
-        await _deleteEntry(entry);
+        await _deleteEntryWithConfirmation(entry);
         return;
       case _BucketItemMenuAction.complete:
-        final bool confirmed = await _confirmMoveToCompleted();
-        if (!confirmed || !mounted) {
-          return;
-        }
-        final int index = _entries.indexOf(entry);
-        if (index < 0) {
-          return;
-        }
-        final _BucketEntry updated = _entries[index].copyWith(
-          isCompleted: true,
-          dueDate: _entries[index].dueDate ?? DateTime.now(),
-        );
-        final _BucketEntry saved = await _putEntry(updated);
-        setState(() {
-          _entries[index] = saved;
-          _selectedTabIndex = _tabs.length - 1;
-        });
-        if (!mounted) {
-          return;
-        }
-        await Navigator.of(context).push<void>(
-          MaterialPageRoute<void>(
-            builder: (_) => const BucketSaveSuccessScreen(
-              title: "멋져요!\n버킷리스트 달성완료!",
-              subtitle: "완료 카테고리로 이동되었습니다!",
-              imageAsset: BucketSaveSuccessScreen.completionAsset,
-              autoCloseDuration: Duration(seconds: 1),
-            ),
-          ),
-        );
+        await _openCompleteScreen(entry);
         return;
     }
   }
 
-  Future<bool> _confirmMoveToCompleted() async {
-    final BrandScale brand = context.appBrandScale;
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: AppPopupTokens.dimmed,
-      builder: (BuildContext dialogContext) {
-        return Center(
-          child: AppPopup(
-            width: AppPopupTokens.maxWidth,
-            contentPadding: const EdgeInsets.fromLTRB(
-              AppSpacing.s20,
-              AppSpacing.s32,
-              AppSpacing.s20,
-              AppSpacing.s20,
+  Future<void> _openCompleteScreen(_BucketEntry entry) async {
+    await _openCompletionEditor(entry, showSuccess: true);
+  }
+
+  Future<void> _openCompletionEditor(
+    _BucketEntry entry, {
+    bool showSuccess = false,
+  }) async {
+    final int index = _entries.indexOf(entry);
+    if (index < 0) {
+      return;
+    }
+    final _BucketEntry current = _entries[index];
+    final BucketCompletionResult? result = await Navigator.of(context)
+        .push<BucketCompletionResult>(
+          MaterialPageRoute<BucketCompletionResult>(
+            builder: (_) => BucketCompletionScreen(
+              title: current.title,
+              category: BucketCategorySelection(
+                name: current.category,
+                color: current.categoryColor,
+              ),
+              completedDate: current.dueDate ?? DateTime.now(),
+              initialImagePath: current.achievementImagePath,
+              initialNote: current.achievementNote,
             ),
-            actionTopGap: AppSpacing.s20,
-            title: "해당 버킷리스트를 완료 카테고리\n로 이동하시겠습니까?",
-            body: "완료 날짜는 자동으로 오늘로 설정됩니다.\n바꾸고 싶을 땐 수정하기 버튼을 눌러주세요.",
-            actions: <Widget>[
-              SizedBox(
-                width: 100,
-                height: 56,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppNeutralColors.grey100,
-                    foregroundColor: AppNeutralColors.grey600,
-                    surfaceTintColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    overlayColor: Colors.transparent,
-                    splashFactory: NoSplash.splashFactory,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.s8),
-                    ),
-                    textStyle: AppTypography.buttonLarge,
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: Text(
-                    "취소",
-                    style: AppTypography.buttonLarge.copyWith(
-                      color: AppNeutralColors.grey600,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 170,
-                height: 56,
-                child: FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: brand.c500,
-                    foregroundColor: AppNeutralColors.white,
-                    surfaceTintColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    overlayColor: Colors.transparent,
-                    splashFactory: NoSplash.splashFactory,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppSpacing.s8),
-                    ),
-                    textStyle: AppTypography.buttonLarge,
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: Text(
-                    "이동하기",
-                    style: AppTypography.buttonLarge.copyWith(
-                      color: AppNeutralColors.white,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ),
         );
-      },
+    if (result == null || !mounted) {
+      return;
+    }
+    final _BucketEntry updated = current.copyWith(
+      isCompleted: true,
+      dueDate: result.completedDate,
+      achievementImagePath: result.imagePath,
+      achievementNote: result.note,
     );
-    return confirmed == true;
+    final _BucketEntry saved = await _putEntry(updated);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _entries[index] = saved;
+      _selectedTabIndex = _tabs.length - 1;
+    });
+    _jumpToTabPage(_safeSelectedTabIndex);
+    if (!showSuccess) {
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => const BucketSaveSuccessScreen(
+          title: "멋져요!\n버킷리스트 달성완료!",
+          subtitle: "완료 카테고리로 이동되었습니다!",
+          imageAsset: BucketSaveSuccessScreen.completionAsset,
+          autoCloseDuration: Duration(seconds: 1),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCompletionDetail(_BucketEntry entry) async {
+    final String imagePath = (entry.achievementImagePath ?? "").trim();
+    final String note = (entry.achievementNote ?? "").trim();
+    if (!entry.isCompleted || imagePath.isEmpty || note.isEmpty) {
+      await _openEditScreen(entry);
+      return;
+    }
+    final BucketCompletionDetailAction? action = await Navigator.of(context)
+        .push<BucketCompletionDetailAction>(
+          MaterialPageRoute<BucketCompletionDetailAction>(
+            builder: (_) => BucketCompletionDetailScreen(
+              title: entry.title,
+              category: entry.category,
+              categoryColor: entry.categoryColor,
+              completedDate: entry.dueDate,
+              imagePath: imagePath,
+              note: note,
+            ),
+          ),
+        );
+    if (action == null || !mounted) {
+      return;
+    }
+    switch (action) {
+      case BucketCompletionDetailAction.edit:
+        await _openCompletionEditor(entry);
+        return;
+      case BucketCompletionDetailAction.delete:
+        await _deleteEntryWithConfirmation(entry);
+        return;
+    }
+  }
+
+  Future<void> _deleteEntryWithConfirmation(_BucketEntry entry) async {
+    final bool canDelete = await _confirmDeleteBucket();
+    if (!canDelete || !mounted) {
+      return;
+    }
+    setState(() {
+      if (entry.id == null) {
+        _entries.remove(entry);
+      } else {
+        _entries.removeWhere((_BucketEntry item) => item.id == entry.id);
+      }
+    });
+    await _deleteEntry(entry);
   }
 
   Future<bool> _confirmDeleteBucket() async {
@@ -645,6 +863,8 @@ class _BucketListScreenState extends State<BucketListScreen>
                 createdAt: entry.createdAt,
                 isCompleted: entry.isCompleted,
                 dueDate: entry.dueDate,
+                achievementImagePath: entry.achievementImagePath,
+                achievementNote: entry.achievementNote,
               ),
               isEditing: true,
             ),
@@ -654,27 +874,48 @@ class _BucketListScreenState extends State<BucketListScreen>
       return;
     }
 
+    final List<BucketCategorySelection> nextCategories =
+        _sanitizeCustomCategories(result.categories);
+    final Color categoryColor =
+        _categoryColorFrom(result.item.categoryName, nextCategories) ??
+        result.item.categoryColor;
     final _BucketEntry updated = _BucketEntry(
       id: entry.id,
       title: result.item.title,
       category: result.item.categoryName,
-      categoryColor: result.item.categoryColor,
+      categoryColor: categoryColor,
       createdAt: result.item.createdAt,
       dueDate: result.item.dueDate,
       isCompleted: result.item.isCompleted,
+      achievementImagePath: result.item.achievementImagePath,
+      achievementNote: result.item.achievementNote,
     );
     final _BucketEntry saved = await _putEntry(updated);
+    if (!mounted) {
+      return;
+    }
+    final List<_BucketEntry> entriesWithSaved = List<_BucketEntry>.from(
+      _entries,
+    );
+    final int savedIndex = entriesWithSaved.indexOf(entry);
+    if (savedIndex >= 0) {
+      entriesWithSaved[savedIndex] = saved;
+    }
+    final List<_BucketEntry> recoloredEntries =
+        await _applyCategoryColorsToEntries(
+          entries: entriesWithSaved,
+          categories: nextCategories,
+        );
     if (!mounted) {
       return;
     }
     setState(() {
       _customCategories
         ..clear()
-        ..addAll(_sanitizeCustomCategories(result.categories));
-      final int index = _entries.indexOf(entry);
-      if (index >= 0) {
-        _entries[index] = saved;
-      }
+        ..addAll(nextCategories);
+      _entries
+        ..clear()
+        ..addAll(recoloredEntries);
     });
     await _saveCategories();
   }
@@ -1038,6 +1279,7 @@ class _BucketListScreenState extends State<BucketListScreen>
           children: <Widget>[
             Expanded(
               child: SingleChildScrollView(
+                controller: _tabScrollController,
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: _tabs.asMap().entries.map((
@@ -1052,11 +1294,7 @@ class _BucketListScreenState extends State<BucketListScreen>
                       child: _BucketTabChip(
                         label: entry.value,
                         selected: entry.key == _safeSelectedTabIndex,
-                        onTap: () {
-                          setState(() {
-                            _selectedTabIndex = entry.key;
-                          });
-                        },
+                        onTap: () => _selectTab(entry.key),
                       ),
                     );
                   }).toList(),
@@ -1085,18 +1323,71 @@ class _BucketListScreenState extends State<BucketListScreen>
         ),
         const SizedBox(height: AppSpacing.s32),
         Expanded(
-          child: ListView.separated(
-            padding: EdgeInsets.zero,
-            itemCount: _filteredEntries.length,
-            separatorBuilder: (_, int index) =>
-                const SizedBox(height: AppSpacing.s16),
-            itemBuilder: (BuildContext context, int index) {
-              final _BucketEntry entry = _filteredEntries[index];
-              return _BucketListCard(
-                entry: entry,
-                onMenuTapDown: (TapDownDetails details) {
-                  _openEntryMenu(entry: entry, anchor: details.globalPosition);
+          child: PageView.builder(
+            controller: _pageController,
+            clipBehavior: Clip.none,
+            itemCount: _tabs.length,
+            onPageChanged: (int index) {
+              setState(() {
+                _selectedTabIndex = index;
+              });
+              _scrollSelectedTabIntoView(index);
+            },
+            itemBuilder: (BuildContext context, int tabIndex) {
+              final List<_BucketEntry> entries = _filteredEntriesForTab(
+                tabIndex,
+              );
+              return AnimatedBuilder(
+                animation: _pageController,
+                builder: (BuildContext context, Widget? child) {
+                  double pageOffset = 0;
+                  if (_pageController.hasClients &&
+                      _pageController.position.haveDimensions) {
+                    pageOffset = ((_pageController.page ?? tabIndex) - tabIndex)
+                        .abs()
+                        .clamp(0.0, 1.0)
+                        .toDouble();
+                  }
+                  final double scale = 1 - (pageOffset * 0.015);
+                  return Transform.scale(scale: scale, child: child);
                 },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.s4,
+                  ),
+                  child: ListView.separated(
+                    key: PageStorageKey<String>("bucket-tab-$tabIndex"),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.s16),
+                    itemCount: entries.length + 1,
+                    separatorBuilder: (_, int index) => SizedBox(
+                      height: index == entries.length - 1
+                          ? (tabIndex == 0 ? AppSpacing.s16 : AppSpacing.s64)
+                          : AppSpacing.s16,
+                    ),
+                    itemBuilder: (BuildContext context, int index) {
+                      if (index == entries.length) {
+                        return _BucketRecommendationHelper(
+                          message:
+                              _bucketHelperMessages[_helperMessageIndex %
+                                  _bucketHelperMessages.length],
+                          totalRecordCount: _totalRecordCount,
+                          onTap: _openRecommendationScreen,
+                        );
+                      }
+                      final _BucketEntry entry = entries[index];
+                      return _BucketListCard(
+                        entry: entry,
+                        onTap: () => _openCompletionDetail(entry),
+                        onMenuTapDown: (TapDownDetails details) {
+                          _openEntryMenu(
+                            entry: entry,
+                            anchor: details.globalPosition,
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
               );
             },
           ),
@@ -1117,6 +1408,8 @@ class _BucketEntry {
     required this.createdAt,
     this.dueDate,
     this.isCompleted = false,
+    this.achievementImagePath,
+    this.achievementNote,
   });
 
   final int? id;
@@ -1126,6 +1419,8 @@ class _BucketEntry {
   final DateTime createdAt;
   final DateTime? dueDate;
   final bool isCompleted;
+  final String? achievementImagePath;
+  final String? achievementNote;
 
   _BucketEntry copyWith({
     int? id,
@@ -1135,6 +1430,8 @@ class _BucketEntry {
     DateTime? createdAt,
     DateTime? dueDate,
     bool? isCompleted,
+    String? achievementImagePath,
+    String? achievementNote,
   }) {
     return _BucketEntry(
       id: id ?? this.id,
@@ -1144,6 +1441,8 @@ class _BucketEntry {
       createdAt: createdAt ?? this.createdAt,
       dueDate: dueDate ?? this.dueDate,
       isCompleted: isCompleted ?? this.isCompleted,
+      achievementImagePath: achievementImagePath ?? this.achievementImagePath,
+      achievementNote: achievementNote ?? this.achievementNote,
     );
   }
 }
@@ -1186,14 +1485,86 @@ class _BucketTabChip extends StatelessWidget {
   }
 }
 
+class _BucketRecommendationHelper extends StatelessWidget {
+  const _BucketRecommendationHelper({
+    required this.message,
+    required this.totalRecordCount,
+    required this.onTap,
+  });
+
+  final String message;
+  final int totalRecordCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final BrandScale brand = context.appBrandScale;
+    final HomeCharacterType characterType = resolveHomeCharacterType(brand);
+    final int growthRecordCount = homeGrowthRecordCountForCharacter(
+      characterType: characterType,
+      totalRecordCount: totalRecordCount,
+    );
+    final String characterAsset = HomeCharacterAssets.assetForRecordCount(
+      characterType,
+      growthRecordCount,
+    );
+
+    return Semantics(
+      button: true,
+      label: "추천 버킷리스트 열기",
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          height: 110,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  child: AppSpeechBubble(
+                    key: ValueKey<String>(message),
+                    text: message,
+                    direction: AppBubbleDirection.right,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s16),
+              Image.asset(
+                characterAsset,
+                width: 110,
+                height: 110,
+                fit: BoxFit.contain,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _BucketListCard extends StatelessWidget {
-  const _BucketListCard({required this.entry, required this.onMenuTapDown});
+  const _BucketListCard({
+    required this.entry,
+    required this.onTap,
+    required this.onMenuTapDown,
+  });
 
   final _BucketEntry entry;
+  final VoidCallback onTap;
   final ValueChanged<TapDownDetails> onMenuTapDown;
 
   bool get _isNew =>
       DateTime.now().difference(entry.createdAt) < const Duration(days: 1);
+
+  bool get _hasAchievement =>
+      (entry.achievementImagePath ?? "").trim().isNotEmpty &&
+      (entry.achievementNote ?? "").trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
@@ -1221,80 +1592,227 @@ class _BucketListCard extends StatelessWidget {
       }
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppNeutralColors.white,
-        borderRadius: BorderRadius.circular(AppRadius.r16),
-        boxShadow: AppElevation.level1,
+    if (entry.isCompleted && _hasAchievement) {
+      return _CompletedBucketCard(
+        entry: entry,
+        dueText: dueText.replaceAll(" 완료", ""),
+        onTap: onTap,
+        onMenuTapDown: onMenuTapDown,
+      );
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppNeutralColors.white,
+          borderRadius: BorderRadius.circular(AppRadius.r16),
+          boxShadow: AppElevation.level1,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.s20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Row(
+                      children: <Widget>[
+                        if (_isNew && !entry.isCompleted)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s8,
+                              vertical: AppSpacing.s2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppAccentColors.lemon,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.full,
+                              ),
+                            ),
+                            child: Text(
+                              "NEW",
+                              style: AppTypography.captionSmall.copyWith(
+                                color: AppNeutralColors.grey900,
+                              ),
+                            ),
+                          ),
+                        if (_isNew && !entry.isCompleted)
+                          const SizedBox(width: AppSpacing.s4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.s8,
+                            vertical: AppSpacing.s2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: entry.categoryColor,
+                            borderRadius: BorderRadius.circular(AppRadius.full),
+                          ),
+                          child: Text(
+                            entry.category,
+                            style: AppTypography.captionSmall.copyWith(
+                              color: AppNeutralColors.grey900,
+                            ),
+                          ),
+                        ),
+                        if (entry.isCompleted)
+                          const SizedBox(width: AppSpacing.s4),
+                        if (entry.isCompleted)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.s8,
+                              vertical: AppSpacing.s2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppSemanticColors.success500,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.full,
+                              ),
+                            ),
+                            child: Text(
+                              "완료",
+                              style: AppTypography.captionSmall.copyWith(
+                                color: AppNeutralColors.grey900,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.s8),
+                    Text(
+                      entry.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.heading2XSmall.copyWith(
+                        color: AppNeutralColors.grey900,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s2),
+                    Row(
+                      children: <Widget>[
+                        if (!entry.isCompleted)
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 16,
+                            color: AppNeutralColors.grey500,
+                          ),
+                        if (!entry.isCompleted)
+                          const SizedBox(width: AppSpacing.s4),
+                        Text(
+                          dueText,
+                          style: AppTypography.bodySmallMedium.copyWith(
+                            color: AppNeutralColors.grey500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s8),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {},
+                onTapDown: onMenuTapDown,
+                child: const SizedBox(
+                  width: AppSpacing.s24,
+                  height: AppSpacing.s24,
+                  child: Icon(
+                    Icons.more_vert,
+                    size: AppSpacing.s24,
+                    color: AppNeutralColors.grey500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.s20),
+    );
+  }
+}
+
+class _CompletedBucketCard extends StatelessWidget {
+  const _CompletedBucketCard({
+    required this.entry,
+    required this.dueText,
+    required this.onTap,
+    required this.onMenuTapDown,
+  });
+
+  final _BucketEntry entry;
+  final String dueText;
+  final VoidCallback onTap;
+  final ValueChanged<TapDownDetails> onMenuTapDown;
+
+  @override
+  Widget build(BuildContext context) {
+    final File imageFile = File(entry.achievementImagePath!.trim());
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 148,
+        padding: const EdgeInsets.all(AppSpacing.s16),
+        decoration: BoxDecoration(
+          color: AppNeutralColors.white,
+          borderRadius: BorderRadius.circular(AppRadius.r16),
+          boxShadow: AppElevation.level1,
+        ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.r8),
+              child: SizedBox(
+                width: 116,
+                height: 116,
+                child: imageFile.existsSync()
+                    ? Image.file(imageFile, fit: BoxFit.cover)
+                    : Container(
+                        color: AppNeutralColors.grey100,
+                        child: const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: AppNeutralColors.grey400,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.s16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Row(
                     children: <Widget>[
-                      if (_isNew && !entry.isCompleted)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s8,
-                            vertical: AppSpacing.s2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppAccentColors.lemon,
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                          ),
-                          child: Text(
-                            "NEW",
-                            style: AppTypography.captionSmall.copyWith(
-                              color: AppNeutralColors.grey900,
-                            ),
-                          ),
-                        ),
-                      if (_isNew && !entry.isCompleted)
-                        const SizedBox(width: AppSpacing.s4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.s8,
-                          vertical: AppSpacing.s2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: entry.categoryColor,
-                          borderRadius: BorderRadius.circular(AppRadius.full),
-                        ),
-                        child: Text(
-                          entry.category,
-                          style: AppTypography.captionSmall.copyWith(
-                            color: AppNeutralColors.grey900,
+                      _CardBadge(
+                        label: entry.category,
+                        color: entry.categoryColor,
+                      ),
+                      const SizedBox(width: AppSpacing.s4),
+                      const _CardBadge(
+                        label: "완료",
+                        color: AppSemanticColors.success100,
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {},
+                        onTapDown: onMenuTapDown,
+                        child: const SizedBox(
+                          width: AppSpacing.s24,
+                          height: AppSpacing.s24,
+                          child: Icon(
+                            Icons.more_vert,
+                            size: AppSpacing.s20,
+                            color: AppNeutralColors.grey500,
                           ),
                         ),
                       ),
-                      if (entry.isCompleted)
-                        const SizedBox(width: AppSpacing.s4),
-                      if (entry.isCompleted)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.s8,
-                            vertical: AppSpacing.s2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppSemanticColors.success500,
-                            borderRadius: BorderRadius.circular(AppRadius.full),
-                          ),
-                          child: Text(
-                            "완료",
-                            style: AppTypography.captionSmall.copyWith(
-                              color: AppNeutralColors.grey900,
-                            ),
-                          ),
-                        ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.s8),
+                  const SizedBox(height: 10),
                   Text(
                     entry.title,
                     maxLines: 1,
@@ -1303,17 +1821,24 @@ class _BucketListCard extends StatelessWidget {
                       color: AppNeutralColors.grey900,
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.s2),
+                  const SizedBox(height: AppSpacing.s4),
+                  Text(
+                    entry.achievementNote!.trim(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.bodySmallRegular.copyWith(
+                      color: AppNeutralColors.grey400,
+                    ),
+                  ),
+                  const Spacer(),
                   Row(
                     children: <Widget>[
-                      if (!entry.isCompleted)
-                        const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 16,
-                          color: AppNeutralColors.grey500,
-                        ),
-                      if (!entry.isCompleted)
-                        const SizedBox(width: AppSpacing.s4),
+                      const Icon(
+                        Icons.calendar_today_outlined,
+                        size: 16,
+                        color: AppNeutralColors.grey500,
+                      ),
+                      const SizedBox(width: AppSpacing.s4),
                       Text(
                         dueText,
                         style: AppTypography.bodySmallMedium.copyWith(
@@ -1325,22 +1850,34 @@ class _BucketListCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: AppSpacing.s8),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {},
-              onTapDown: onMenuTapDown,
-              child: const SizedBox(
-                width: AppSpacing.s24,
-                height: AppSpacing.s24,
-                child: Icon(
-                  Icons.more_vert,
-                  size: AppSpacing.s24,
-                  color: AppNeutralColors.grey500,
-                ),
-              ),
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CardBadge extends StatelessWidget {
+  const _CardBadge({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s8,
+        vertical: AppSpacing.s2,
+      ),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(AppRadius.full),
+      ),
+      child: Text(
+        label,
+        style: AppTypography.captionSmall.copyWith(
+          color: AppNeutralColors.grey900,
         ),
       ),
     );

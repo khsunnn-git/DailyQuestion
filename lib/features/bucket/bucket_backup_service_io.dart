@@ -305,6 +305,7 @@ class _BucketBackupCoordinator {
           ? null
           : Timestamp.fromDate(item.dueDate!),
       "isCompleted": item.isCompleted,
+      "achievementNote": item.achievementNote,
       "updatedAtMillis": item.updatedAt.millisecondsSinceEpoch,
       "updatedAt": Timestamp.fromDate(item.updatedAt),
       "remoteSyncedAt": FieldValue.serverTimestamp(),
@@ -345,6 +346,8 @@ class _BucketBackupCoordinator {
           ? null
           : DateTime.fromMillisecondsSinceEpoch(dueDateMillis)
       ..isCompleted = data["isCompleted"] == true
+      ..achievementImagePath = null
+      ..achievementNote = data["achievementNote"] as String?
       ..updatedAt = DateTime.fromMillisecondsSinceEpoch(updatedAtMillis);
   }
 
