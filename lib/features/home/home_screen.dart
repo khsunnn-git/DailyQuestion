@@ -4,13 +4,10 @@ import "dart:ui" as ui;
 import "package:flutter/gestures.dart";
 import "package:flutter/material.dart";
 import "package:flutter/services.dart";
-import "package:isar_community/isar.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "../../core/app_route_observer.dart";
 import "../../core/kst_date_time.dart";
-import "../../data/local_db/entities/bucket_item_entity.dart";
-import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
 import "../navigation/main_tab_shell.dart";
 import "annual_record_screen.dart";
@@ -1433,15 +1430,11 @@ class _QuestionWrittenPreviewCardState
   static const double _cardHeight = 458;
   bool _showMoreMenu = false;
   bool _showAnswerScrollHint = false;
-  List<String> _fallbackBucketTags = const <String>[];
   int? _selectedMoreMenuIndex;
   String? _lastAnswerText;
   bool _pendingAnswerScrollSync = false;
   bool _pendingAnswerScrollReset = false;
   final ScrollController _answerScrollController = ScrollController();
-  Object? _fallbackBucketTagsLoadedToken;
-  Object? _fallbackBucketTagsActiveToken;
-  bool _loadingFallbackBucketTags = false;
 
   @override
   void initState() {
@@ -1524,62 +1517,6 @@ class _QuestionWrittenPreviewCardState
     }
     setState(() {
       _showAnswerScrollHint = shouldShow;
-    });
-  }
-
-  void _ensureFallbackBucketTags({
-    required TodayQuestionRecord? latest,
-    required List<String> recordBucketTags,
-  }) {
-    if (latest == null || recordBucketTags.isNotEmpty) {
-      return;
-    }
-    if (_loadingFallbackBucketTags &&
-        identical(_fallbackBucketTagsActiveToken, latest)) {
-      return;
-    }
-    if (identical(_fallbackBucketTagsLoadedToken, latest)) {
-      return;
-    }
-
-    _loadingFallbackBucketTags = true;
-    _fallbackBucketTagsActiveToken = latest;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_loadFallbackBucketTags(latest: latest));
-    });
-  }
-
-  Future<void> _loadFallbackBucketTags({
-    required TodayQuestionRecord latest,
-  }) async {
-    final isar = await LocalDatabase.instance.isar;
-    final List<BucketItemEntity> items = await isar.bucketItemEntitys
-        .where()
-        .findAll();
-    final Set<String> seen = <String>{};
-    final List<String> tags = <String>[];
-
-    for (final BucketItemEntity item in items) {
-      final String title = item.title.trim();
-      if (item.isCompleted || title.isEmpty) {
-        continue;
-      }
-      if (!isSameKstDate(item.createdAt, latest.createdAt)) {
-        continue;
-      }
-      if (seen.add(title)) {
-        tags.add(title);
-      }
-    }
-
-    if (!mounted || !identical(_fallbackBucketTagsActiveToken, latest)) {
-      return;
-    }
-
-    _loadingFallbackBucketTags = false;
-    setState(() {
-      _fallbackBucketTagsLoadedToken = latest;
-      _fallbackBucketTags = tags;
     });
   }
 
@@ -1832,14 +1769,9 @@ class _QuestionWrittenPreviewCardState
         : (latest.bucketTag == null || latest.bucketTag!.trim().isEmpty)
         ? const <String>[]
         : <String>[latest.bucketTag!.trim()];
-    _ensureFallbackBucketTags(latest: latest, recordBucketTags: bucketTags);
     final List<String> visibleBucketTags = latest == null
         ? const <String>[]
-        : bucketTags.isNotEmpty
-        ? bucketTags
-        : identical(_fallbackBucketTagsLoadedToken, latest)
-        ? _fallbackBucketTags
-        : const <String>[];
+        : bucketTags;
 
     return Stack(
       clipBehavior: Clip.none,

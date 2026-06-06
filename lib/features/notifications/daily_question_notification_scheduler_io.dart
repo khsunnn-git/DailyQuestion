@@ -26,7 +26,7 @@ const String _dailyQuestionCatchupSlotKey =
 
 const AndroidNotificationDetails _androidNotificationDetails =
     AndroidNotificationDetails(
-      "daily_question_channel_v3",
+      "daily_question_channel_v4",
       "오늘의 질문 알림",
       channelDescription: "오늘의 질문 알림을 매일 지정된 시간에 전송합니다.",
       // Android small icons need a solid alpha-only asset to render correctly.
@@ -647,6 +647,7 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
 }
 
 Future<void> _scheduleWeeklyReportNotification() async {
+  await _notifications.cancel(_weeklyReportNotificationId);
   final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
   final int daysUntilSunday = (DateTime.sunday - now.weekday) % 7;
   tz.TZDateTime scheduled = tz.TZDateTime(
