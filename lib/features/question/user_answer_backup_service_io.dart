@@ -10,6 +10,7 @@ import "package:isar_community/isar.dart";
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/answer_record_entity.dart";
 import "../../data/local_db/local_database.dart";
+import "../report/ai_report_regeneration_service.dart";
 import "today_question_store.dart";
 
 const String _usersCollectionId = "users";
@@ -185,6 +186,7 @@ class _UserAnswerBackupCoordinator {
     if (pending.isEmpty) {
       if (restoredRemote) {
         await TodayQuestionStore.instance.reloadFromDatabase();
+        unawaited(queueAiReportRegeneration());
       }
       return;
     }
@@ -209,6 +211,9 @@ class _UserAnswerBackupCoordinator {
 
     if (restoredRemote || deletedLocally) {
       await TodayQuestionStore.instance.reloadFromDatabase();
+    }
+    if (restoredRemote) {
+      unawaited(queueAiReportRegeneration());
     }
   }
 

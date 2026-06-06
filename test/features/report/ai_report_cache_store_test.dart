@@ -49,7 +49,7 @@ void main() {
     expect(cached.report.isFromOpenAi, isTrue);
   });
 
-  test("ignores cached reports that are not from OpenAI", () async {
+  test("persists personalized fallback reports after restore", () async {
     const AiReportCacheStore store = AiReportCacheStore();
     final CachedAiReportEntry entry = CachedAiReportEntry(
       cacheKey: "weekly-20260329",
@@ -79,6 +79,9 @@ void main() {
     await store.upsert(entry);
 
     final Map<String, CachedAiReportEntry> restored = await store.readAll();
-    expect(restored, isEmpty);
+    final CachedAiReportEntry? cached = restored["weekly-20260329"];
+    expect(cached, isNotNull);
+    expect(cached!.report.isFromOpenAi, isFalse);
+    expect(cached.report.summary, "fallback");
   });
 }

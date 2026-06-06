@@ -4,6 +4,7 @@ import "package:isar_community/isar.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
+import "bucket_backup_service.dart";
 import "bucket_category_empty_screen.dart";
 import "bucket_save_success_screen.dart";
 
@@ -89,12 +90,14 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
     final List<BucketItemEntity> allItems = await isar.bucketItemEntitys
         .where()
         .findAll();
-    final List<BucketItemEntity> targets = allItems.where((BucketItemEntity e) {
-      if (_isAllCategory(e.category)) {
-        return false;
-      }
-      return removedKeys.contains(_normalizeCategoryKey(e.category));
-    }).toList(growable: false);
+    final List<BucketItemEntity> targets = allItems
+        .where((BucketItemEntity e) {
+          if (_isAllCategory(e.category)) {
+            return false;
+          }
+          return removedKeys.contains(_normalizeCategoryKey(e.category));
+        })
+        .toList(growable: false);
     if (targets.isEmpty) {
       return;
     }
@@ -108,6 +111,7 @@ class _BucketAddScreenState extends State<BucketAddScreen> {
         await isar.bucketItemEntitys.put(item);
       }
     });
+    await syncBucketBackup();
   }
 
   @override

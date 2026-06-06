@@ -11,6 +11,8 @@ import "core/app_route_observer.dart";
 import "design_system/design_system.dart";
 import "firebase_options.dart";
 import "features/auth/login_screen.dart";
+import "features/bucket/bucket_backup_service.dart";
+import "features/home/daily_checkin_backup_service.dart";
 import "features/home/home_theme_progression.dart";
 import "features/home/home_screen.dart";
 import "features/home/next_theme_unlock_screen.dart";
@@ -171,6 +173,8 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     handleUserAnswerBackupAppLifecycleState(state);
+    handleDailyCheckinBackupAppLifecycleState(state);
+    handleBucketBackupAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       unawaited(_refreshNotificationSchedulerOnResume());
     }

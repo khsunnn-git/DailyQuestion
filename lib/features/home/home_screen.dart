@@ -2872,6 +2872,9 @@ class _TodayRecordSectionState extends State<_TodayRecordSection>
                                                 : _recordCardGap,
                                           ),
                                           child: _TodayRecordCard(
+                                            key: ValueKey<String>(
+                                              _likeTargetId(records[index]),
+                                            ),
                                             record: records[index],
                                             isLiked: _likedRecordIds.contains(
                                               _likeTargetId(records[index]),
@@ -2984,8 +2987,9 @@ class _TodayRecordEmptyCard extends StatelessWidget {
   }
 }
 
-class _TodayRecordCard extends StatelessWidget {
+class _TodayRecordCard extends StatefulWidget {
   const _TodayRecordCard({
+    super.key,
     required this.record,
     required this.isLiked,
     required this.likeCount,
@@ -2998,20 +3002,81 @@ class _TodayRecordCard extends StatelessWidget {
   final bool isLiked;
   final int likeCount;
   final double width;
-  final VoidCallback onLikeTap;
+  final Future<void> Function() onLikeTap;
   final Future<void> Function() onTap;
+
+  @override
+  State<_TodayRecordCard> createState() => _TodayRecordCardState();
+}
+
+class _TodayRecordCardState extends State<_TodayRecordCard> {
+  int _burstKey = 0;
+  late bool _displayIsLiked;
+  late int _displayLikeCount;
+  bool _isTogglingLike = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayIsLiked = widget.isLiked;
+    _displayLikeCount = widget.likeCount;
+  }
+
+  @override
+  void didUpdateWidget(covariant _TodayRecordCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final bool recordChanged =
+        oldWidget.record.answerDocId != widget.record.answerDocId ||
+        oldWidget.record.questionDateKey != widget.record.questionDateKey ||
+        oldWidget.record.questionSlot != widget.record.questionSlot;
+    if (recordChanged || !_isTogglingLike) {
+      _displayIsLiked = widget.isLiked;
+      _displayLikeCount = widget.likeCount;
+    }
+  }
+
+  Future<void> _handleLikeTap() async {
+    if (_isTogglingLike || !widget.record.canToggleLike) {
+      return;
+    }
+    final bool nextLiked = !_displayIsLiked;
+    final int nextCount = nextLiked
+        ? _displayLikeCount + 1
+        : (_displayLikeCount > 0 ? _displayLikeCount - 1 : 0);
+    if (nextLiked) {
+      setState(() {
+        _burstKey += 1;
+      });
+    }
+    setState(() {
+      _isTogglingLike = true;
+      _displayIsLiked = nextLiked;
+      _displayLikeCount = nextCount;
+    });
+    try {
+      await widget.onLikeTap();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isTogglingLike = false;
+          _displayIsLiked = widget.isLiked;
+          _displayLikeCount = widget.likeCount;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final String previewText = _toPreviewText(record.body);
+    final String previewText = _toPreviewText(widget.record.body);
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: widget.onTap,
         borderRadius: AppRadius.br16,
         child: Container(
-          width: width,
+          width: widget.width,
           height: _TodayRecordSectionState._recordCardHeight,
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -3046,25 +3111,42 @@ class _TodayRecordCard extends StatelessWidget {
                     children: <Widget>[
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: onLikeTap,
+                        onTap: _handleLikeTap,
                         child: SizedBox(
                           height: 24,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            alignment: Alignment.centerLeft,
                             children: <Widget>[
-                              AppLikeIcon(
-                                selected: isLiked,
-                                size: AppIconSize.s20,
-                                color: isLiked ? brand.c500 : brand.c300,
-                              ),
-                              const SizedBox(width: AppSpacing.s2),
-                              Text(
-                                "$likeCount",
-                                style: AppTypography.captionMedium.copyWith(
-                                  color: brand.c500,
-                                  height: 1.4,
+                              if (_burstKey > 0)
+                                Positioned(
+                                  left: -3,
+                                  top: -13,
+                                  child: _HomeRecordLikeBurst(
+                                    key: ValueKey<int>(_burstKey),
+                                    color: brand.c500,
+                                  ),
                                 ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: <Widget>[
+                                  AppLikeIcon(
+                                    selected: _displayIsLiked,
+                                    size: AppIconSize.s20,
+                                    color: _displayIsLiked
+                                        ? brand.c500
+                                        : brand.c300,
+                                  ),
+                                  const SizedBox(width: AppSpacing.s2),
+                                  Text(
+                                    "$_displayLikeCount",
+                                    style: AppTypography.captionMedium.copyWith(
+                                      color: brand.c500,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -3075,7 +3157,7 @@ class _TodayRecordCard extends StatelessWidget {
                   const SizedBox(width: AppSpacing.s12),
                   Flexible(
                     child: Text(
-                      record.author,
+                      widget.record.author,
                       textAlign: TextAlign.right,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
@@ -3096,6 +3178,104 @@ class _TodayRecordCard extends StatelessWidget {
 
   String _toPreviewText(String raw) {
     return raw.replaceAll("\n", " ");
+  }
+}
+
+class _HomeRecordLikeBurst extends StatefulWidget {
+  const _HomeRecordLikeBurst({super.key, required this.color});
+
+  final Color color;
+
+  @override
+  State<_HomeRecordLikeBurst> createState() => _HomeRecordLikeBurstState();
+}
+
+class _HomeRecordLikeBurstState extends State<_HomeRecordLikeBurst>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 560),
+    )..forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: SizedBox(
+        width: 38,
+        height: 38,
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (BuildContext context, Widget? child) {
+            final double progress = Curves.easeOutCubic.transform(
+              _controller.value,
+            );
+            final double opacity = (1 - progress).clamp(0, 1);
+            return Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                _HomeRecordBurstHeart(
+                  color: widget.color,
+                  opacity: opacity * 0.82,
+                  size: 8,
+                  offset: Offset(15 - (progress * 7), 18 - (progress * 21)),
+                  rotation: -0.2,
+                ),
+                _HomeRecordBurstHeart(
+                  color: widget.color,
+                  opacity: opacity * 0.72,
+                  size: 7,
+                  offset: Offset(19 + (progress * 9), 20 - (progress * 18)),
+                  rotation: 0.18,
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeRecordBurstHeart extends StatelessWidget {
+  const _HomeRecordBurstHeart({
+    required this.color,
+    required this.opacity,
+    required this.size,
+    required this.offset,
+    required this.rotation,
+  });
+
+  final Color color;
+  final double opacity;
+  final double size;
+  final Offset offset;
+  final double rotation;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: offset.dx,
+      top: offset.dy,
+      child: Opacity(
+        opacity: opacity,
+        child: Transform.rotate(
+          angle: rotation,
+          child: AppLikeIcon(selected: true, size: size, color: color),
+        ),
+      ),
+    );
   }
 }
 

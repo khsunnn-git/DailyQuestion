@@ -1392,51 +1392,54 @@ class _RecordLikeButton extends StatelessWidget {
               if (burstKey > 0)
                 Positioned(
                   left: -2,
-                  top: -10,
+                  top: 0,
                   child: _FloatingHeartsBurst(
                     key: ValueKey<int>(burstKey),
                     color: brand.c500,
                   ),
                 ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  AnimatedScale(
-                    scale: isLiked ? 1.08 : 1,
-                    duration: const Duration(milliseconds: 160),
-                    curve: Curves.easeOutBack,
-                    child: AppLikeIcon(
-                      selected: isLiked,
-                      size: AppIconSize.s20,
-                      color: iconColor,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.s2),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 160),
-                    transitionBuilder:
-                        (Widget child, Animation<double> animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0, 0.18),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
-                            ),
-                          );
-                        },
-                    child: Text(
-                      "$likeCount",
-                      key: ValueKey<int>(likeCount),
-                      style: AppTypography.captionMedium.copyWith(
-                        color: countColor,
-                        height: 1.4,
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    AnimatedScale(
+                      scale: isLiked ? 1.08 : 1,
+                      duration: const Duration(milliseconds: 160),
+                      curve: Curves.easeOutBack,
+                      child: AppLikeIcon(
+                        selected: isLiked,
+                        size: AppIconSize.s20,
+                        color: iconColor,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: AppSpacing.s2),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 160),
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.18),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                            );
+                          },
+                      child: Text(
+                        "$likeCount",
+                        key: ValueKey<int>(likeCount),
+                        style: AppTypography.captionMedium.copyWith(
+                          color: countColor,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1488,26 +1491,27 @@ class _FloatingHeartsBurstState extends State<_FloatingHeartsBurst>
             );
             final double opacity = 1 - progress;
             return Stack(
+              clipBehavior: Clip.none,
               children: <Widget>[
                 _BurstHeart(
                   color: widget.color,
                   opacity: opacity,
-                  size: 10,
-                  offset: Offset(17 - (progress * 9), 22 - (progress * 28)),
+                  size: 13,
+                  offset: Offset(17 - (progress * 12), 22 - (progress * 34)),
                   rotation: -0.22,
                 ),
                 _BurstHeart(
                   color: widget.color,
                   opacity: opacity * 0.9,
-                  size: 8,
-                  offset: Offset(21 + (progress * 12), 24 - (progress * 24)),
+                  size: 11,
+                  offset: Offset(21 + (progress * 16), 24 - (progress * 30)),
                   rotation: 0.18,
                 ),
                 _BurstHeart(
                   color: widget.color,
                   opacity: opacity * 0.8,
-                  size: 7,
-                  offset: Offset(12 + (progress * 3), 26 - (progress * 18)),
+                  size: 9,
+                  offset: Offset(12 + (progress * 4), 26 - (progress * 24)),
                   rotation: 0.28,
                 ),
               ],

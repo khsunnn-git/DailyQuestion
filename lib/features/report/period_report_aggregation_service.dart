@@ -5,6 +5,7 @@ import "package:isar_community/isar.dart";
 
 import "../../core/keyword_semantics.dart";
 import "../../core/kst_date_time.dart";
+import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/entities/daily_checkin_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../question/today_question_store.dart";
@@ -529,6 +530,7 @@ class PeriodReportAggregationService {
       ),
       actions: _buildPeriodActions(
         nextLabel: nextLabel,
+        payload: payload,
         keywords: keywords,
         avgEnergy: avgEnergy,
         avgStress: avgStress,
@@ -655,6 +657,7 @@ class PeriodReportAggregationService {
         : (overallScores.reduce((int a, int b) => a + b) / overallScores.length)
               .round();
     final List<String> topKeywords = _extractKeywords(rangeAnswers, topN: 5);
+    final List<String> bucketSuggestions = await _loadOpenBucketSuggestions();
 
     return ReportAnalyzePayload(
       period: periodKey,
@@ -673,6 +676,7 @@ class PeriodReportAggregationService {
       entriesCompact: entriesCompact,
       topKeywords: topKeywords,
       representativeAnswers: representativeAnswers,
+      communityRecoveryIdeas: bucketSuggestions,
     );
   }
 
@@ -696,6 +700,31 @@ class PeriodReportAggregationService {
         .toList(growable: false);
   }
 
+  Future<List<String>> _loadOpenBucketSuggestions() async {
+    final Isar isar = await LocalDatabase.instance.isar;
+    final List<BucketItemEntity> items = await isar.bucketItemEntitys
+        .where()
+        .findAll();
+    items.sort((BucketItemEntity a, BucketItemEntity b) {
+      final DateTime aDate = a.dueDate ?? a.createdAt;
+      final DateTime bDate = b.dueDate ?? b.createdAt;
+      return aDate.compareTo(bDate);
+    });
+    return items
+        .where((BucketItemEntity item) => !item.isCompleted)
+        .map((BucketItemEntity item) {
+          final String category = item.category.trim();
+          final String title = item.title.trim();
+          if (title.isEmpty) {
+            return "";
+          }
+          return "$category|$title";
+        })
+        .where((String item) => item.trim().isNotEmpty)
+        .take(5)
+        .toList(growable: false);
+  }
+
   String _buildPeriodSummary({
     required String focusLabel,
     required int recordedDays,
@@ -711,13 +740,13 @@ class PeriodReportAggregationService {
     }
 
     final bool hasCheckinData = avgMood > 0 || avgEnergy > 0 || avgStress > 0;
-    final String completionText = "$recordedDays/$targetDays일 기록이 쌓였어요.";
+    final String completionText = "$targetDays일중에 $recordedDays일동안 기록을 완료했어요.";
     final String scoreText = hasCheckinData
         ? "${_moodTone(avgMood)} ${_energyTone(avgEnergy)} ${_stressTone(avgStress)}"
-        : "체크인 데이터는 아직 많지 않지만 기록 흐름은 이어지고 있어요.";
+        : "";
     final String keywordText = keywords.isEmpty
         ? ""
-        : " 자주 떠오른 키워드는 ${keywords.join(", ")}였어요.";
+        : " $focusLabel의 키워드는 ${keywords.join(", ")}였습니다.";
 
     return "$focusLabel에는 $completionText $scoreText$keywordText"
         .replaceAll(RegExp(r"\s+"), " ")
@@ -788,6 +817,7 @@ class PeriodReportAggregationService {
 
   List<String> _buildPeriodActions({
     required String nextLabel,
+    required ReportAnalyzePayload payload,
     required List<String> keywords,
     required double avgEnergy,
     required double avgStress,
@@ -822,10 +852,93 @@ class PeriodReportAggregationService {
       addAction(keywordAction);
     }
 
-    addAction("$nextLabel에는 괜찮았던 날의 루틴 1가지를 다시 재현해보세요.");
+    final String? positiveAnswerAction = _positiveAnswerAction(
+      nextLabel: nextLabel,
+      payload: payload,
+    );
+    if (positiveAnswerAction != null) {
+      addAction(positiveAnswerAction);
+    }
+
+    final String? bucketAction = _bucketAction(
+      nextLabel: nextLabel,
+      payload: payload,
+    );
+    if (bucketAction != null) {
+      addAction(bucketAction);
+    }
+
     addAction("$nextLabel에는 나를 가장 잘 회복시킨 순간을 먼저 일정에 넣어보세요.");
 
     return actions.take(3).toList(growable: false);
+  }
+
+  String? _positiveAnswerAction({
+    required String nextLabel,
+    required ReportAnalyzePayload payload,
+  }) {
+    Map<String, Object?>? selected;
+    int selectedScore = -1;
+    for (final Map<String, Object?> day in payload.days) {
+      final String answer = ((day["answer"] as String?) ?? "").trim();
+      if (answer.isEmpty) {
+        continue;
+      }
+      final String question = ((day["question"] as String?) ?? "").trim();
+      final int score = _tryInt(day["day_score"]) ?? 0;
+      final bool isGoodMoodQuestion =
+          question.contains("기분") ||
+          question.contains("좋") ||
+          question.contains("행동") ||
+          question.contains("루틴");
+      if (score >= selectedScore && (score >= 4 || isGoodMoodQuestion)) {
+        selected = day;
+        selectedScore = score;
+      }
+    }
+    final String answer = ((selected?["answer"] as String?) ?? "").trim();
+    if (answer.isEmpty) {
+      return null;
+    }
+    return "$nextLabel에는 기분이 좋았던 날 남긴 \"${_snippet(answer)}\"를 다시 할 수 있는 작은 일정으로 잡아보세요.";
+  }
+
+  String? _bucketAction({
+    required String nextLabel,
+    required ReportAnalyzePayload payload,
+  }) {
+    if (payload.communityRecoveryIdeas.isEmpty) {
+      return null;
+    }
+    final List<String> parts = payload.communityRecoveryIdeas.first.split("|");
+    if (parts.length < 2) {
+      return null;
+    }
+    final String category = parts.first.trim().isEmpty
+        ? "버킷리스트"
+        : parts.first.trim();
+    final String title = parts.sublist(1).join("|").trim();
+    if (title.isEmpty) {
+      return null;
+    }
+    final String verb = _bucketCategoryVerb(category);
+    return "아직 버킷리스트의 \"$title\"를 실행해보지 않았으니, $nextLabel에는 $category 카테고리에서 작게 $verb 볼까요?";
+  }
+
+  String _bucketCategoryVerb(String category) {
+    if (category.contains("여행")) {
+      return "여행 계획부터 시작해";
+    }
+    if (category.contains("관람") || category.contains("문화")) {
+      return "관람 일정을 찾아";
+    }
+    if (category.contains("도전") || category.contains("성장")) {
+      return "도전해";
+    }
+    if (category.contains("운동") || category.contains("건강")) {
+      return "몸을 움직여";
+    }
+    return "실행해";
   }
 
   String _moodTone(double score) {

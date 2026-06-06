@@ -523,8 +523,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       _openingSystemSettings = true;
     });
     try {
-      final PermissionStatus status =
-          await Permission.ignoreBatteryOptimizations.request();
+      final PermissionStatus status = await Permission
+          .ignoreBatteryOptimizations
+          .request();
       _logNotificationSettings(
         "battery optimization exemption request result=$status",
       );
@@ -578,7 +579,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     setState(() {
       _todayQuestionEnabled = todayEnabled;
       _bucketDdayEnabled = bucketEnabled;
-      _todayQuestionTime = TimeOfDay(hour: hour, minute: 0);
+      _todayQuestionTime = TimeOfDay(hour: hour, minute: minute);
       _bucketDdayDaysBefore = bucketDdayDaysBefore;
     });
     await _syncNotificationSchedules();
@@ -602,7 +603,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   Future<void> _saveTodayQuestionTime(TimeOfDay time) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setInt(NotificationPrefsKeys.todayQuestionHour, time.hour);
-    await prefs.setInt(NotificationPrefsKeys.todayQuestionMinute, 0);
+    await prefs.setInt(NotificationPrefsKeys.todayQuestionMinute, time.minute);
   }
 
   Future<void> _syncNotificationSchedules() async {
@@ -639,7 +640,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   String _formatKoreanTime(TimeOfDay time) {
     final bool isAm = time.hour < 12;
     final int hour12 = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
-    return "${isAm ? "오전" : "오후"} $hour12시";
+    final String minute = time.minute.toString().padLeft(2, "0");
+    return "${isAm ? "오전" : "오후"} $hour12시 $minute분";
   }
 
   Future<void> _handleTodayQuestionToggle(bool enabled) async {
@@ -677,10 +679,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     bool syncAfterSelection = true,
   }) async {
     _markSettingsInteraction();
-    bool isAm = _todayQuestionTime.hour < 12;
+    int selectedPeriodIndex = _todayQuestionTime.hour < 12 ? 0 : 1;
     int selectedHour12 = _todayQuestionTime.hourOfPeriod == 0
         ? 12
         : _todayQuestionTime.hourOfPeriod;
+    int selectedMinute = _todayQuestionTime.minute;
 
     final TimeOfDay? picked = await showModalBottomSheet<TimeOfDay>(
       context: context,
@@ -697,58 +700,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         final double safeBottomPadding = bottomPadding < AppSpacing.s48
             ? AppSpacing.s48
             : bottomPadding;
-
-        Widget buildArrowButton({
-          required IconData icon,
-          required VoidCallback onTap,
-          required double width,
-        }) {
-          return SizedBox(
-            width: width,
-            height: 47,
-            child: IconButton(
-              onPressed: onTap,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.s16,
-                vertical: AppSpacing.s8,
-              ),
-              splashRadius: 24,
-              style: IconButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                foregroundColor: AppNeutralColors.grey500,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              icon: Icon(
-                icon,
-                size: AppSpacing.s24,
-                color: AppNeutralColors.grey500,
-              ),
-            ),
-          );
-        }
-
-        Widget buildSelectedPill({
-          required String text,
-          required double width,
-        }) {
-          return Container(
-            width: width,
-            height: 47,
-            decoration: BoxDecoration(
-              color: brand.c100,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              text,
-              style: AppTypography.headingMediumExtraBold.copyWith(
-                color: AppNeutralColors.grey900,
-              ),
-            ),
-          );
-        }
 
         return DecoratedBox(
           decoration: const BoxDecoration(
@@ -777,81 +728,21 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   ),
                 ),
                 const SizedBox(height: AppSpacing.s28),
-                StatefulBuilder(
-                  builder: (BuildContext context, StateSetter setModalState) {
-                    return Column(
-                      children: <Widget>[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            buildArrowButton(
-                              icon: Icons.keyboard_arrow_up,
-                              width: 71,
-                              onTap: () {
-                                setModalState(() {
-                                  isAm = !isAm;
-                                });
-                              },
-                            ),
-                            const SizedBox(width: AppSpacing.s32),
-                            buildArrowButton(
-                              icon: Icons.keyboard_arrow_up,
-                              width: 55,
-                              onTap: () {
-                                setModalState(() {
-                                  selectedHour12 = selectedHour12 == 12
-                                      ? 1
-                                      : selectedHour12 + 1;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.s20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            buildSelectedPill(
-                              text: isAm ? "오전" : "오후",
-                              width: 71,
-                            ),
-                            const SizedBox(width: AppSpacing.s32),
-                            buildSelectedPill(
-                              text: selectedHour12.toString(),
-                              width: 55,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.s20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            buildArrowButton(
-                              icon: Icons.keyboard_arrow_down,
-                              width: 71,
-                              onTap: () {
-                                setModalState(() {
-                                  isAm = !isAm;
-                                });
-                              },
-                            ),
-                            const SizedBox(width: AppSpacing.s32),
-                            buildArrowButton(
-                              icon: Icons.keyboard_arrow_down,
-                              width: 55,
-                              onTap: () {
-                                setModalState(() {
-                                  selectedHour12 = selectedHour12 == 1
-                                      ? 12
-                                      : selectedHour12 - 1;
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
+                _TimeWheelPicker(
+                  brand: brand,
+                  initialPeriodIndex: selectedPeriodIndex,
+                  initialHour12: selectedHour12,
+                  initialMinute: selectedMinute,
+                  onChanged:
+                      ({
+                        required int periodIndex,
+                        required int hour12,
+                        required int minute,
+                      }) {
+                        selectedPeriodIndex = periodIndex;
+                        selectedHour12 = hour12;
+                        selectedMinute = minute;
+                      },
                 ),
                 const SizedBox(height: AppSpacing.s28),
                 Row(
@@ -883,11 +774,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         height: 48,
                         child: FilledButton(
                           onPressed: () {
+                            final bool isAm = selectedPeriodIndex == 0;
                             final int hour24 = isAm
                                 ? (selectedHour12 % 12)
                                 : (selectedHour12 % 12) + 12;
                             Navigator.of(sheetContext).pop(
-                              TimeOfDay(hour: hour24, minute: 0),
+                              TimeOfDay(hour: hour24, minute: selectedMinute),
                             );
                           },
                           style: FilledButton.styleFrom(
@@ -1279,6 +1171,273 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+typedef _TimeWheelPickerChanged =
+    void Function({
+      required int periodIndex,
+      required int hour12,
+      required int minute,
+    });
+
+class _TimeWheelPicker extends StatefulWidget {
+  const _TimeWheelPicker({
+    required this.brand,
+    required this.initialPeriodIndex,
+    required this.initialHour12,
+    required this.initialMinute,
+    required this.onChanged,
+  });
+
+  final BrandScale brand;
+  final int initialPeriodIndex;
+  final int initialHour12;
+  final int initialMinute;
+  final _TimeWheelPickerChanged onChanged;
+
+  @override
+  State<_TimeWheelPicker> createState() => _TimeWheelPickerState();
+}
+
+class _TimeWheelPickerState extends State<_TimeWheelPicker> {
+  static const double _wheelHeight = 235;
+  static const double _itemExtent = 47;
+  static const double _fadeHeight = 94;
+  static const double _periodWidth = 71;
+  static const double _hourWidth = 55;
+  static const double _separatorWidth = 7;
+  static const double _minuteWidth = 59;
+
+  late final FixedExtentScrollController _periodController;
+  late final FixedExtentScrollController _hourController;
+  late final FixedExtentScrollController _minuteController;
+  late int _periodIndex;
+  late int _hourIndex;
+  late int _minuteIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _periodIndex = widget.initialPeriodIndex.clamp(0, 1);
+    _hourIndex = (widget.initialHour12 - 1).clamp(0, 11);
+    _minuteIndex = widget.initialMinute.clamp(0, 59);
+    _periodController = FixedExtentScrollController(initialItem: _periodIndex);
+    _hourController = FixedExtentScrollController(initialItem: _hourIndex);
+    _minuteController = FixedExtentScrollController(initialItem: _minuteIndex);
+  }
+
+  @override
+  void dispose() {
+    _periodController.dispose();
+    _hourController.dispose();
+    _minuteController.dispose();
+    super.dispose();
+  }
+
+  void _notifyChanged() {
+    widget.onChanged(
+      periodIndex: _periodIndex,
+      hour12: _hourIndex + 1,
+      minute: _minuteIndex,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _wheelHeight,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          _WheelColumn(
+            width: _periodWidth,
+            selectedIndex: _periodIndex,
+            itemCount: 2,
+            controller: _periodController,
+            highlightColor: widget.brand.c200,
+            labelBuilder: (int index) => index == 0 ? "오전" : "오후",
+            onSelectedItemChanged: (int index) {
+              setState(() {
+                _periodIndex = index;
+              });
+              _notifyChanged();
+            },
+          ),
+          const SizedBox(width: AppSpacing.s32),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              _WheelColumn(
+                width: _hourWidth,
+                selectedIndex: _hourIndex,
+                itemCount: 12,
+                controller: _hourController,
+                highlightColor: widget.brand.c200,
+                labelBuilder: (int index) =>
+                    (index + 1).toString().padLeft(2, "0"),
+                onSelectedItemChanged: (int index) {
+                  setState(() {
+                    _hourIndex = index;
+                  });
+                  _notifyChanged();
+                },
+              ),
+              const SizedBox(width: AppSpacing.s16),
+              SizedBox(
+                width: _separatorWidth,
+                height: _wheelHeight,
+                child: Center(
+                  child: Text(
+                    ":",
+                    textAlign: TextAlign.center,
+                    style: AppTypography.headingMediumExtraBold.copyWith(
+                      color: AppNeutralColors.grey900,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s16),
+              _WheelColumn(
+                width: _minuteWidth,
+                selectedIndex: _minuteIndex,
+                itemCount: 60,
+                controller: _minuteController,
+                highlightColor: widget.brand.c200,
+                labelBuilder: (int index) => index.toString().padLeft(2, "0"),
+                onSelectedItemChanged: (int index) {
+                  setState(() {
+                    _minuteIndex = index;
+                  });
+                  _notifyChanged();
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WheelColumn extends StatelessWidget {
+  const _WheelColumn({
+    required this.width,
+    required this.selectedIndex,
+    required this.itemCount,
+    required this.controller,
+    required this.highlightColor,
+    required this.labelBuilder,
+    required this.onSelectedItemChanged,
+  });
+
+  final double width;
+  final int selectedIndex;
+  final int itemCount;
+  final FixedExtentScrollController controller;
+  final Color highlightColor;
+  final String Function(int index) labelBuilder;
+  final ValueChanged<int> onSelectedItemChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: _TimeWheelPickerState._wheelHeight,
+      child: Stack(
+        children: <Widget>[
+          Positioned(
+            top: _TimeWheelPickerState._fadeHeight,
+            left: 0,
+            right: 0,
+            height: _TimeWheelPickerState._itemExtent,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: highlightColor,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+          ListWheelScrollView.useDelegate(
+            controller: controller,
+            itemExtent: _TimeWheelPickerState._itemExtent,
+            diameterRatio: 100,
+            perspective: 0.0001,
+            physics: const FixedExtentScrollPhysics(),
+            overAndUnderCenterOpacity: 1,
+            onSelectedItemChanged: onSelectedItemChanged,
+            childDelegate: ListWheelChildBuilderDelegate(
+              childCount: itemCount,
+              builder: (BuildContext context, int index) {
+                final int distance = (index - selectedIndex).abs();
+                final double opacity = switch (distance) {
+                  0 => 1,
+                  1 => 0.7,
+                  2 => 0.4,
+                  _ => 0.2,
+                };
+                final Color textColor = distance == 0
+                    ? AppNeutralColors.grey900
+                    : AppNeutralColors.grey500;
+                return Center(
+                  child: Opacity(
+                    opacity: opacity,
+                    child: Text(
+                      labelBuilder(index),
+                      maxLines: 1,
+                      softWrap: false,
+                      style: AppTypography.headingMediumExtraBold.copyWith(
+                        color: textColor,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: _TimeWheelPickerState._fadeHeight,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: <Color>[
+                      AppNeutralColors.white,
+                      AppNeutralColors.white.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: _TimeWheelPickerState._fadeHeight,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: <Color>[
+                      AppNeutralColors.white,
+                      AppNeutralColors.white.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

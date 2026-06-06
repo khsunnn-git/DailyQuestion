@@ -2146,7 +2146,7 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
         _selectedQuarter = null;
         _syncTimelineSelections(force: true);
       });
-      unawaited(_ensureSelectedReportLoaded());
+      unawaited(_ensureSelectedReportLoaded(forceRefresh: true));
     }
   }
 
@@ -2177,7 +2177,7 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
         );
       _syncTimelineSelections(force: true);
     });
-    await _ensureSelectedReportLoaded();
+    await _ensureSelectedReportLoaded(forceRefresh: true);
   }
 
   _AiReportPeriod _defaultSelectedPeriod({required DateTime now}) {
@@ -2210,7 +2210,7 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
       _selected = period;
       _syncTimelineSelections();
     });
-    unawaited(_ensureSelectedReportLoaded());
+    unawaited(_ensureSelectedReportLoaded(forceRefresh: true));
   }
 
   void _handleSecondaryChipTap(AiReportTimelineOption option) {
@@ -2229,7 +2229,7 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
           break;
       }
     });
-    unawaited(_ensureSelectedReportLoaded());
+    unawaited(_ensureSelectedReportLoaded(forceRefresh: true));
   }
 
   DateTime _firstRecordDate() {
@@ -2493,6 +2493,11 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
       late final ReportAnalyzePayload payload;
       late final WeeklyAiReport report;
 
+      debugPrint(
+        "[ai_report] request api ${target.cacheKey} "
+        "period=${target.period.name} force=$forceRefresh",
+      );
+
       switch (target.period) {
         case _AiReportPeriod.weekly:
           final WeeklyAggregationSnapshot snapshot =
@@ -2501,7 +2506,22 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
                 endDate: target.endDate,
               );
           payload = snapshot.payload;
-          report = await _fetchWeeklyReport(snapshot);
+          final WeeklyAiReport fallbackReport = snapshot.recordedDays < 3
+              ? _weeklyAggregationService.buildCompactLocalFallbackReport(
+                  snapshot,
+                )
+              : _weeklyAggregationService.buildLocalFallbackReport(snapshot);
+          try {
+            report = await _fetchWeeklyReport(snapshot);
+          } catch (error) {
+            debugPrint(
+              "[ai_report] weekly api failed; use personalized fallback "
+              "${target.cacheKey}: $error",
+            );
+            report = cachedEntry?.report.isFromOpenAi == true
+                ? cachedEntry!.report
+                : fallbackReport;
+          }
         case _AiReportPeriod.monthly:
         case _AiReportPeriod.quarterly:
         case _AiReportPeriod.yearly:
@@ -2516,7 +2536,24 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
             year: target.startDate.year,
             month: target.startDate.month,
           );
-          report = await _fetchCalendarReport(payload: payload);
+          final WeeklyAiReport fallbackReport = _periodAggregationService
+              .buildLocalFallbackReport(
+                payload: payload,
+                period: period,
+                year: target.startDate.year,
+                month: target.startDate.month,
+              );
+          try {
+            report = await _fetchCalendarReport(payload: payload);
+          } catch (error) {
+            debugPrint(
+              "[ai_report] calendar api failed; use personalized fallback "
+              "${target.cacheKey}: $error",
+            );
+            report = cachedEntry?.report.isFromOpenAi == true
+                ? cachedEntry!.report
+                : fallbackReport;
+          }
       }
 
       final CachedAiReportEntry entry = CachedAiReportEntry(
@@ -2544,7 +2581,7 @@ class _AiReportEntryCardState extends State<_AiReportEntryCard>
       if (!mounted) {
         return;
       }
-      if (cachedEntry != null && cachedEntry.report.isFromOpenAi) {
+      if (cachedEntry != null) {
         setState(() {
           _reportStates[target.cacheKey] = _AiGeneratedReportLoadState.success(
             report: cachedEntry.report,

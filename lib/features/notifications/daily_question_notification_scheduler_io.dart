@@ -21,6 +21,8 @@ const int _bucketDdayNotificationBaseId = 200000;
 const String _bucketDdayNotificationIdsKey = "bucket_dday_notification_ids";
 const String _legacyPermissionOnboardingRequestedKey =
     "notification_permission_onboarding_requested";
+const String _dailyQuestionCatchupSlotKey =
+    "notification_daily_question_catchup_slot";
 
 const AndroidNotificationDetails _androidNotificationDetails =
     AndroidNotificationDetails(
@@ -196,7 +198,8 @@ Future<bool> areDailyQuestionAlarmPermissionsGrantedOnDevice() async {
     return true;
   }
 
-  final bool hasNotificationPermission = await areNotificationsEnabledOnDevice();
+  final bool hasNotificationPermission =
+      await areNotificationsEnabledOnDevice();
   if (!hasNotificationPermission) {
     return false;
   }
@@ -240,13 +243,15 @@ Future<bool> requestBatteryOptimizationExemption() async {
     return true;
   }
   try {
-    final PermissionStatus status =
-        await Permission.ignoreBatteryOptimizations.request();
+    final PermissionStatus status = await Permission.ignoreBatteryOptimizations
+        .request();
     final bool granted = status == PermissionStatus.granted;
     _logNotification("battery optimization exemption request result=$granted");
     return granted;
   } catch (error) {
-    _logNotification("failed to request battery optimization exemption: $error");
+    _logNotification(
+      "failed to request battery optimization exemption: $error",
+    );
     return false;
   }
 }
@@ -583,6 +588,8 @@ Future<void> _debugLogPendingNotifications(String context) async {
 }
 
 Future<void> _scheduleDaily({required int hour, required int minute}) async {
+  await _notifications.cancel(_dailyQuestionNotificationId);
+  await _notifications.cancel(_dailyQuestionCatchupNotificationId);
   final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
   final tz.TZDateTime todayAtSelectedTime = tz.TZDateTime(
     tz.local,
@@ -613,6 +620,20 @@ Future<void> _scheduleDaily({required int hour, required int minute}) async {
   // If the user saved the exact current minute, send a one-time catch-up
   // notification shortly after save so today's alert is not skipped.
   if (isSameMinuteSelection && !todayAtSelectedTime.isAfter(now)) {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String catchupSlot =
+        "${now.year}-${now.month.toString().padLeft(2, "0")}-"
+        "${now.day.toString().padLeft(2, "0")}-"
+        "${hour.toString().padLeft(2, "0")}:"
+        "${minute.toString().padLeft(2, "0")}";
+    if (prefs.getString(_dailyQuestionCatchupSlotKey) == catchupSlot) {
+      _logNotification(
+        "skip duplicate catch-up notification for slot=$catchupSlot",
+      );
+      await _debugLogPendingNotifications("schedule daily");
+      return;
+    }
+    await prefs.setString(_dailyQuestionCatchupSlotKey, catchupSlot);
     final tz.TZDateTime catchupTime = now.add(const Duration(seconds: 5));
     _logNotification("schedule catch-up notification for $catchupTime");
     await _zonedScheduleBestEffort(

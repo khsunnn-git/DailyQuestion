@@ -83,9 +83,7 @@ class AiReportCacheStore {
           return;
         }
         final CachedAiReportEntry entry = CachedAiReportEntry.fromJson(value);
-        if (entry.cacheKey.trim().isEmpty ||
-            entry.summaryText.isEmpty ||
-            !entry.report.isFromOpenAi) {
+        if (entry.cacheKey.trim().isEmpty || entry.summaryText.isEmpty) {
           return;
         }
         entries[key] = entry;
@@ -97,7 +95,7 @@ class AiReportCacheStore {
   }
 
   Future<void> upsert(CachedAiReportEntry entry) async {
-    if (!entry.report.isFromOpenAi) {
+    if (entry.report.summary.trim().isEmpty) {
       return;
     }
     final Map<String, CachedAiReportEntry> entries = await readAll();

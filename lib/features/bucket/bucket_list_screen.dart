@@ -10,6 +10,7 @@ import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
 import "../navigation/main_tab_shell.dart";
+import "bucket_backup_service.dart";
 import "bucket_add_screen.dart";
 import "bucket_category_empty_screen.dart";
 import "bucket_save_success_screen.dart";
@@ -247,6 +248,7 @@ class _BucketListScreenState extends State<BucketListScreen>
       }
       await isar.bucketCategoryEntitys.putAll(entities);
     });
+    unawaited(syncBucketBackup());
   }
 
   Future<void> _syncBucketDdayNotificationsFromPrefs() async {
@@ -279,6 +281,7 @@ class _BucketListScreenState extends State<BucketListScreen>
       return isar.bucketItemEntitys.put(entity);
     });
     await _syncBucketDdayNotificationsFromPrefs();
+    unawaited(syncBucketBackup());
     return entry.copyWith(id: savedId);
   }
 
@@ -291,6 +294,7 @@ class _BucketListScreenState extends State<BucketListScreen>
       await isar.bucketItemEntitys.delete(entry.id!);
     });
     await _syncBucketDdayNotificationsFromPrefs();
+    unawaited(syncBucketBackup());
   }
 
   _BucketEntry _fromBucketEntity(BucketItemEntity entity) {

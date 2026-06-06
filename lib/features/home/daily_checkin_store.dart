@@ -1,9 +1,12 @@
+import "dart:async";
+
 import "package:flutter/foundation.dart";
 import "package:isar_community/isar.dart";
 
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/daily_checkin_entity.dart";
 import "../../data/local_db/local_database.dart";
+import "daily_checkin_backup_service.dart";
 
 class DailyCheckinRecord {
   const DailyCheckinRecord({
@@ -136,6 +139,7 @@ class DailyCheckinStore extends ValueNotifier<DailyCheckinRecord?> {
 
     value = next;
     await _upsert(next);
+    unawaited(syncDailyCheckinBackup());
     return next;
   }
 

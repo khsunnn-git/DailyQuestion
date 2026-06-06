@@ -11,6 +11,7 @@ import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/entities/daily_checkin_entity.dart";
 import "../../data/local_db/entities/user_profile_entity.dart";
 import "../../data/local_db/local_database.dart";
+import "../bucket/bucket_backup_service.dart";
 
 class LocalBackupException implements Exception {
   const LocalBackupException(this.message);
@@ -154,6 +155,7 @@ class LocalBackupService {
         await prefs.setStringList(entry.key, value);
       }
     }
+    await syncBucketBackup();
   }
 
   Future<void> restoreFromFilePath(String path) async {

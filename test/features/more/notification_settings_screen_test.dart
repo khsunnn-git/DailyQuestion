@@ -9,6 +9,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "package:dailyquestion/design_system/design_system.dart";
 import "package:dailyquestion/features/more/notification_settings_screen.dart";
+import "package:dailyquestion/features/more/notification_prefs_keys.dart";
 
 const MethodChannel _notificationsChannel = MethodChannel(
   "dexterous.com/flutter/local_notifications",
@@ -168,6 +169,48 @@ void main() {
       expect(find.text("기기 알림 권한이 꺼져 있어 실제 알림은 오지 않아요."), findsOneWidget);
     },
   );
+
+  testWidgets("today question time keeps the saved minute value", (
+    WidgetTester tester,
+  ) async {
+    _notificationsEnabled = true;
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      NotificationPrefsKeys.settingsSchemaVersion:
+          NotificationPrefsKeys.currentSettingsSchemaVersion,
+      NotificationPrefsKeys.todayQuestionEnabled: true,
+      NotificationPrefsKeys.todayQuestionHour: 21,
+      NotificationPrefsKeys.todayQuestionMinute: 15,
+    });
+
+    tester.view.physicalSize = const Size(1440, 3200);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.of(AppBrandTheme.blue),
+        home: const NotificationSettingsScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text("오후 9시 15분"), findsOneWidget);
+
+    await tester.tap(find.text("오후 9시 15분"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("오후"), findsOneWidget);
+    expect(find.text("09"), findsOneWidget);
+    expect(find.text("15"), findsOneWidget);
+
+    await tester.tap(find.text("설정"));
+    await tester.pumpAndSettle();
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt(NotificationPrefsKeys.todayQuestionHour), 21);
+    expect(prefs.getInt(NotificationPrefsKeys.todayQuestionMinute), 15);
+  });
 
   testWidgets(
     "today question card shows exact alarm warning on Android when permission is missing",

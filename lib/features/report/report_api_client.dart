@@ -96,6 +96,9 @@ class ReportApiClient {
     ReportAnalyzePayload payload,
   ) async {
     final Uri uri = _analyzeUri(baseUrl);
+    if (kDebugMode) {
+      debugPrint("[ai_report_api] request $uri");
+    }
     final HttpClientRequest request = await _httpClient
         .postUrl(uri)
         .timeout(_timeout);
@@ -116,7 +119,14 @@ class ReportApiClient {
         "Analyze API response is not JSON object.",
       );
     }
-    return WeeklyAiReport.fromJson(decoded);
+    final WeeklyAiReport report = WeeklyAiReport.fromJson(decoded);
+    if (kDebugMode) {
+      debugPrint(
+        "[ai_report_api] success $uri "
+        "source=${report.source} openAi=${report.isFromOpenAi}",
+      );
+    }
+    return report;
   }
 
   Uri _analyzeUri(String baseUrl) {
@@ -169,6 +179,7 @@ class ReportApiClient {
     }
     urls.add("http://127.0.0.1:8787");
     urls.add("http://localhost:8787");
+    urls.add(_releaseBaseUrl);
     return urls;
   }
 }

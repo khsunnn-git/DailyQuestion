@@ -9,6 +9,8 @@ import "../../data/local_db/entities/user_profile_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../auth/auth_service.dart";
 import "../auth/social_login_store.dart";
+import "../bucket/bucket_backup_service.dart";
+import "../home/daily_checkin_backup_service.dart";
 import "../home/daily_checkin_store.dart";
 import "../notifications/daily_question_notification_scheduler.dart";
 import "../question/public_answer_uploader.dart";
@@ -29,6 +31,8 @@ class DataManagementService {
 
   static const String _bucketDdayNotificationIdsKey =
       "bucket_dday_notification_ids";
+  static const String _dailyQuestionCatchupSlotKey =
+      "notification_daily_question_catchup_slot";
   static const String _legacyNicknamePrefKey = "user_nickname";
   static const String _nicknamePrefKey = "nickname";
   static const String _myRecordsInstallMonthKey = "my_records_install_month";
@@ -57,6 +61,8 @@ class DataManagementService {
     final String? uid = AuthService.instance.currentUser?.uid;
     try {
       await deleteRemoteUserAnswerBackup(uid: uid);
+      await deleteRemoteBucketBackup(uid: uid);
+      await deleteRemoteDailyCheckinBackup(uid: uid);
       await PublicAnswerUploader.instance.deleteAllOwnedAnswers(uid: uid);
       await _clearLocalData();
       await AuthService.instance.clearCurrentSession();
@@ -112,6 +118,9 @@ class DataManagementService {
         key == NotificationPrefsKeys.bucketDdayDaysBefore ||
         key == _legacyNotificationPermissionRequestedKey ||
         key == _bucketDdayNotificationIdsKey ||
+        key == _dailyQuestionCatchupSlotKey ||
+        key == "bucket_backup_has_synced" ||
+        key == "daily_checkin_backup_has_synced" ||
         key == _legacyNicknamePrefKey ||
         key == _nicknamePrefKey ||
         key == _myRecordsInstallMonthKey ||
