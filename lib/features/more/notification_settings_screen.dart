@@ -815,6 +815,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     });
     await _saveTodayQuestionTime(picked);
     if (syncAfterSelection) {
+      final bool granted = await _ensureNotificationPermission();
+      if (granted) {
+        await _requestExactAlarmPermissionIfNeeded();
+      }
       await _syncNotificationSchedules();
     }
     return picked;
@@ -893,6 +897,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     });
     await _saveBucketDdayDaysBefore(selected);
     if (syncAfterSelection) {
+      final bool granted = await _ensureNotificationPermission();
+      if (granted) {
+        await _requestExactAlarmPermissionIfNeeded();
+      }
       await _syncNotificationSchedules();
     }
     return selected;
@@ -917,6 +925,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       await _openBucketDdaySettingBottomSheet(syncAfterSelection: false);
       final bool granted = await _ensureNotificationPermission();
       if (granted && mounted) {
+        await _requestExactAlarmPermissionIfNeeded();
         await _refreshNotificationPermissionBanner();
       }
       await _syncNotificationSchedules();
