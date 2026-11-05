@@ -1,39 +1,67 @@
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
+import "home_character_assets.dart";
+import "home_fish_growth.dart";
+import "home_theme_progression.dart";
 
 class GreenThemeComingSoonPopup extends StatelessWidget {
   const GreenThemeComingSoonPopup({
     super.key,
     required this.onCloseForToday,
     required this.onConfirm,
+    this.targetCharacterType = HomeCharacterType.tree,
   });
 
   static const double width = 308;
-  static const String _sproutAsset =
-      "assets/images/home/characters/tree/level_2.webp";
 
   final VoidCallback onCloseForToday;
   final VoidCallback onConfirm;
+  final HomeCharacterType targetCharacterType;
 
   @override
   Widget build(BuildContext context) {
-    const BrandScale brand = AppBrandThemes.green;
+    final BrandScale brand = switch (targetCharacterType) {
+      HomeCharacterType.tree => AppBrandThemes.green,
+      HomeCharacterType.stone => AppBrandThemes.brown,
+      HomeCharacterType.fish => AppBrandThemes.blue,
+    };
+    final int unlockRecordCount = switch (targetCharacterType) {
+      HomeCharacterType.tree => homeGreenThemeUnlockRecordCount,
+      HomeCharacterType.stone => homeBrownThemeUnlockRecordCount,
+      HomeCharacterType.fish => 0,
+    };
+    final String themeName = switch (targetCharacterType) {
+      HomeCharacterType.tree => "새싹",
+      HomeCharacterType.stone => "돌맹이",
+      HomeCharacterType.fish => "물고기",
+    };
+    final String fallbackEmoji = switch (targetCharacterType) {
+      HomeCharacterType.tree => "🌱",
+      HomeCharacterType.stone => "🪨",
+      HomeCharacterType.fish => "🐟",
+    };
+    final HomeFishGrowthLevel previewLevel = switch (targetCharacterType) {
+      HomeCharacterType.stone => HomeFishGrowthLevel.level1,
+      _ => HomeFishGrowthLevel.level2,
+    };
+    final String assetPath = HomeCharacterAssets.assetFor(
+      targetCharacterType,
+      previewLevel,
+    );
+    final Color backgroundColor = switch (targetCharacterType) {
+      HomeCharacterType.stone => brand.bg,
+      _ => brand.c200,
+    };
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: width),
       child: Container(
         width: width,
         padding: const EdgeInsets.all(AppSpacing.s20),
         decoration: BoxDecoration(
-          color: brand.c200,
+          color: backgroundColor,
           borderRadius: AppRadius.br16,
-          boxShadow: const <BoxShadow>[
-            BoxShadow(
-              color: Color(0x14000000),
-              offset: Offset(0, 4),
-              blurRadius: 8,
-            ),
-          ],
+          boxShadow: AppElevation.level2,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -88,17 +116,17 @@ class GreenThemeComingSoonPopup extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.s20),
             Text(
-              "60번째 기록과 함께할",
+              "$unlockRecordCount번째 기록과 함께할",
               textAlign: TextAlign.center,
-              style: AppTypography.headingXSmall.copyWith(
+              style: AppTypography.headingLarge.copyWith(
                 color: AppNeutralColors.grey900,
               ),
             ),
-            const SizedBox(height: AppSpacing.s4),
+            const SizedBox(height: AppSpacing.s8),
             Text(
-              "귀여운 새싹테마!",
+              "귀여운 $themeName테마!",
               textAlign: TextAlign.center,
-              style: AppTypography.headingXSmall.copyWith(color: brand.c500),
+              style: AppTypography.headingLarge.copyWith(color: brand.c500),
             ),
             const SizedBox(height: AppSpacing.s8),
             Text(
@@ -110,9 +138,11 @@ class GreenThemeComingSoonPopup extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.s20),
             SizedBox(
-              height: 110,
+              height: targetCharacterType == HomeCharacterType.stone
+                  ? 144
+                  : 110,
               child: Image.asset(
-                _sproutAsset,
+                assetPath,
                 fit: BoxFit.contain,
                 errorBuilder:
                     (
@@ -120,10 +150,10 @@ class GreenThemeComingSoonPopup extends StatelessWidget {
                       Object error,
                       StackTrace? stackTrace,
                     ) {
-                      return const Center(
+                      return Center(
                         child: AppEmojiText(
-                          "🌱",
-                          style: TextStyle(fontSize: 72),
+                          fallbackEmoji,
+                          style: const TextStyle(fontSize: 72),
                         ),
                       );
                     },

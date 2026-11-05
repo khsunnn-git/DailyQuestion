@@ -1,4 +1,5 @@
 import "package:dailyquestion/design_system/design_system.dart";
+import "package:dailyquestion/features/home/home_character_assets.dart";
 import "package:dailyquestion/features/home/next_theme_unlock_screen.dart";
 import "package:flutter/material.dart";
 import "package:flutter_test/flutter_test.dart";
@@ -17,6 +18,68 @@ void main() {
     expect(find.text("축하해요!\n새싹 테마가 열렸어요!"), findsOneWidget);
     expect(find.text("새로운 테마와 함께 기록을\n이어가보세요!"), findsOneWidget);
     expect(find.text("다음"), findsOneWidget);
+  });
+
+  testWidgets("renders the stone theme unlock copy", (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.of(AppBrandTheme.brown),
+        home: const NextThemeUnlockScreen(
+          unlockedCharacterType: HomeCharacterType.stone,
+        ),
+      ),
+    );
+
+    expect(find.text("축하해요!\n돌맹이 테마가 열렸어요!"), findsOneWidget);
+    expect(find.text("새로운 테마와 함께 기록을\n이어가보세요!"), findsOneWidget);
+    expect(find.text("다음"), findsOneWidget);
+  });
+
+  testWidgets("returns to the brown themed screen after stone unlock", (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.of(AppBrandTheme.brown),
+        home: Builder(
+          builder: (BuildContext context) {
+            final BrandScale brand = context.appBrandScale;
+            final bool isBrownTheme = brand.c500 == AppBrandThemes.brown.c500;
+            return Scaffold(
+              body: Center(
+                child: FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: brand.c500),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const NextThemeUnlockScreen(
+                          unlockedCharacterType: HomeCharacterType.stone,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Text("브라운:$isBrownTheme"),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    expect(find.text("브라운:true"), findsOneWidget);
+
+    await tester.tap(find.text("브라운:true"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("축하해요!\n돌맹이 테마가 열렸어요!"), findsOneWidget);
+
+    await tester.tap(find.text("다음"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("브라운:true"), findsOneWidget);
   });
 
   testWidgets("moves to the fallback home when shown as the root route", (

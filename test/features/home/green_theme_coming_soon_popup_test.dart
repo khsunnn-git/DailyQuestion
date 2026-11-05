@@ -1,5 +1,6 @@
 import "package:dailyquestion/design_system/design_system.dart";
 import "package:dailyquestion/features/home/green_theme_coming_soon_popup.dart";
+import "package:dailyquestion/features/home/home_character_assets.dart";
 import "package:flutter/material.dart";
 import "package:flutter_test/flutter_test.dart";
 
@@ -27,6 +28,42 @@ void main() {
     expect(find.text("귀여운 새싹테마!"), findsOneWidget);
     expect(find.text("새로운 테마를 기다려볼까요?"), findsOneWidget);
     expect(find.text("확인"), findsOneWidget);
+  });
+
+  testWidgets("renders the brown theme coming soon popup copy", (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.of(AppBrandTheme.brown),
+        home: Scaffold(
+          body: Center(
+            child: GreenThemeComingSoonPopup(
+              targetCharacterType: HomeCharacterType.stone,
+              onCloseForToday: () {},
+              onConfirm: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text("오늘은 닫기"), findsOneWidget);
+    expect(find.text("NEW UPDATE"), findsOneWidget);
+    expect(find.text("120번째 기록과 함께할"), findsOneWidget);
+    expect(find.text("귀여운 돌맹이테마!"), findsOneWidget);
+    expect(find.text("새로운 테마를 기다려볼까요?"), findsOneWidget);
+    expect(find.text("확인"), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (Widget widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                "assets/images/home/characters/stone/level_1.webp",
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets("invokes the expected callbacks", (WidgetTester tester) async {

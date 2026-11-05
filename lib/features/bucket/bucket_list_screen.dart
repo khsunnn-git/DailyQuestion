@@ -38,6 +38,8 @@ class _BucketListScreenState extends State<BucketListScreen>
       "assets/images/bucket/bucketlist_empty_state_note_fish.webp";
   static const String _emptyBucketTreeAsset =
       "assets/images/bucket/bucketlist_empty_state_note_tree.webp";
+  static const String _emptyBucketStoneAsset =
+      "assets/images/bucket/bucketlist_empty_state_note_stone.webp";
   static const List<String> _bucketHelperMessages = <String>[
     "버킷리스트 너무 어려우신가요?",
     "제가 도움을 드릴게요! 눌러보세요!",
@@ -287,9 +289,13 @@ class _BucketListScreenState extends State<BucketListScreen>
   }
 
   String _emptyBucketAssetFor(BrandScale brand) {
-    return brand.c500 == AppBrandThemes.green.c500
-        ? _emptyBucketTreeAsset
-        : _emptyBucketFishAsset;
+    if (brand.c500 == AppBrandThemes.green.c500) {
+      return _emptyBucketTreeAsset;
+    }
+    if (brand.c500 == AppBrandThemes.brown.c500) {
+      return _emptyBucketStoneAsset;
+    }
+    return _emptyBucketFishAsset;
   }
 
   Future<void> _watchPersistedDataChanges() async {

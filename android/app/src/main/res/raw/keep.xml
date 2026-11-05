@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Release builds shrink unused resources. flutter_local_notifications looks up
+  the notification icon by name at runtime, so R8 cannot see it is used and
+  removes it — notifications then fail silently. Keep them explicitly.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_noti_question_small,@mipmap/ic_launcher" />

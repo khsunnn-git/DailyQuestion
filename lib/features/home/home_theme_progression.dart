@@ -6,13 +6,22 @@ const String _fishInviteBannerAsset =
     "assets/images/home/invite/home_banner_invite_fish_blue.webp";
 const String _treeInviteBannerAsset =
     "assets/images/home/invite/home_banner_invite_tree.webp";
+const String _stoneInviteBannerAsset =
+    "assets/images/home/characters/stone/home_banner_invite_stone.webp";
 const int homeGreenThemeComingSoonLeadRecordCount = 7;
 const int homeGreenThemeUnlockRecordCount = 60;
+const int homeBrownThemeUnlockRecordCount = 120;
 const int homeGreenThemeComingSoonStartRecordCount =
     homeGreenThemeUnlockRecordCount - homeGreenThemeComingSoonLeadRecordCount;
+const int homeBrownThemeComingSoonStartRecordCount =
+    homeBrownThemeUnlockRecordCount - homeGreenThemeComingSoonLeadRecordCount;
 
 bool hasUnlockedHomeGreenTheme(int totalRecordCount) {
   return totalRecordCount >= homeGreenThemeUnlockRecordCount;
+}
+
+bool hasUnlockedHomeBrownTheme(int totalRecordCount) {
+  return totalRecordCount >= homeBrownThemeUnlockRecordCount;
 }
 
 int homeGrowthRecordCountForCharacter({
@@ -22,9 +31,24 @@ int homeGrowthRecordCountForCharacter({
   final int cycleStartRecordCount = switch (characterType) {
     HomeCharacterType.fish => 0,
     HomeCharacterType.tree => homeGreenThemeUnlockRecordCount,
+    HomeCharacterType.stone => homeBrownThemeUnlockRecordCount,
   };
   final int growthRecordCount = totalRecordCount - cycleStartRecordCount;
   return growthRecordCount < 0 ? 0 : growthRecordCount;
+}
+
+String homeCharacterAssetForTotalRecordCount({
+  required HomeCharacterType characterType,
+  required int totalRecordCount,
+}) {
+  final int growthRecordCount = homeGrowthRecordCountForCharacter(
+    characterType: characterType,
+    totalRecordCount: totalRecordCount,
+  );
+  return HomeCharacterAssets.assetForRecordCount(
+    characterType,
+    growthRecordCount,
+  );
 }
 
 bool shouldShowHomeGreenThemeComingSoonNotice(
@@ -36,14 +60,30 @@ bool shouldShowHomeGreenThemeComingSoonNotice(
       totalRecordCount < homeGreenThemeUnlockRecordCount;
 }
 
+bool shouldShowHomeBrownThemeComingSoonNotice(
+  int totalRecordCount, {
+  HomeCharacterType currentCharacterType = HomeCharacterType.tree,
+}) {
+  return currentCharacterType == HomeCharacterType.tree &&
+      totalRecordCount >= homeBrownThemeComingSoonStartRecordCount &&
+      totalRecordCount < homeBrownThemeUnlockRecordCount;
+}
+
 bool shouldPresentHomeGreenThemeUnlock({
   required int totalRecordCount,
   required HomeCharacterType currentCharacterType,
   required bool hasPresented,
 }) {
   return !hasPresented &&
-      currentCharacterType != HomeCharacterType.tree &&
+      !hasUnlockedHomeBrownTheme(totalRecordCount) &&
       hasUnlockedHomeGreenTheme(totalRecordCount);
+}
+
+bool shouldPresentHomeBrownThemeUnlock({
+  required int totalRecordCount,
+  required bool hasPresented,
+}) {
+  return !hasPresented && hasUnlockedHomeBrownTheme(totalRecordCount);
 }
 
 AppBrandTheme resolveHomeBrandTheme({
@@ -58,6 +98,10 @@ AppBrandTheme resolveHomeBrandTheme({
     case "blue":
     case "fish":
       return AppBrandTheme.blue;
+    case "brown":
+    case "stone":
+    case "rock":
+      return AppBrandTheme.brown;
   }
   final AppBrandTheme baseTheme = AppCharacterThemeMapper.fromCharacterName(
     characterName,
@@ -65,19 +109,31 @@ AppBrandTheme resolveHomeBrandTheme({
   if (characterName.trim() != "물고기") {
     return baseTheme;
   }
-  return hasUnlockedHomeGreenTheme(totalRecordCount)
-      ? AppBrandTheme.green
-      : baseTheme;
+  if (hasUnlockedHomeBrownTheme(totalRecordCount)) {
+    return AppBrandTheme.brown;
+  }
+  if (hasUnlockedHomeGreenTheme(totalRecordCount)) {
+    return AppBrandTheme.green;
+  }
+  return baseTheme;
 }
 
 String resolveHomeInviteBannerAsset(BrandScale brand) {
-  return brand.c500 == AppBrandThemes.green.c500
-      ? _treeInviteBannerAsset
-      : _fishInviteBannerAsset;
+  if (brand.c500 == AppBrandThemes.green.c500) {
+    return _treeInviteBannerAsset;
+  }
+  if (brand.c500 == AppBrandThemes.brown.c500) {
+    return _stoneInviteBannerAsset;
+  }
+  return _fishInviteBannerAsset;
 }
 
 HomeCharacterType resolveHomeCharacterType(BrandScale brand) {
-  return brand.c500 == AppBrandThemes.green.c500
-      ? HomeCharacterType.tree
-      : HomeCharacterType.fish;
+  if (brand.c500 == AppBrandThemes.green.c500) {
+    return HomeCharacterType.tree;
+  }
+  if (brand.c500 == AppBrandThemes.brown.c500) {
+    return HomeCharacterType.stone;
+  }
+  return HomeCharacterType.fish;
 }

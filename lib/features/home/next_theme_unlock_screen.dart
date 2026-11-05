@@ -6,9 +6,14 @@ import "home_fish_growth.dart";
 import "home_screen.dart";
 
 class NextThemeUnlockScreen extends StatelessWidget {
-  const NextThemeUnlockScreen({super.key, this.fallbackHomeBuilder});
+  const NextThemeUnlockScreen({
+    super.key,
+    this.fallbackHomeBuilder,
+    this.unlockedCharacterType = HomeCharacterType.tree,
+  });
 
   final WidgetBuilder? fallbackHomeBuilder;
+  final HomeCharacterType unlockedCharacterType;
 
   void _handleNext(BuildContext context) {
     final NavigatorState navigator = Navigator.of(context);
@@ -25,11 +30,25 @@ class NextThemeUnlockScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const BrandScale brand = AppBrandThemes.green;
+    final BrandScale brand = switch (unlockedCharacterType) {
+      HomeCharacterType.tree => AppBrandThemes.green,
+      HomeCharacterType.stone => AppBrandThemes.brown,
+      HomeCharacterType.fish => AppBrandThemes.blue,
+    };
     final String assetPath = HomeCharacterAssets.assetFor(
-      HomeCharacterType.tree,
+      unlockedCharacterType,
       HomeFishGrowthLevel.level1,
     );
+    final String themeName = switch (unlockedCharacterType) {
+      HomeCharacterType.tree => "새싹",
+      HomeCharacterType.stone => "돌맹이",
+      HomeCharacterType.fish => "물고기",
+    };
+    final String fallbackEmoji = switch (unlockedCharacterType) {
+      HomeCharacterType.tree => "🌱",
+      HomeCharacterType.stone => "🪨",
+      HomeCharacterType.fish => "🐟",
+    };
 
     return Scaffold(
       backgroundColor: AppNeutralColors.white,
@@ -48,7 +67,7 @@ class NextThemeUnlockScreen extends StatelessWidget {
                 children: <Widget>[
                   SizedBox(height: topSpacing),
                   Text(
-                    "축하해요!\n새싹 테마가 열렸어요!",
+                    "축하해요!\n$themeName 테마가 열렸어요!",
                     textAlign: TextAlign.center,
                     style: AppTypography.headingLarge.copyWith(
                       color: AppNeutralColors.grey900,
@@ -75,10 +94,10 @@ class NextThemeUnlockScreen extends StatelessWidget {
                         height: 260,
                         fit: BoxFit.contain,
                         errorBuilder: (_, error, stackTrace) {
-                          return const Center(
+                          return Center(
                             child: AppEmojiText(
-                              "🌱",
-                              style: TextStyle(fontSize: 96),
+                              fallbackEmoji,
+                              style: const TextStyle(fontSize: 96),
                             ),
                           );
                         },

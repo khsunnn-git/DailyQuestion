@@ -86,6 +86,58 @@ void main() {
         HomeFishGrowthLevel.level3,
       );
     });
+
+    test("starts stone growth from level 1 at the 120th total record", () {
+      expect(
+        homeGrowthRecordCountForCharacter(
+          characterType: HomeCharacterType.stone,
+          totalRecordCount: 119,
+        ),
+        0,
+      );
+      expect(
+        homeGrowthRecordCountForCharacter(
+          characterType: HomeCharacterType.stone,
+          totalRecordCount: 120,
+        ),
+        0,
+      );
+      expect(
+        homeFishGrowthLevelForRecordCount(
+          homeGrowthRecordCountForCharacter(
+            characterType: HomeCharacterType.stone,
+            totalRecordCount: 123,
+          ),
+        ),
+        HomeFishGrowthLevel.level2,
+      );
+    });
+  });
+
+  group("homeCharacterAssetForTotalRecordCount", () {
+    test("keeps the home and record report stone character in sync", () {
+      expect(
+        homeCharacterAssetForTotalRecordCount(
+          characterType: HomeCharacterType.stone,
+          totalRecordCount: 120,
+        ),
+        "assets/images/home/characters/stone/level_1.webp",
+      );
+      expect(
+        homeCharacterAssetForTotalRecordCount(
+          characterType: HomeCharacterType.stone,
+          totalRecordCount: 123,
+        ),
+        "assets/images/home/characters/stone/level_2.webp",
+      );
+      expect(
+        homeCharacterAssetForTotalRecordCount(
+          characterType: HomeCharacterType.stone,
+          totalRecordCount: 165,
+        ),
+        "assets/images/home/characters/stone/level_6.webp",
+      );
+    });
   });
 
   test("resolves fish assets from the nested character directory", () {
@@ -133,6 +185,27 @@ void main() {
     );
   });
 
+  test("resolves stone assets from the nested character directory", () {
+    expect(
+      HomeCharacterAssets.assetFor(
+        HomeCharacterType.stone,
+        HomeFishGrowthLevel.level1,
+      ),
+      "assets/images/home/characters/stone/level_1.webp",
+    );
+    expect(
+      HomeCharacterAssets.assetFor(
+        HomeCharacterType.stone,
+        HomeFishGrowthLevel.level6,
+      ),
+      "assets/images/home/characters/stone/level_6.webp",
+    );
+    expect(
+      HomeCharacterAssets.stoneRecord,
+      "assets/images/home/characters/stone/record_stone.webp",
+    );
+  });
+
   test("uses the updated celebration headlines", () {
     expect(HomeFishGrowthLevel.level2.celebrationHeadline, "작은 물고기로 자라났어요!");
     expect(HomeFishGrowthLevel.level3.celebrationHeadline, "제법 자라났어요!");
@@ -163,6 +236,17 @@ void main() {
       },
     );
 
+    test("moves the fish theme to brown after the stone unlock threshold", () {
+      expect(
+        resolveHomeBrandTheme(characterName: "물고기", totalRecordCount: 119),
+        AppBrandTheme.green,
+      );
+      expect(
+        resolveHomeBrandTheme(characterName: "물고기", totalRecordCount: 120),
+        AppBrandTheme.brown,
+      );
+    });
+
     test("keeps non-fish characters on their mapped theme", () {
       expect(
         resolveHomeBrandTheme(characterName: "강아지", totalRecordCount: 60),
@@ -180,6 +264,17 @@ void main() {
         AppBrandTheme.green,
       );
     });
+
+    test("allows forcing the brown preview theme in debug mode", () {
+      expect(
+        resolveHomeBrandTheme(
+          characterName: "물고기",
+          totalRecordCount: 0,
+          debugThemeOverride: "stone",
+        ),
+        AppBrandTheme.brown,
+      );
+    });
   });
 
   group("hasUnlockedHomeGreenTheme", () {
@@ -189,6 +284,16 @@ void main() {
 
     test("returns true from 60 total records", () {
       expect(hasUnlockedHomeGreenTheme(60), isTrue);
+    });
+  });
+
+  group("hasUnlockedHomeBrownTheme", () {
+    test("returns false before 120 total records", () {
+      expect(hasUnlockedHomeBrownTheme(119), isFalse);
+    });
+
+    test("returns true from 120 total records", () {
+      expect(hasUnlockedHomeBrownTheme(120), isTrue);
     });
   });
 
@@ -232,6 +337,53 @@ void main() {
     });
   });
 
+  group("shouldShowHomeBrownThemeComingSoonNotice", () {
+    test("returns false before the 7-day lead window", () {
+      expect(
+        shouldShowHomeBrownThemeComingSoonNotice(
+          homeBrownThemeComingSoonStartRecordCount - 1,
+        ),
+        isFalse,
+      );
+    });
+
+    test("returns true during the 113th to 119th record window", () {
+      expect(
+        shouldShowHomeBrownThemeComingSoonNotice(
+          homeBrownThemeComingSoonStartRecordCount,
+        ),
+        isTrue,
+      );
+      expect(shouldShowHomeBrownThemeComingSoonNotice(119), isTrue);
+    });
+
+    test("returns false once the brown theme is unlocked", () {
+      expect(
+        shouldShowHomeBrownThemeComingSoonNotice(
+          homeBrownThemeUnlockRecordCount,
+        ),
+        isFalse,
+      );
+    });
+
+    test("returns false unless the tree theme is active", () {
+      expect(
+        shouldShowHomeBrownThemeComingSoonNotice(
+          homeBrownThemeComingSoonStartRecordCount,
+          currentCharacterType: HomeCharacterType.fish,
+        ),
+        isFalse,
+      );
+      expect(
+        shouldShowHomeBrownThemeComingSoonNotice(
+          homeBrownThemeComingSoonStartRecordCount,
+          currentCharacterType: HomeCharacterType.stone,
+        ),
+        isFalse,
+      );
+    });
+  });
+
   group("shouldPresentHomeGreenThemeUnlock", () {
     test("returns true at unlock only before the green theme is active", () {
       expect(
@@ -244,14 +396,14 @@ void main() {
       );
     });
 
-    test("returns false when the green theme is already active", () {
+    test("returns true even when the green theme is already active", () {
       expect(
         shouldPresentHomeGreenThemeUnlock(
           totalRecordCount: homeGreenThemeUnlockRecordCount,
           currentCharacterType: HomeCharacterType.tree,
           hasPresented: false,
         ),
-        isFalse,
+        isTrue,
       );
     });
 
@@ -260,6 +412,49 @@ void main() {
         shouldPresentHomeGreenThemeUnlock(
           totalRecordCount: homeGreenThemeUnlockRecordCount,
           currentCharacterType: HomeCharacterType.fish,
+          hasPresented: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test("returns false once the brown theme is unlocked", () {
+      expect(
+        shouldPresentHomeGreenThemeUnlock(
+          totalRecordCount: homeBrownThemeUnlockRecordCount,
+          currentCharacterType: HomeCharacterType.tree,
+          hasPresented: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group("shouldPresentHomeBrownThemeUnlock", () {
+    test("returns true at 120 total records before it is presented", () {
+      expect(
+        shouldPresentHomeBrownThemeUnlock(
+          totalRecordCount: homeBrownThemeUnlockRecordCount,
+          hasPresented: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test("keeps the unlock pending after 120 until presentation starts", () {
+      expect(
+        shouldPresentHomeBrownThemeUnlock(
+          totalRecordCount: homeBrownThemeUnlockRecordCount + 1,
+          hasPresented: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test("returns false after it has already been presented", () {
+      expect(
+        shouldPresentHomeBrownThemeUnlock(
+          totalRecordCount: homeBrownThemeUnlockRecordCount,
           hasPresented: true,
         ),
         isFalse,
@@ -281,6 +476,13 @@ void main() {
         "assets/images/home/invite/home_banner_invite_tree.webp",
       );
     });
+
+    test("uses the stone invite banner for the brown theme", () {
+      expect(
+        resolveHomeInviteBannerAsset(AppBrandThemes.brown),
+        "assets/images/home/characters/stone/home_banner_invite_stone.webp",
+      );
+    });
   });
 
   group("resolveHomeCharacterType", () {
@@ -295,6 +497,13 @@ void main() {
       expect(
         resolveHomeCharacterType(AppBrandThemes.green),
         HomeCharacterType.tree,
+      );
+    });
+
+    test("uses the stone character for the brown theme", () {
+      expect(
+        resolveHomeCharacterType(AppBrandThemes.brown),
+        HomeCharacterType.stone,
       );
     });
   });

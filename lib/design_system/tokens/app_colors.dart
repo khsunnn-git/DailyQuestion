@@ -119,17 +119,17 @@ abstract final class AppBrandThemes {
   );
 
   static const BrandScale brown = BrandScale(
-    bg: Color(0xFFF8F6F3),
-    c50: Color(0xFFF8F1E8),
-    c100: Color(0xFFF1E6DA),
-    c200: Color(0xFFE7D8C7),
-    c300: Color(0xFFD7C5B0),
-    c400: Color(0xFFC4AE98),
-    c500: Color(0xFF7A675B),
-    c600: Color(0xFF6A594F),
-    c700: Color(0xFF5A4B43),
-    c800: Color(0xFF463A33),
-    c900: Color(0xFF2F2621),
+    bg: Color(0xFFFCFAF7),
+    c50: Color(0xFFFCF9F5),
+    c100: Color(0xFFF7EFE7),
+    c200: Color(0xFFEDE0D3),
+    c300: Color(0xFFDECBBB),
+    c400: Color(0xFFC7AE9B),
+    c500: Color(0xFFA08372),
+    c600: Color(0xFF856C5E),
+    c700: Color(0xFF69564C),
+    c800: Color(0xFF4E4038),
+    c900: Color(0xFF342B26),
   );
 
   static const BrandScale purple = BrandScale(

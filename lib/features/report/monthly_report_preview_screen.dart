@@ -127,11 +127,30 @@ class _Section extends StatelessWidget {
             ...lines!.map(
               (String item) => Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.s8),
-                child: Text(
-                  "• $item",
-                  style: AppTypography.bodyMediumRegular.copyWith(
-                    color: AppNeutralColors.grey800,
-                  ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Container(
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(
+                          color: AppNeutralColors.grey700,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s12),
+                    Expanded(
+                      child: Text(
+                        item,
+                        style: AppTypography.bodyMediumRegular.copyWith(
+                          color: AppNeutralColors.grey800,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

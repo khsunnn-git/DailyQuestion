@@ -4,6 +4,7 @@ import "package:cloud_firestore/cloud_firestore.dart";
 import "package:flutter/material.dart";
 import "package:isar_community/isar.dart";
 
+import "../../core/app_analytics.dart";
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
@@ -193,6 +194,13 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
       if (savedRecord == null) {
         return;
       }
+      unawaited(
+        AppAnalytics.logAnswerSubmitted(
+          isEdit: isEditMode,
+          isPublic: _isPublic,
+          hasBucketTags: _bucketTags.isNotEmpty,
+        ),
+      );
       await _syncBucketListItems(
         previousTags: _initialBucketTags,
         nextTags: _bucketTags,

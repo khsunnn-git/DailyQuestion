@@ -392,12 +392,18 @@ class _BulletText extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(
-            "• ",
-            style: AppTypography.bodyMediumMedium.copyWith(
-              color: AppNeutralColors.grey700,
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Container(
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: AppNeutralColors.grey700,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
+          const SizedBox(width: AppSpacing.s12),
           Expanded(
             child: AppEmojiText(
               text,

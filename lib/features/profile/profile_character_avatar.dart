@@ -41,10 +41,17 @@ class CurrentProfileCharacterAvatar extends StatelessWidget {
                 size * 0.09375,
                 size * 0.03125,
               ),
+              HomeCharacterType.stone => EdgeInsets.fromLTRB(
+                size * 0.09375,
+                size * 0.09375,
+                size * 0.09375,
+                size * 0.03125,
+              ),
             };
             final Offset imageOffset = switch (characterType) {
               HomeCharacterType.tree => Offset(0, size * 0.03125),
               HomeCharacterType.fish => Offset(0, size * 0.015625),
+              HomeCharacterType.stone => Offset(0, size * 0.015625),
             };
 
             return SizedBox(

@@ -1,6 +1,6 @@
 import "home_fish_growth.dart";
 
-enum HomeCharacterType { fish, tree }
+enum HomeCharacterType { fish, tree, stone }
 
 class HomeCharacterAssets {
   const HomeCharacterAssets._();
@@ -33,6 +33,8 @@ class HomeCharacterAssets {
       "assets/images/home/characters/tree/level_6_base.webp";
   static const String treeLevel6Leaf =
       "assets/images/home/characters/tree/level_6_leaf.webp";
+  static const String stoneRecord =
+      "assets/images/home/characters/stone/record_stone.webp";
 
   static String assetFor(
     HomeCharacterType type,
@@ -41,6 +43,7 @@ class HomeCharacterAssets {
     return switch (type) {
       HomeCharacterType.fish => _fishAssetForLevel(growthLevel),
       HomeCharacterType.tree => _treeAssetForLevel(growthLevel),
+      HomeCharacterType.stone => _stoneAssetForLevel(growthLevel),
     };
   }
 
@@ -82,6 +85,23 @@ class HomeCharacterAssets {
     };
   }
 
+  static String _stoneAssetForLevel(HomeFishGrowthLevel growthLevel) {
+    return switch (growthLevel) {
+      HomeFishGrowthLevel.level1 =>
+        "assets/images/home/characters/stone/level_1.webp",
+      HomeFishGrowthLevel.level2 =>
+        "assets/images/home/characters/stone/level_2.webp",
+      HomeFishGrowthLevel.level3 =>
+        "assets/images/home/characters/stone/level_3.webp",
+      HomeFishGrowthLevel.level4 =>
+        "assets/images/home/characters/stone/level_4.webp",
+      HomeFishGrowthLevel.level5 =>
+        "assets/images/home/characters/stone/level_5.webp",
+      HomeFishGrowthLevel.level6 =>
+        "assets/images/home/characters/stone/level_6.webp",
+    };
+  }
+
   static String levelUpOverlayAssetFor(
     HomeCharacterType type,
     HomeFishGrowthLevel growthLevel,
@@ -89,6 +109,7 @@ class HomeCharacterAssets {
     return switch (type) {
       HomeCharacterType.fish => _fishLevelUpOverlayAssetForLevel(growthLevel),
       HomeCharacterType.tree => _treeAssetForLevel(growthLevel),
+      HomeCharacterType.stone => _stoneAssetForLevel(growthLevel),
     };
   }
 

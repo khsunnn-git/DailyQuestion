@@ -295,6 +295,7 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
                       selectedMonth: _selectedMonth,
                       installDate: _installDate,
                       onTapYearMonth: _handleTapYearMonth,
+                      onTapEditLatestRecord: _handleTapEditLatestRecord,
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
@@ -413,6 +414,30 @@ class _MyRecordsScreenState extends State<MyRecordsScreen> {
       _selectedYear = picked.year;
       _selectedMonth = picked.month;
     });
+  }
+
+  Future<void> _handleTapEditLatestRecord() async {
+    final List<TodayQuestionRecord> monthRecords = TodayQuestionStore
+        .instance
+        .value
+        .where((TodayQuestionRecord record) {
+          final DateTime displayDate = myRecordsDisplayDate(record);
+          return displayDate.year == _selectedYear &&
+              displayDate.month == _selectedMonth;
+        })
+        .toList(growable: false);
+    if (monthRecords.isEmpty || !mounted) {
+      return;
+    }
+    monthRecords.sort((TodayQuestionRecord a, TodayQuestionRecord b) {
+      return myRecordsDisplayDate(b).compareTo(myRecordsDisplayDate(a));
+    });
+    await Navigator.of(context).push<TodayQuestionRecord>(
+      MaterialPageRoute<TodayQuestionRecord>(
+        builder: (_) =>
+            TodayQuestionAnswerScreen(editingRecord: monthRecords.first),
+      ),
+    );
   }
 
   Future<void> _loadInstallMonth() async {
@@ -555,6 +580,7 @@ class _TopMainPanel extends StatelessWidget {
     required this.selectedMonth,
     required this.installDate,
     required this.onTapYearMonth,
+    required this.onTapEditLatestRecord,
   });
 
   final BrandScale brand;
@@ -562,9 +588,11 @@ class _TopMainPanel extends StatelessWidget {
   final int selectedMonth;
   final DateTime? installDate;
   final VoidCallback onTapYearMonth;
+  final VoidCallback onTapEditLatestRecord;
 
   @override
   Widget build(BuildContext context) {
+    final bool isBrownTheme = brand.c500 == AppBrandThemes.brown.c500;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -597,7 +625,26 @@ class _TopMainPanel extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 24, height: 24),
+                  SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: isBrownTheme
+                        ? IconButton(
+                            onPressed: onTapEditLatestRecord,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 24,
+                              height: 24,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.edit_outlined,
+                              size: 24,
+                              color: AppNeutralColors.grey900,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                 ],
               ),
             ),
@@ -1635,6 +1682,7 @@ class _RecordHeroDecorState extends State<_RecordHeroDecor>
   late final Animation<double> _treeSway;
 
   bool get _isGreenTheme => widget.brand.c500 == AppBrandThemes.green.c500;
+  bool get _isBrownTheme => widget.brand.c500 == AppBrandThemes.brown.c500;
 
   @override
   void initState() {
@@ -1656,6 +1704,57 @@ class _RecordHeroDecorState extends State<_RecordHeroDecor>
 
   @override
   Widget build(BuildContext context) {
+    if (_isBrownTheme) {
+      return ValueListenableBuilder<List<TodayQuestionRecord>>(
+        valueListenable: TodayQuestionStore.instance,
+        builder:
+            (
+              BuildContext context,
+              List<TodayQuestionRecord> records,
+              Widget? _,
+            ) {
+              final int totalRecordCount = records.length;
+              final int growthRecordCount = homeGrowthRecordCountForCharacter(
+                characterType: HomeCharacterType.stone,
+                totalRecordCount: totalRecordCount,
+              );
+              final HomeFishGrowthLevel growthLevel =
+                  homeFishGrowthLevelForRecordCount(growthRecordCount);
+              final String assetPath = homeCharacterAssetForTotalRecordCount(
+                characterType: HomeCharacterType.stone,
+                totalRecordCount: totalRecordCount,
+              );
+
+              return SizedBox(
+                width: double.infinity,
+                height: 206,
+                child: Center(
+                  child: SizedBox(
+                    width: 150,
+                    height: 206,
+                    child: Image.asset(
+                      assetPath,
+                      key: ValueKey<String>(
+                        "record-hero-stone-${growthLevel.name}",
+                      ),
+                      fit: BoxFit.contain,
+                      alignment: Alignment.bottomCenter,
+                      errorBuilder: (_, error, stackTrace) {
+                        return const Center(
+                          child: AppEmojiText(
+                            "🪨",
+                            style: TextStyle(fontSize: 52),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              );
+            },
+      );
+    }
+
     if (!_isGreenTheme) {
       return SizedBox(
         width: double.infinity,
@@ -3042,8 +3141,18 @@ class _AiReportTextGroup extends StatelessWidget {
             ? Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text("•", style: style),
-                  const SizedBox(width: AppSpacing.s8),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Container(
+                      width: 4,
+                      height: 4,
+                      decoration: const BoxDecoration(
+                        color: AppNeutralColors.grey900,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.s12),
                   Expanded(child: AppEmojiText(lines[index], style: style)),
                 ],
               )

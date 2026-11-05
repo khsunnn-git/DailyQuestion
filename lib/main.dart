@@ -7,11 +7,13 @@ import "package:flutter_localizations/flutter_localizations.dart";
 import "package:firebase_core/firebase_core.dart";
 
 import "app_bootstrap.dart";
+import "core/app_analytics.dart";
 import "core/app_route_observer.dart";
 import "design_system/design_system.dart";
 import "firebase_options.dart";
 import "features/auth/login_screen.dart";
 import "features/bucket/bucket_backup_service.dart";
+import "features/bucket/bucket_list_screen.dart";
 import "features/home/daily_checkin_backup_service.dart";
 import "features/home/home_theme_progression.dart";
 import "features/home/home_screen.dart";
@@ -236,7 +238,10 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
             );
             return MaterialApp(
               debugShowCheckedModeBanner: false,
-              navigatorObservers: <NavigatorObserver>[appRouteObserver],
+              navigatorObservers: <NavigatorObserver>[
+                appRouteObserver,
+                ...AppAnalytics.navigatorObservers(),
+              ],
               locale: DailyQuestionApp._appLocale,
               supportedLocales: const <Locale>[DailyQuestionApp._appLocale],
               localizationsDelegates: GlobalMaterialLocalizations.delegates,
@@ -261,6 +266,8 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
     switch (_resolveDebugPreviewScreen(previewScreen)) {
       case _DebugPreviewScreen.home:
         return const HomeScreen();
+      case _DebugPreviewScreen.bucket:
+        return const BucketListScreen();
       case _DebugPreviewScreen.themePreview:
         return const NextThemeUnlockScreen();
       case _DebugPreviewScreen.login:
@@ -289,6 +296,7 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
 enum _DebugPreviewScreen {
   none,
   home,
+  bucket,
   themePreview,
   login,
   onboarding,
@@ -301,6 +309,9 @@ _DebugPreviewScreen _resolveDebugPreviewScreen(String raw) {
   switch (raw.trim().toLowerCase()) {
     case "home":
       return _DebugPreviewScreen.home;
+    case "bucket":
+    case "bucket_list":
+      return _DebugPreviewScreen.bucket;
     case "theme_preview":
     case "tree_theme":
       return _DebugPreviewScreen.themePreview;

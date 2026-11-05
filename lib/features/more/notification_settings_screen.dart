@@ -51,8 +51,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _refreshNotificationPermissionBanner();
-    _loadNotificationSettings();
+    _initializeNotificationSettings();
   }
 
   @override
@@ -64,8 +63,28 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshNotificationPermissionBanner();
+      _refreshNotificationPermissionAndSchedules();
     }
+  }
+
+  Future<void> _initializeNotificationSettings() async {
+    // Permission state must be known before loading preferences, because the
+    // load path also synchronizes schedules. Running both concurrently can
+    // briefly use the default `false` permission value and cancel a valid
+    // Android alarm without restoring it afterward.
+    await _refreshNotificationPermissionBanner();
+    if (!mounted) {
+      return;
+    }
+    await _loadNotificationSettings();
+  }
+
+  Future<void> _refreshNotificationPermissionAndSchedules() async {
+    await _refreshNotificationPermissionBanner();
+    if (!mounted) {
+      return;
+    }
+    await _syncNotificationSchedules();
   }
 
   Future<void> _refreshNotificationPermissionBanner() async {

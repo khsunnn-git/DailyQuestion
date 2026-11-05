@@ -275,15 +275,18 @@ class _TopQuestionPanelState extends State<_TopQuestionPanel>
             List<TodayQuestionRecord> records,
             Widget? child,
           ) {
-            final bool isTreeTheme =
-                resolveHomeCharacterType(brand) == HomeCharacterType.tree;
+            final HomeCharacterType characterType = resolveHomeCharacterType(
+              brand,
+            );
+            final bool isFishTheme = characterType == HomeCharacterType.fish;
+            final bool isTreeTheme = characterType == HomeCharacterType.tree;
             final bool hasRecord =
                 records.isNotEmpty &&
                 TodayQuestionStore.instance.hasRecordForTodayKst;
             final int totalRecordCount = records.length;
             return Container(
               decoration: BoxDecoration(
-                color: isTreeTheme ? brand.c200 : brand.c100,
+                color: isFishTheme ? brand.c100 : brand.c200,
                 borderRadius: panelRadius,
                 boxShadow: AppElevation.level2,
               ),
@@ -291,7 +294,7 @@ class _TopQuestionPanelState extends State<_TopQuestionPanel>
                 borderRadius: panelRadius,
                 child: Stack(
                   children: <Widget>[
-                    if (hasRecord && !isTreeTheme)
+                    if (hasRecord && isFishTheme)
                       Positioned(
                         left: 0,
                         top: 0,
@@ -308,7 +311,7 @@ class _TopQuestionPanelState extends State<_TopQuestionPanel>
                           ),
                         ),
                       ),
-                    if (hasRecord)
+                    if (hasRecord && isFishTheme)
                       Positioned(
                         left: -35,
                         top: 125,
@@ -406,10 +409,16 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
       "home_last_celebrated_level_fish";
   static const String _lastCelebratedTreeLevelPrefsKey =
       "home_last_celebrated_level_tree";
+  static const String _lastCelebratedStoneLevelPrefsKey =
+      "home_last_celebrated_level_stone";
   static const String _greenThemeComingSoonDismissedDatePrefsKey =
       "home_green_theme_coming_soon_dismissed_date";
+  static const String _brownThemeComingSoonDismissedDatePrefsKey =
+      "home_brown_theme_coming_soon_dismissed_date";
   static const String _greenThemeUnlockPresentedPrefsKey =
       "home_green_theme_unlock_presented";
+  static const String _brownThemeUnlockPresentedPrefsKey =
+      "home_brown_theme_unlock_presented_v2";
   static const Duration _visibleDuration = Duration(seconds: 5);
   static const Duration _fadeDuration = Duration(milliseconds: 220);
 
@@ -417,8 +426,11 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
   final Map<HomeCharacterType, int> _lastCelebratedLevels =
       <HomeCharacterType, int>{};
   String? _dismissedGreenThemeComingSoonDateKey;
+  String? _dismissedBrownThemeComingSoonDateKey;
   String? _acknowledgedGreenThemeComingSoonDateKey;
+  String? _acknowledgedBrownThemeComingSoonDateKey;
   bool _hasPresentedGreenThemeUnlock = false;
+  bool _hasPresentedBrownThemeUnlock = false;
   HomeFishGrowthLevel? _visibleLevel;
   HomeCharacterType? _visibleCharacterType;
   PageRoute<dynamic>? _pageRoute;
@@ -467,11 +479,29 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
         (currentCharacterType == HomeCharacterType.tree
             ? currentLevel.number
             : HomeFishGrowthLevel.level1.number);
+    final int storedStoneLevelNumber = _normalizedStoredLevelNumber(
+      storedLevelNumber: prefs.getInt(_lastCelebratedStoneLevelPrefsKey),
+      fallbackLevelNumber: currentCharacterType == HomeCharacterType.stone
+          ? currentLevel.number
+          : HomeFishGrowthLevel.level1.number,
+      currentLevelNumber: currentLevel.number,
+      shouldClampToCurrent: currentCharacterType == HomeCharacterType.stone,
+    );
+    final int previousStoredStoneLevelNumber =
+        prefs.getInt(_lastCelebratedStoneLevelPrefsKey) ??
+        (currentCharacterType == HomeCharacterType.stone
+            ? currentLevel.number
+            : HomeFishGrowthLevel.level1.number);
     final String? storedGreenThemeComingSoonDismissedDateKey = prefs.getString(
       _greenThemeComingSoonDismissedDatePrefsKey,
     );
+    final String? storedBrownThemeComingSoonDismissedDateKey = prefs.getString(
+      _brownThemeComingSoonDismissedDatePrefsKey,
+    );
     final bool storedGreenThemeUnlockPresented =
         prefs.getBool(_greenThemeUnlockPresentedPrefsKey) ?? false;
+    final bool storedBrownThemeUnlockPresented =
+        prefs.getBool(_brownThemeUnlockPresentedPrefsKey) ?? false;
     if (!prefs.containsKey(_lastCelebratedFishLevelPrefsKey)) {
       await prefs.setInt(
         _lastCelebratedFishLevelPrefsKey,
@@ -489,6 +519,17 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
         storedTreeLevelNumber,
       );
     }
+    if (!prefs.containsKey(_lastCelebratedStoneLevelPrefsKey)) {
+      await prefs.setInt(
+        _lastCelebratedStoneLevelPrefsKey,
+        storedStoneLevelNumber,
+      );
+    } else if (storedStoneLevelNumber != previousStoredStoneLevelNumber) {
+      await prefs.setInt(
+        _lastCelebratedStoneLevelPrefsKey,
+        storedStoneLevelNumber,
+      );
+    }
     if (!mounted) {
       return;
     }
@@ -496,9 +537,13 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
       _prefs = prefs;
       _lastCelebratedLevels[HomeCharacterType.fish] = storedFishLevelNumber;
       _lastCelebratedLevels[HomeCharacterType.tree] = storedTreeLevelNumber;
+      _lastCelebratedLevels[HomeCharacterType.stone] = storedStoneLevelNumber;
       _dismissedGreenThemeComingSoonDateKey =
           storedGreenThemeComingSoonDismissedDateKey;
+      _dismissedBrownThemeComingSoonDateKey =
+          storedBrownThemeComingSoonDismissedDateKey;
       _hasPresentedGreenThemeUnlock = storedGreenThemeUnlockPresented;
+      _hasPresentedBrownThemeUnlock = storedBrownThemeUnlockPresented;
     });
     _evaluatePendingCelebration();
   }
@@ -539,27 +584,42 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     if (lastCelebratedLevelNumber == null) {
       return;
     }
-    if (!_hasPresentedGreenThemeUnlock &&
-        hasUnlockedHomeGreenTheme(totalRecordCount)) {
-      _hasPresentedGreenThemeUnlock = true;
-      unawaited(prefs.setBool(_greenThemeUnlockPresentedPrefsKey, true));
-      if (shouldPresentHomeGreenThemeUnlock(
-        totalRecordCount: totalRecordCount,
-        currentCharacterType: currentCharacterType,
-        hasPresented: false,
-      )) {
-        unawaited(_presentNextThemeUnlockScreen());
-      }
+    if (shouldPresentHomeBrownThemeUnlock(
+      totalRecordCount: totalRecordCount,
+      hasPresented: _hasPresentedBrownThemeUnlock,
+    )) {
+      unawaited(_presentNextThemeUnlockScreen(HomeCharacterType.stone));
+      return;
+    }
+    if (shouldPresentHomeGreenThemeUnlock(
+      totalRecordCount: totalRecordCount,
+      currentCharacterType: currentCharacterType,
+      hasPresented: _hasPresentedGreenThemeUnlock,
+    )) {
+      unawaited(_presentNextThemeUnlockScreen(HomeCharacterType.tree));
       return;
     }
     final String todayDateKey = kstDateKeyNow();
+    if (shouldShowHomeBrownThemeComingSoonNotice(
+          totalRecordCount,
+          currentCharacterType: currentCharacterType,
+        ) &&
+        _dismissedBrownThemeComingSoonDateKey != todayDateKey &&
+        _acknowledgedBrownThemeComingSoonDateKey != todayDateKey) {
+      unawaited(
+        _presentThemeComingSoonNotice(todayDateKey, HomeCharacterType.stone),
+      );
+      return;
+    }
     if (shouldShowHomeGreenThemeComingSoonNotice(
           totalRecordCount,
           currentCharacterType: currentCharacterType,
         ) &&
         _dismissedGreenThemeComingSoonDateKey != todayDateKey &&
         _acknowledgedGreenThemeComingSoonDateKey != todayDateKey) {
-      unawaited(_presentGreenThemeComingSoonNotice(todayDateKey));
+      unawaited(
+        _presentThemeComingSoonNotice(todayDateKey, HomeCharacterType.tree),
+      );
       return;
     }
     final HomeFishGrowthLevel currentLevel = homeFishGrowthLevelForRecordCount(
@@ -587,6 +647,7 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     return switch (type) {
       HomeCharacterType.fish => _lastCelebratedFishLevelPrefsKey,
       HomeCharacterType.tree => _lastCelebratedTreeLevelPrefsKey,
+      HomeCharacterType.stone => _lastCelebratedStoneLevelPrefsKey,
     };
   }
 
@@ -676,13 +737,32 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     });
   }
 
-  Future<void> _presentNextThemeUnlockScreen() async {
+  Future<void> _presentNextThemeUnlockScreen(
+    HomeCharacterType unlockedCharacterType,
+  ) async {
     if (_isPresentingGreenThemeComingSoon ||
         _isPresentingNextThemeUnlock ||
         !mounted) {
       return;
     }
     _isPresentingNextThemeUnlock = true;
+    final SharedPreferences? prefs = _prefs;
+    switch (unlockedCharacterType) {
+      case HomeCharacterType.tree:
+        _hasPresentedGreenThemeUnlock = true;
+        if (prefs != null) {
+          unawaited(prefs.setBool(_greenThemeUnlockPresentedPrefsKey, true));
+        }
+        break;
+      case HomeCharacterType.stone:
+        _hasPresentedBrownThemeUnlock = true;
+        if (prefs != null) {
+          unawaited(prefs.setBool(_brownThemeUnlockPresentedPrefsKey, true));
+        }
+        break;
+      case HomeCharacterType.fish:
+        break;
+    }
     _hideTimer?.cancel();
     if (_visibleLevel != null || _isOverlayVisible) {
       setState(() {
@@ -691,13 +771,26 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
         _isOverlayVisible = false;
       });
     }
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const NextThemeUnlockScreen()),
-    );
-    _isPresentingNextThemeUnlock = false;
+    try {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => NextThemeUnlockScreen(
+            unlockedCharacterType: unlockedCharacterType,
+          ),
+        ),
+      );
+    } finally {
+      _isPresentingNextThemeUnlock = false;
+      if (mounted) {
+        _evaluatePendingCelebration();
+      }
+    }
   }
 
-  Future<void> _presentGreenThemeComingSoonNotice(String todayDateKey) async {
+  Future<void> _presentThemeComingSoonNotice(
+    String todayDateKey,
+    HomeCharacterType targetCharacterType,
+  ) async {
     if (_isPresentingGreenThemeComingSoon ||
         _isPresentingNextThemeUnlock ||
         !mounted) {
@@ -711,6 +804,7 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
       builder: (BuildContext dialogContext) {
         return Center(
           child: GreenThemeComingSoonPopup(
+            targetCharacterType: targetCharacterType,
             onCloseForToday: () => Navigator.of(dialogContext).pop(true),
             onConfirm: () => Navigator.of(dialogContext).pop(false),
           ),
@@ -721,19 +815,38 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     if (dismissForToday == null || !mounted) {
       return;
     }
-    _acknowledgedGreenThemeComingSoonDateKey = todayDateKey;
+    switch (targetCharacterType) {
+      case HomeCharacterType.tree:
+        _acknowledgedGreenThemeComingSoonDateKey = todayDateKey;
+        break;
+      case HomeCharacterType.stone:
+        _acknowledgedBrownThemeComingSoonDateKey = todayDateKey;
+        break;
+      case HomeCharacterType.fish:
+        break;
+    }
     if (dismissForToday) {
-      _dismissedGreenThemeComingSoonDateKey = todayDateKey;
+      final String prefsKey = switch (targetCharacterType) {
+        HomeCharacterType.tree => _greenThemeComingSoonDismissedDatePrefsKey,
+        HomeCharacterType.stone => _brownThemeComingSoonDismissedDatePrefsKey,
+        HomeCharacterType.fish => _greenThemeComingSoonDismissedDatePrefsKey,
+      };
+      switch (targetCharacterType) {
+        case HomeCharacterType.tree:
+          _dismissedGreenThemeComingSoonDateKey = todayDateKey;
+          break;
+        case HomeCharacterType.stone:
+          _dismissedBrownThemeComingSoonDateKey = todayDateKey;
+          break;
+        case HomeCharacterType.fish:
+          break;
+      }
       final SharedPreferences? prefs = _prefs;
       if (prefs != null) {
-        unawaited(
-          prefs.setString(
-            _greenThemeComingSoonDismissedDatePrefsKey,
-            todayDateKey,
-          ),
-        );
+        unawaited(prefs.setString(prefsKey, todayDateKey));
       }
     }
+    _evaluatePendingCelebration();
   }
 
   @override
@@ -778,18 +891,27 @@ class _HomeLevelUpOverlay extends StatelessWidget {
   static const Color _scrimColor = Color(0xB8000000);
   static final Color _fishAccentColor = AppBrandThemes.blue.c300;
   static final Color _treeAccentColor = AppBrandThemes.green.c300;
+  static final Color _stoneAccentColor = AppBrandThemes.brown.c300;
 
   String get _headline {
-    if (characterType == HomeCharacterType.fish) {
-      return level.celebrationHeadline;
-    }
-    return switch (level) {
-      HomeFishGrowthLevel.level1 => "새싹과 첫 만남이에요!",
-      HomeFishGrowthLevel.level2 => "작은 잎사귀가 자라났어요!",
-      HomeFishGrowthLevel.level3 => "제법 자라났어요!",
-      HomeFishGrowthLevel.level4 => "더 크게 자라났어요!",
-      HomeFishGrowthLevel.level5 => "무럭무럭 자랐어요!",
-      HomeFishGrowthLevel.level6 => "풍성한 나무가 되었어요!",
+    return switch (characterType) {
+      HomeCharacterType.fish => level.celebrationHeadline,
+      HomeCharacterType.tree => switch (level) {
+        HomeFishGrowthLevel.level1 => "새싹과 첫 만남이에요!",
+        HomeFishGrowthLevel.level2 => "작은 잎사귀가 자라났어요!",
+        HomeFishGrowthLevel.level3 => "제법 자라났어요!",
+        HomeFishGrowthLevel.level4 => "더 크게 자라났어요!",
+        HomeFishGrowthLevel.level5 => "무럭무럭 자랐어요!",
+        HomeFishGrowthLevel.level6 => "풍성한 나무가 되었어요!",
+      },
+      HomeCharacterType.stone => switch (level) {
+        HomeFishGrowthLevel.level1 => "아기 돌맹이와 첫 만남이에요!",
+        HomeFishGrowthLevel.level2 => "아기 돌맹이가 자라났어요!",
+        HomeFishGrowthLevel.level3 => "제법 자라났어요!",
+        HomeFishGrowthLevel.level4 => "이끼도 키워냈어요!",
+        HomeFishGrowthLevel.level5 => "무럭무럭 자랐어요!",
+        HomeFishGrowthLevel.level6 => "숲의 일원이 되었어요!",
+      },
     };
   }
 
@@ -797,17 +919,11 @@ class _HomeLevelUpOverlay extends StatelessWidget {
     return switch (characterType) {
       HomeCharacterType.fish => _fishAccentColor,
       HomeCharacterType.tree => _treeAccentColor,
+      HomeCharacterType.stone => _stoneAccentColor,
     };
   }
 
   _HomeLevelUpOverlayDecorLayout get _decorLayout {
-    if (characterType == HomeCharacterType.fish) {
-      return const _HomeLevelUpOverlayDecorLayout(
-        width: 285,
-        leftTop: 34,
-        rightTop: 32,
-      );
-    }
     return switch (level) {
       HomeFishGrowthLevel.level1 => const _HomeLevelUpOverlayDecorLayout(
         width: 285,
@@ -914,14 +1030,14 @@ class _HomeLevelUpOverlay extends StatelessWidget {
                           fit: BoxFit.contain,
                           errorBuilder: (_, error, stackTrace) {
                             return Center(
-                              child: AppEmojiText(
-                                characterType == HomeCharacterType.tree
-                                    ? (level == HomeFishGrowthLevel.level6
-                                          ? "🌳"
-                                          : "🌱")
-                                    : "🐟",
-                                style: const TextStyle(fontSize: 80),
-                              ),
+                              child: AppEmojiText(switch (characterType) {
+                                HomeCharacterType.fish => "🐟",
+                                HomeCharacterType.tree =>
+                                  level == HomeFishGrowthLevel.level6
+                                      ? "🌳"
+                                      : "🌱",
+                                HomeCharacterType.stone => "🪨",
+                              }, style: const TextStyle(fontSize: 80)),
                             );
                           },
                         ),
@@ -1100,10 +1216,11 @@ class _HomeHeroFishImage extends StatelessWidget {
           fit: BoxFit.contain,
           errorBuilder: (_, error, stackTrace) {
             return Center(
-              child: AppEmojiText(
-                characterType == HomeCharacterType.tree ? "🌱" : "🐟",
-                style: TextStyle(fontSize: fallbackFontSize),
-              ),
+              child: AppEmojiText(switch (characterType) {
+                HomeCharacterType.fish => "🐟",
+                HomeCharacterType.tree => "🌱",
+                HomeCharacterType.stone => "🪨",
+              }, style: TextStyle(fontSize: fallbackFontSize)),
             );
           },
         ),
@@ -1243,16 +1360,16 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
       growthRecordCount,
     );
     final bool isTreeCharacter = characterType == HomeCharacterType.tree;
+    final bool isStoneCharacter = characterType == HomeCharacterType.stone;
     final bool useTreeLeafPulse =
         isTreeCharacter && _homeTreeUsesLeafPulse(growthLevel);
-    final String characterAssetPath = HomeCharacterAssets.assetForRecordCount(
-      characterType,
-      growthRecordCount,
+    final String characterAssetPath = homeCharacterAssetForTotalRecordCount(
+      characterType: characterType,
+      totalRecordCount: widget.recordCount,
     );
-    final double fishVisualSize = _homeFishVisualSizeForRecordCount(
-      growthRecordCount,
-      212,
-    );
+    final double fishVisualSize = isStoneCharacter
+        ? 150
+        : _homeFishVisualSizeForRecordCount(growthRecordCount, 212);
     return ValueListenableBuilder<TodayQuestionPromptState>(
       valueListenable: TodayQuestionPromptStore.instance,
       builder:
@@ -1332,7 +1449,7 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
                           ),
                         ),
                       );
-                      if (isTreeCharacter) {
+                      if (isTreeCharacter || isStoneCharacter) {
                         return characterImage;
                       }
                       return Stack(
@@ -2294,24 +2411,28 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
       growthRecordCount,
     );
     final bool isTreeCharacter = characterType == HomeCharacterType.tree;
+    final bool isStoneCharacter = characterType == HomeCharacterType.stone;
+    final bool isFishCharacter = characterType == HomeCharacterType.fish;
     final bool useTreeLeafPulse =
         isTreeCharacter && _homeTreeUsesLeafPulse(growthLevel);
-    final String characterAssetPath = HomeCharacterAssets.assetForRecordCount(
-      characterType,
-      growthRecordCount,
+    final String characterAssetPath = homeCharacterAssetForTotalRecordCount(
+      characterType: characterType,
+      totalRecordCount: widget.recordCount,
     );
-    final double fishVisualSize = _homeFishVisualSizeForRecordCount(
-      growthRecordCount,
-      _baseFishVisualSize,
-    );
-    final double decorHeight = isTreeCharacter ? _treeDecorHeight : 152;
+    final double fishVisualSize = isStoneCharacter
+        ? 128
+        : _homeFishVisualSizeForRecordCount(
+            growthRecordCount,
+            _baseFishVisualSize,
+          );
+    final double decorHeight = isFishCharacter ? 152 : _treeDecorHeight;
     return SizedBox(
       width: 350,
       height: decorHeight,
       child: Stack(
         clipBehavior: Clip.none,
         children: <Widget>[
-          if (!isTreeCharacter)
+          if (isFishCharacter)
             Positioned(
               left: 0,
               bottom: 0,
@@ -2323,7 +2444,7 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
                 errorBuilder: (_, error, stackTrace) => const SizedBox.shrink(),
               ),
             ),
-          if (!isTreeCharacter)
+          if (isFishCharacter)
             Positioned(
               left: 40,
               top: 70,
@@ -2340,18 +2461,18 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
               ),
             ),
           Positioned(
-            left: isTreeCharacter ? 18 : null,
-            right: isTreeCharacter ? null : 108,
-            top: isTreeCharacter ? 58 : 26,
+            left: isFishCharacter ? null : 18,
+            right: isFishCharacter ? 108 : null,
+            top: isFishCharacter ? 26 : 58,
             child: _QuestionWrittenSpeechBubble(
               text: _messages[_messageIndex],
               color: widget.bubbleColor,
             ),
           ),
           Positioned(
-            left: isTreeCharacter ? null : 236,
-            right: isTreeCharacter ? 0 : null,
-            top: isTreeCharacter ? 0 : 2,
+            left: isFishCharacter ? null : 222,
+            right: isFishCharacter ? 0 : null,
+            top: isFishCharacter ? 2 : 0,
             child: AnimatedBuilder(
               animation: _fishController,
               builder: (BuildContext context, Widget? child) {
@@ -2380,7 +2501,7 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
                     ),
                   ),
                 );
-                if (isTreeCharacter) {
+                if (!isFishCharacter) {
                   return characterImage;
                 }
                 return Transform.translate(
@@ -2872,10 +2993,13 @@ class _TodayRecordEmptyCard extends StatelessWidget {
       characterType: characterType,
       totalRecordCount: recordCount,
     );
-    final String characterAssetPath = HomeCharacterAssets.assetForRecordCount(
-      characterType,
-      growthRecordCount,
-    );
+    final bool isStoneCharacter = characterType == HomeCharacterType.stone;
+    final String characterAssetPath = isStoneCharacter
+        ? HomeCharacterAssets.stoneRecord
+        : HomeCharacterAssets.assetForRecordCount(
+            characterType,
+            growthRecordCount,
+          );
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -2894,14 +3018,15 @@ class _TodayRecordEmptyCard extends StatelessWidget {
             children: <Widget>[
               Image.asset(
                 characterAssetPath,
-                width: 64,
-                height: 64,
+                width: isStoneCharacter ? 85 : 64,
+                height: isStoneCharacter ? 85 : 64,
                 fit: BoxFit.contain,
                 errorBuilder: (_, error, stackTrace) {
-                  return AppEmojiText(
-                    characterType == HomeCharacterType.tree ? "🌳" : "🐟",
-                    style: TextStyle(fontSize: 32),
-                  );
+                  return AppEmojiText(switch (characterType) {
+                    HomeCharacterType.fish => "🐟",
+                    HomeCharacterType.tree => "🌳",
+                    HomeCharacterType.stone => "🪨",
+                  }, style: TextStyle(fontSize: 32));
                 },
               ),
               const SizedBox(height: AppSpacing.s8),
@@ -3906,8 +4031,12 @@ class _InviteFriendsBanner extends StatelessWidget {
     final BrandScale brand = context.appBrandScale;
     final bool canCopyInviteLink = _inviteStoreUrl(context) != null;
     final String inviteBannerAsset = resolveHomeInviteBannerAsset(brand);
-    final String inviteBannerFallbackEmoji =
-        brand.c500 == AppBrandThemes.green.c500 ? "🌳" : "🐟";
+    final HomeCharacterType characterType = resolveHomeCharacterType(brand);
+    final String inviteBannerFallbackEmoji = switch (characterType) {
+      HomeCharacterType.fish => "🐟",
+      HomeCharacterType.tree => "🌳",
+      HomeCharacterType.stone => "🪨",
+    };
     return Material(
       color: Colors.transparent,
       child: InkWell(
