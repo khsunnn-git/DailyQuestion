@@ -16,6 +16,7 @@ import "../notifications/daily_question_notification_scheduler.dart";
 import "../question/public_answer_uploader.dart";
 import "../question/today_question_store.dart";
 import "../question/user_answer_backup_service.dart";
+import "../home/home_character_selection_store.dart";
 import "notification_prefs_keys.dart";
 
 class DataManagementException implements Exception {
@@ -99,6 +100,7 @@ class DataManagementService {
       }
     }
 
+    await HomeCharacterSelectionStore.instance.clear();
     await SocialLoginStore.instance.clearRecentProvider();
     await PublicAnswerUploader.instance.clearDeviceAnonId();
     await TodayQuestionStore.instance.reloadFromDatabase();

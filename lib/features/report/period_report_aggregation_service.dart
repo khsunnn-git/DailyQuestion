@@ -3,7 +3,6 @@ import "dart:math";
 
 import "package:isar_community/isar.dart";
 
-import "../../core/keyword_semantics.dart";
 import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/entities/daily_checkin_entity.dart";
@@ -44,391 +43,6 @@ resolveSelectedPeriodReportWindow({
 
 class PeriodReportAggregationService {
   const PeriodReportAggregationService();
-
-  static const Set<String> _stopWords = <String>{
-    "오늘",
-    "요즘",
-    "오랜만",
-    "대충",
-    "계속",
-    "많이",
-    "말고",
-    "진짜",
-    "조금",
-    "약간",
-    "아직",
-    "이미",
-    "먼저",
-    "다시",
-    "또",
-    "더",
-    "덜",
-    "자꾸",
-    "바로",
-    "새로",
-    "가득",
-    "이런",
-    "그런",
-    "저런",
-    "돼요",
-    "되요",
-    "되고",
-    "그리고",
-    "정말",
-    "너무",
-    "그냥",
-    "나는",
-    "내가",
-    "우리",
-    "에서",
-    "으로",
-    "하다",
-    "했다",
-    "하는",
-    "있다",
-    "없다",
-  };
-  static const Set<String> _lowInfoWords = <String>{
-    "사람",
-    "하루",
-    "기분",
-    "마음",
-    "생각",
-    "시간",
-    "생활",
-    "정상",
-    "요즘",
-    "오늘",
-    "이번",
-    "상태",
-  };
-  static const Set<String> _blockedKeywordWords = <String>{
-    "이야기",
-    "얘기",
-    "오랜만",
-    "대충",
-    "정주행중인",
-    "추억돋는다",
-    "다녀오기",
-    "돌아오기",
-    "보기",
-    "가기",
-    "오기",
-    "하기",
-    "해보기",
-    "보내기",
-    "지내기",
-    "나가기",
-    "들어가기",
-  };
-  static const Set<String> _domainBoostWords = <String>{
-    "행복",
-    "기쁨",
-    "설렘",
-    "불안",
-    "우울",
-    "외로움",
-    "스트레스",
-    "안정",
-    "가족",
-    "친구",
-    "연인",
-    "엄마",
-    "아빠",
-    "동생",
-    "고양이",
-    "강아지",
-    "운동",
-    "공부",
-    "산책",
-    "여행",
-    "취업",
-    "이직",
-    "퇴사",
-    "건강",
-    "독서",
-    "기록",
-    "집",
-    "회사",
-    "학교",
-    "카페",
-    "병원",
-  };
-
-  static const Set<String> _nonNounSuffixes = <String>{
-    "하다",
-    "했다",
-    "해요",
-    "합니다",
-    "되는",
-    "되다",
-    "됐다",
-    "이다",
-    "예요",
-    "어요",
-    "아요",
-    "네요",
-    "하게",
-    "하며",
-    "같다",
-    "같은",
-    "좋다",
-    "좋은",
-    "싶다",
-    "싶은",
-    "하기",
-    "가기",
-    "보기",
-    "먹기",
-    "듣기",
-    "한다",
-    "된다",
-    "했다가",
-    "하려",
-    "하려고",
-    "하도록",
-    "되도록",
-    "시키다",
-    "시킨다",
-    "시키는",
-    "시키고",
-    "하기로",
-    "되기로",
-    "하려면",
-    "된다면",
-    "되게",
-    "할수록",
-    "될수록",
-    "해보자",
-    "해보기",
-    "아서",
-    "어서",
-    "여서",
-    "워서",
-    "고서",
-    "면서",
-    "고",
-    "어",
-    "나",
-  };
-
-  static const List<String> _verbLikeFragments = <String>[
-    "하도록",
-    "되도록",
-    "하려고",
-    "하려",
-    "한다",
-    "된다",
-    "했다",
-    "되고",
-    "되는",
-    "되게",
-    "하기로",
-    "되기로",
-    "하려면",
-    "한다면",
-    "된다면",
-    "할수록",
-    "될수록",
-    "해보자",
-    "해보기",
-    "하며",
-    "하면",
-    "가서",
-    "와서",
-    "해서",
-    "이사가서",
-    "했으면",
-    "겠다",
-    "으면",
-    "들으면",
-    "아서",
-    "어서",
-    "여서",
-    "워서",
-    "고서",
-    "면서",
-  ];
-
-  static const Set<String> _singleCharAllowedNouns = <String>{
-    "비",
-    "밥",
-    "술",
-    "잠",
-    "집",
-    "일",
-    "물",
-    "눈",
-    "돈",
-    "말",
-    "밤",
-    "낮",
-    "길",
-    "차",
-    "책",
-    "꽃",
-    "몸",
-    "힘",
-    "맛",
-    "꿈",
-    "옷",
-    "손",
-    "발",
-    "산",
-    "달",
-    "별",
-    "빵",
-  };
-
-  static const List<String> _inlineJosaSuffixes = <String>[
-    "이라서",
-    "라서",
-    "에서",
-    "에게",
-    "으로",
-    "이며",
-    "이고",
-    "은",
-    "는",
-    "이",
-    "가",
-    "을",
-    "를",
-    "에",
-    "도",
-    "와",
-    "과",
-    "랑",
-    "야",
-  ];
-
-  static const List<String> _clauseTailEndings = <String>[
-    "라면",
-    "다면",
-    "으면",
-    "면서",
-    "려고",
-    "려면",
-    "해야",
-    "해요",
-    "네요",
-    "아요",
-    "어요",
-    "했어",
-    "하면",
-    "한다",
-    "된다",
-    "하다",
-    "되다",
-    "가요",
-    "와요",
-    "오면",
-    "가면",
-    "면",
-    "다",
-    "고",
-    "서",
-    "요",
-    "자",
-    "네",
-    "까",
-    "게",
-    "지",
-    "며",
-  ];
-
-  static const List<String> _predicateTailStarters = <String>[
-    "하",
-    "되",
-    "가",
-    "오",
-    "보",
-    "먹",
-    "듣",
-    "읽",
-    "쓰",
-    "누",
-    "마시",
-    "걷",
-    "놀",
-    "쉬",
-    "좋",
-    "싫",
-    "있",
-    "없",
-    "많",
-    "적",
-    "크",
-    "작",
-    "같",
-    "남",
-    "살",
-    "웃",
-    "울",
-    "떠",
-    "타",
-    "입",
-  ];
-  static const List<String> _keywordTailReplacements = <String>["이야기", "다녀오기"];
-  static const List<String> _compoundActionSuffixes = <String>[
-    "보기",
-    "가기",
-    "오기",
-    "먹기",
-    "듣기",
-    "읽기",
-    "쓰기",
-    "마시기",
-    "타기",
-  ];
-  static const Set<String> _blockedCompoundActionPrefixes = <String>{
-    "다녀",
-    "돌아",
-    "보내",
-    "지내",
-    "들어",
-    "나가",
-    "해",
-    "해보",
-    "챙기",
-    "챙겨",
-    "놀러",
-  };
-
-  static const List<String> _josaSuffixes = <String>[
-    "으로부터",
-    "에게서",
-    "이라서",
-    "라서",
-    "에서",
-    "에게",
-    "으로",
-    "처럼",
-    "보다",
-    "까지",
-    "부터",
-    "하고",
-    "이며",
-    "이고",
-    "이나",
-    "거나",
-    "라도",
-    "만의",
-    "의",
-    "은",
-    "는",
-    "이",
-    "가",
-    "을",
-    "를",
-    "에",
-    "도",
-    "만",
-    "와",
-    "과",
-    "랑",
-    "야",
-  ];
 
   Future<ReportAnalyzePayload> buildPayloadFor(ReportPeriod period) async {
     final DateTime now = nowInKst();
@@ -495,10 +109,6 @@ class PeriodReportAggregationService {
       month: month,
     );
     final String nextLabel = _nextPeriodLabel(period);
-    final List<String> keywords = payload.topKeywords
-        .take(3)
-        .where((String keyword) => keyword.trim().isNotEmpty)
-        .toList(growable: false);
     final _PeriodScoreEvidence? bestDay = _pickPeriodDay(
       payload.days,
       pickMax: true,
@@ -516,7 +126,6 @@ class PeriodReportAggregationService {
         avgMood: avgMood,
         avgEnergy: avgEnergy,
         avgStress: avgStress,
-        keywords: keywords,
       ),
       insights: _buildPeriodInsights(
         focusLabel: focusLabel,
@@ -524,14 +133,12 @@ class PeriodReportAggregationService {
         avgMood: avgMood,
         avgEnergy: avgEnergy,
         avgStress: avgStress,
-        keywords: keywords,
         bestDay: bestDay,
         hardestDay: hardestDay,
       ),
       actions: _buildPeriodActions(
         nextLabel: nextLabel,
         payload: payload,
-        keywords: keywords,
         avgEnergy: avgEnergy,
         avgStress: avgStress,
         recordedDays: recordedDays,
@@ -618,7 +225,6 @@ class PeriodReportAggregationService {
 
       final String? answerText = answer?.answer.trim();
       final int dayOfYear = _resolveDayOfYear(answer, date);
-      final List<String> keywords = _keywordsFromRecord(answer, topN: 2);
       final int? sat10 = _score10From5(mood);
       final int? ene10 = _score10From5(energy);
       final int? str10 = _score10From5(stress);
@@ -628,8 +234,7 @@ class PeriodReportAggregationService {
           representativeAnswers.add(answerText);
         }
         entriesCompact.add(
-          "$dayOfYear) \"${_snippet(answerText)}\" | ${sat10 ?? "-"}/${ene10 ?? "-"}/${str10 ?? "-"} | "
-          "${keywords.isEmpty ? "없음" : keywords.join(",")}",
+          "$dayOfYear) \"${_snippet(answerText)}\" | ${sat10 ?? "-"}/${ene10 ?? "-"}/${str10 ?? "-"}",
         );
       }
 
@@ -645,7 +250,6 @@ class PeriodReportAggregationService {
         "day_score": dayScore,
         "question": answer?.questionText,
         "answer": answerText,
-        "keywords": keywords,
       });
     }
 
@@ -656,7 +260,8 @@ class PeriodReportAggregationService {
         ? 0
         : (overallScores.reduce((int a, int b) => a + b) / overallScores.length)
               .round();
-    final List<String> topKeywords = _extractKeywords(rangeAnswers, topN: 5);
+    // 키워드 추출은 정확도가 낮아 리포트에서 쓰지 않는다 (2026-11).
+    const List<String> topKeywords = <String>[];
     final List<String> bucketSuggestions = await _loadOpenBucketSuggestions();
 
     return ReportAnalyzePayload(
@@ -732,7 +337,6 @@ class PeriodReportAggregationService {
     required double avgMood,
     required double avgEnergy,
     required double avgStress,
-    required List<String> keywords,
   }) {
     if (recordedDays <= 0) {
       return "$focusLabel에는 아직 분석할 기록이 충분하지 않아 간단한 리포트로 정리했어요. "
@@ -744,11 +348,7 @@ class PeriodReportAggregationService {
     final String scoreText = hasCheckinData
         ? "${_moodTone(avgMood)} ${_energyTone(avgEnergy)} ${_stressTone(avgStress)}"
         : "";
-    final String keywordText = keywords.isEmpty
-        ? ""
-        : " $focusLabel의 키워드는 ${keywords.join(", ")}였습니다.";
-
-    return "$focusLabel에는 $completionText $scoreText$keywordText"
+    return "$focusLabel에는 $completionText $scoreText"
         .replaceAll(RegExp(r"\s+"), " ")
         .trim();
   }
@@ -759,7 +359,6 @@ class PeriodReportAggregationService {
     required double avgMood,
     required double avgEnergy,
     required double avgStress,
-    required List<String> keywords,
     required _PeriodScoreEvidence? bestDay,
     required _PeriodScoreEvidence? hardestDay,
   }) {
@@ -774,10 +373,6 @@ class PeriodReportAggregationService {
       );
     } else {
       insights.add("체크인 데이터가 적어 감정 점수 흐름은 제한적으로 집계됐어요.");
-    }
-
-    if (keywords.isNotEmpty) {
-      insights.add("$focusLabel에 자주 나온 키워드는 ${keywords.join(", ")} 입니다.");
     }
 
     if (bestDay != null &&
@@ -818,7 +413,6 @@ class PeriodReportAggregationService {
   List<String> _buildPeriodActions({
     required String nextLabel,
     required ReportAnalyzePayload payload,
-    required List<String> keywords,
     required double avgEnergy,
     required double avgStress,
     required int recordedDays,
@@ -842,14 +436,6 @@ class PeriodReportAggregationService {
     }
     if (avgEnergy > 0 && avgEnergy <= 2.8) {
       addAction("$nextLabel에는 에너지가 떨어지는 시간대에 10분 회복 루틴을 하나 고정해보세요.");
-    }
-
-    final String? keywordAction = _keywordBasedAction(
-      nextLabel: nextLabel,
-      keywords: keywords,
-    );
-    if (keywordAction != null) {
-      addAction(keywordAction);
     }
 
     final String? positiveAnswerAction = _positiveAnswerAction(
@@ -995,41 +581,6 @@ class PeriodReportAggregationService {
     };
   }
 
-  String? _keywordBasedAction({
-    required String nextLabel,
-    required List<String> keywords,
-  }) {
-    if (keywords.isEmpty) {
-      return null;
-    }
-
-    final String primaryKeyword = keywords.first;
-    const Set<String> recoveryKeywords = <String>{
-      "산책",
-      "운동",
-      "휴식",
-      "음악",
-      "독서",
-      "여행",
-    };
-    const Set<String> relationKeywords = <String>{
-      "가족",
-      "친구",
-      "연인",
-      "엄마",
-      "아빠",
-      "동생",
-    };
-
-    if (recoveryKeywords.contains(primaryKeyword)) {
-      return "$nextLabel에도 $primaryKeyword처럼 도움이 됐던 루틴을 짧게라도 이어가보세요.";
-    }
-    if (relationKeywords.contains(primaryKeyword)) {
-      return "$nextLabel에는 $primaryKeyword와 연결되는 시간을 먼저 일정에 넣어보세요.";
-    }
-    return "$nextLabel에는 $primaryKeyword 관련 순간을 다시 만들 수 있는 시간을 미리 확보해보세요.";
-  }
-
   _PeriodScoreEvidence? _pickPeriodDay(
     List<Map<String, Object?>> days, {
     required bool pickMax,
@@ -1040,13 +591,9 @@ class PeriodReportAggregationService {
       if (score == null) {
         continue;
       }
-      final List<String> keywords = _stringList(
-        day["keywords"],
-      ).take(2).toList();
       final _PeriodScoreEvidence evidence = _PeriodScoreEvidence(
         score: score,
         dateLabel: _dateLabelFromKey((day["date_key"] as String?) ?? ""),
-        keywords: keywords,
         answerSnippet: ((day["answer"] as String?) ?? "").trim(),
       );
       if (selected == null) {
@@ -1067,12 +614,6 @@ class PeriodReportAggregationService {
     _PeriodScoreEvidence evidence, {
     required bool positive,
   }) {
-    if (evidence.keywords.isNotEmpty) {
-      final String keywordText = evidence.keywords.join(", ");
-      return positive
-          ? "$keywordText 같은 키워드가 눈에 띄었어요."
-          : "$keywordText 같은 키워드가 함께 보였어요.";
-    }
     if (evidence.answerSnippet.isNotEmpty) {
       return "\"${_snippet(evidence.answerSnippet)}\" 같은 기록이 남아 있었어요.";
     }
@@ -1089,16 +630,6 @@ class PeriodReportAggregationService {
       return "기록이 남은 날";
     }
     return "$month월 $day일";
-  }
-
-  List<String> _stringList(Object? value) {
-    if (value is! List<dynamic>) {
-      return const <String>[];
-    }
-    return value
-        .map((dynamic item) => "$item".trim())
-        .where((String item) => item.isNotEmpty)
-        .toList(growable: false);
   }
 
   int _metricInt(Object? value, {int fallback = 0}) {
@@ -1148,342 +679,6 @@ class PeriodReportAggregationService {
     return result;
   }
 
-  List<String> _extractKeywords(
-    List<TodayQuestionRecord> records, {
-    int topN = 5,
-  }) {
-    final Map<String, int> counter = <String, int>{};
-    for (final TodayQuestionRecord record in records) {
-      final Map<String, int> perRecord = <String, int>{};
-      for (final String tag in record.bucketTags) {
-        final List<String> tagNouns = _extractNouns(tag);
-        for (final String noun in tagNouns) {
-          int score = 2;
-          if (_domainBoostWords.contains(noun)) {
-            score += 1;
-          }
-          if (_lowInfoWords.contains(noun)) {
-            score -= 1;
-          }
-          _setMaxScore(perRecord, noun, score);
-        }
-      }
-      final List<String> answerNouns = _extractNouns(record.answer);
-      for (final String noun in answerNouns) {
-        int score = 1;
-        if (_domainBoostWords.contains(noun)) {
-          score += 1;
-        }
-        if (_lowInfoWords.contains(noun)) {
-          score -= 1;
-        }
-        _setMaxScore(perRecord, noun, score);
-      }
-      _applySemanticKeywords(perRecord, record.answer, score: 3);
-      for (final MapEntry<String, int> entry in perRecord.entries) {
-        _addScore(counter, entry.key, entry.value);
-      }
-    }
-    final List<MapEntry<String, int>> sorted =
-        _removeSubTokens(
-            counter,
-          ).entries.where((MapEntry<String, int> e) => e.value > 0).toList()
-          ..sort((a, b) {
-            if (b.value != a.value) {
-              return b.value.compareTo(a.value);
-            }
-            final int aWordCount = _wordCount(a.key);
-            final int bWordCount = _wordCount(b.key);
-            if (bWordCount != aWordCount) {
-              return bWordCount.compareTo(aWordCount);
-            }
-            return a.key.compareTo(b.key);
-          });
-    final List<MapEntry<String, int>> repeated = sorted
-        .where((MapEntry<String, int> e) => e.value >= 2)
-        .toList();
-    final List<MapEntry<String, int>> effective = repeated.isNotEmpty
-        ? repeated
-        : sorted;
-    return effective.take(topN).map((e) => e.key).toList(growable: false);
-  }
-
-  List<String> _keywordsFromRecord(
-    TodayQuestionRecord? record, {
-    int topN = 2,
-  }) {
-    if (record == null) {
-      return const <String>[];
-    }
-    final Map<String, int> counter = <String, int>{};
-    for (final String tag in record.bucketTags) {
-      final List<String> tagNouns = _extractNouns(tag);
-      for (final String noun in tagNouns) {
-        int score = 2;
-        if (_domainBoostWords.contains(noun)) {
-          score += 1;
-        }
-        if (_lowInfoWords.contains(noun)) {
-          score -= 1;
-        }
-        _addScore(counter, noun, score);
-      }
-    }
-
-    final List<String> answerNouns = _extractNouns(record.answer);
-    for (final String noun in answerNouns) {
-      int score = 1;
-      if (_domainBoostWords.contains(noun)) {
-        score += 1;
-      }
-      if (_lowInfoWords.contains(noun)) {
-        score -= 1;
-      }
-      _addScore(counter, noun, score);
-    }
-    _applySemanticKeywords(counter, record.answer, score: 3);
-
-    final List<MapEntry<String, int>> sorted =
-        _removeSubTokens(
-            counter,
-          ).entries.where((MapEntry<String, int> e) => e.value > 0).toList()
-          ..sort((a, b) {
-            if (b.value != a.value) {
-              return b.value.compareTo(a.value);
-            }
-            final int aWordCount = _wordCount(a.key);
-            final int bWordCount = _wordCount(b.key);
-            if (bWordCount != aWordCount) {
-              return bWordCount.compareTo(aWordCount);
-            }
-            return a.key.compareTo(b.key);
-          });
-    return sorted.take(topN).map((e) => e.key).toList(growable: false);
-  }
-
-  List<String> _extractNouns(String text) {
-    final List<String> result = <String>[];
-    final Iterable<String> tokens = RegExp(
-      r"[가-힣A-Za-z0-9]{1,}",
-    ).allMatches(text).map((Match m) => m.group(0) ?? "");
-    for (final String token in tokens) {
-      final String? noun = _normalizeNounToken(token);
-      if (noun == null || _stopWords.contains(noun)) {
-        continue;
-      }
-      result.add(noun);
-    }
-    return result;
-  }
-
-  Map<String, int> _removeSubTokens(Map<String, int> source) {
-    final List<MapEntry<String, int>> all = source.entries.toList();
-    final Map<String, int> result = <String, int>{};
-    for (final MapEntry<String, int> item in all) {
-      final bool remove = all.any((MapEntry<String, int> other) {
-        if (identical(item, other) || item.key == other.key) {
-          return false;
-        }
-        final bool contained =
-            other.key.length > item.key.length && other.key.contains(item.key);
-        final bool stronger =
-            other.value >= item.value && _wordCount(other.key) > 1;
-        return contained && stronger;
-      });
-      if (!remove) {
-        result[item.key] = item.value;
-      }
-    }
-    return result;
-  }
-
-  int _wordCount(String text) =>
-      text.split(" ").where((String w) => w.isNotEmpty).length;
-
-  void _addScore(Map<String, int> counter, String token, int amount) {
-    if (amount == 0) return;
-    counter[token] = (counter[token] ?? 0) + amount;
-  }
-
-  void _setMaxScore(Map<String, int> counter, String token, int amount) {
-    if (amount == 0) return;
-    final int existing = counter[token] ?? 0;
-    if (amount > existing) {
-      counter[token] = amount;
-    }
-  }
-
-  void _applySemanticKeywords(
-    Map<String, int> counter,
-    String text, {
-    required int score,
-  }) {
-    for (final String keyword in semanticKeywordsFromText(text)) {
-      _setMaxScore(counter, keyword, score);
-    }
-    for (final String artifact in artifactKeywordsForText(text)) {
-      counter.remove(artifact);
-    }
-  }
-
-  bool _isLikelyNoun(String token) {
-    if (token.isEmpty) return false;
-    if (token.length < 2) return _singleCharAllowedNouns.contains(token);
-    for (final String suffix in _nonNounSuffixes) {
-      if (token.endsWith(suffix)) return false;
-    }
-    if (token.endsWith("히") || token.endsWith("게")) return false;
-    return true;
-  }
-
-  String? _normalizeNounToken(String token) {
-    final String rawValue = token.trim().toLowerCase();
-    String value = rawValue;
-    if (value.isEmpty) {
-      return null;
-    }
-    final String? semanticAlias = semanticKeywordAliasForToken(rawValue);
-    if (semanticAlias != null) {
-      return semanticAlias;
-    }
-    value = _extractLeadingNounCandidate(value);
-    if (value.startsWith("이사가")) {
-      value = "이사";
-    }
-    if (value.startsWith("같")) {
-      return null;
-    }
-    for (final String suffix in _josaSuffixes) {
-      if (value.length > suffix.length && value.endsWith(suffix)) {
-        value = value.substring(0, value.length - suffix.length);
-        break;
-      }
-    }
-    value = _normalizeKeywordTail(value);
-    if (!_isLikelyNoun(value)) {
-      final String? compoundAction = _normalizeCompoundActionNoun(value);
-      if (compoundAction == null) {
-        return null;
-      }
-      return compoundAction;
-    }
-    for (final String fragment in _verbLikeFragments) {
-      if (value == fragment ||
-          value.endsWith(fragment) ||
-          value.contains(fragment)) {
-        return null;
-      }
-    }
-    if (_blockedKeywordWords.contains(value)) {
-      return null;
-    }
-    for (final String noise in <String>["계속", "많이", "말고", "돼요", "되요", "되고"]) {
-      if (value.contains(noise)) {
-        return null;
-      }
-    }
-    return value;
-  }
-
-  String _normalizeKeywordTail(String value) {
-    if (_blockedKeywordWords.contains(value)) {
-      return value;
-    }
-    for (final String suffix in _keywordTailReplacements) {
-      if (value.length <= suffix.length + 1 || !value.endsWith(suffix)) {
-        continue;
-      }
-      final String prefix = value.substring(0, value.length - suffix.length);
-      if (_isMeaningfulKeywordStem(prefix)) {
-        return prefix;
-      }
-    }
-    return value;
-  }
-
-  String? _normalizeCompoundActionNoun(String value) {
-    if (_blockedKeywordWords.contains(value)) {
-      return null;
-    }
-    for (final String suffix in _compoundActionSuffixes) {
-      if (value.length <= suffix.length + 1 || !value.endsWith(suffix)) {
-        continue;
-      }
-      final String prefix = value.substring(0, value.length - suffix.length);
-      if (!_isMeaningfulKeywordStem(prefix)) {
-        continue;
-      }
-      final bool blocked = _blockedCompoundActionPrefixes.any(prefix.endsWith);
-      if (blocked) {
-        continue;
-      }
-      return value;
-    }
-    return null;
-  }
-
-  bool _isMeaningfulKeywordStem(String value) {
-    if (value.isEmpty ||
-        _stopWords.contains(value) ||
-        _lowInfoWords.contains(value) ||
-        _blockedKeywordWords.contains(value)) {
-      return false;
-    }
-    if (!_isLikelyNoun(value)) {
-      return false;
-    }
-    for (final String fragment in _verbLikeFragments) {
-      if (value == fragment ||
-          value.endsWith(fragment) ||
-          value.contains(fragment)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  String _extractLeadingNounCandidate(String value) {
-    for (final String suffix in _inlineJosaSuffixes) {
-      final int index = value.indexOf(suffix, 1);
-      if (index <= 0) {
-        continue;
-      }
-      final String noun = value.substring(0, index);
-      final String tail = value.substring(index + suffix.length);
-      if (noun.isEmpty || tail.isEmpty) {
-        continue;
-      }
-      if (_looksLikeClauseTail(tail)) {
-        return noun;
-      }
-    }
-    return value;
-  }
-
-  bool _looksLikeClauseTail(String tail) {
-    if (tail.isEmpty) {
-      return false;
-    }
-    for (final String ending in _clauseTailEndings) {
-      if (tail.length > ending.length && tail.endsWith(ending)) {
-        return true;
-      }
-    }
-    for (final String fragment in _verbLikeFragments) {
-      if (tail == fragment ||
-          tail.endsWith(fragment) ||
-          tail.contains(fragment)) {
-        return true;
-      }
-    }
-    for (final String starter in _predicateTailStarters) {
-      if (tail.startsWith(starter)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   int _resolveDayOfYear(TodayQuestionRecord? record, DateTime date) {
     if (record?.questionDayOfYear != null && record!.questionDayOfYear! > 0) {
       return record.questionDayOfYear!;
@@ -1526,12 +721,10 @@ class _PeriodScoreEvidence {
   const _PeriodScoreEvidence({
     required this.score,
     required this.dateLabel,
-    required this.keywords,
     required this.answerSnippet,
   });
 
   final int score;
   final String dateLabel;
-  final List<String> keywords;
   final String answerSnippet;
 }

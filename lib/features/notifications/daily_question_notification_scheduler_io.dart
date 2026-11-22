@@ -9,11 +9,18 @@ import "package:shared_preferences/shared_preferences.dart";
 import "package:timezone/data/latest.dart" as tz_data;
 import "package:timezone/timezone.dart" as tz;
 
+import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
+import "../home/home_bubble_messages.dart";
+import "../home/home_character_selection_store.dart";
 import "../more/notification_prefs_keys.dart";
+import "../question/today_question_prompt_store.dart";
+import "../question/today_question_store.dart";
+import "daily_question_notification_plan.dart";
 import "notification_schedule_calculator.dart";
 
+// 예전 버전의 반복 알림 ID. 날짜별 예약으로 바뀌면서 지우기만 한다.
 const int _dailyQuestionNotificationId = 10001;
 const int _dailyQuestionCatchupNotificationId = 10002;
 const int _weeklyReportNotificationId = 10003;
@@ -65,6 +72,11 @@ void _logNotification(String message) {
 Future<void> initializeDailyQuestionNotificationScheduler() async {
   await refreshDailyQuestionNotificationSchedulerState();
 }
+
+/// 오늘의 질문 알림 예약 세대. 새로 예약하거나 취소할 때마다 올라가고,
+/// 진행 중이던 이전 예약은 세대가 바뀐 것을 보고 멈춘다.
+/// (앱 복귀와 답변 저장이 겹쳐도 오래된 정보로 예약이 덮어써지지 않게 한다.)
+int _dailyPlanGeneration = 0;
 
 Future<void> refreshDailyQuestionNotificationSchedulerState() async {
   _logNotification("refresh scheduler state");
@@ -313,8 +325,7 @@ Future<void> updateDailyQuestionNotificationSchedule({
     "update daily schedule enabled=$enabled time=${hour.toString().padLeft(2, "0")}:${minute.toString().padLeft(2, "0")}",
   );
   await _ensureInitialized();
-  await _notifications.cancel(_dailyQuestionNotificationId);
-  await _notifications.cancel(_dailyQuestionCatchupNotificationId);
+  await _cancelDailyQuestionPlan();
   if (!enabled) {
     _logNotification("daily schedule canceled because enabled=false");
     return;
@@ -327,8 +338,7 @@ Future<void> updateDailyQuestionNotificationSchedule({
 Future<void> cancelDailyQuestionNotificationSchedule() async {
   _logNotification("cancel daily schedule");
   await _ensureInitialized();
-  await _notifications.cancel(_dailyQuestionNotificationId);
-  await _notifications.cancel(_dailyQuestionCatchupNotificationId);
+  await _cancelDailyQuestionPlan();
 }
 
 Future<void> syncBucketDdayNotificationSchedule({
@@ -480,8 +490,7 @@ Future<void> _restoreSchedulesFromPrefs({
       todayQuestionEnabled && hasNotificationPermission;
 
   if (!canScheduleDailyQuestion) {
-    await _notifications.cancel(_dailyQuestionNotificationId);
-    await _notifications.cancel(_dailyQuestionCatchupNotificationId);
+    await _cancelDailyQuestionPlan();
     _logNotification(
       "daily schedule not restored because todayEnabled=$todayQuestionEnabled hasPermission=$hasNotificationPermission",
     );
@@ -587,60 +596,104 @@ Future<void> _debugLogPendingNotifications(String context) async {
   }
 }
 
-Future<void> _scheduleDaily({required int hour, required int minute}) async {
+Future<void> _cancelDailyQuestionPlan() async {
+  _dailyPlanGeneration++;
   await _notifications.cancel(_dailyQuestionNotificationId);
   await _notifications.cancel(_dailyQuestionCatchupNotificationId);
+  for (final int id in allDailyQuestionPlanIds()) {
+    await _notifications.cancel(id);
+  }
+}
+
+/// 어제 또는 오늘까지 이어진 연속 기록일. 이미 끊겼으면 0.
+int _activeStreakDays(TodayQuestionStore store) {
+  final DateTime? latest = store.latestRecordDate;
+  if (latest == null) {
+    return 0;
+  }
+  final DateTime today = kstDateOnly(DateTime.now());
+  final int daysSince = DateTime.utc(
+    today.year,
+    today.month,
+    today.day,
+  ).difference(DateTime.utc(latest.year, latest.month, latest.day)).inDays;
+  return daysSince <= 1 ? store.consecutiveRecordDays : 0;
+}
+
+Future<void> _scheduleDaily({required int hour, required int minute}) async {
+  final int generation = ++_dailyPlanGeneration;
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final bool eveningEnabled =
+      prefs.getBool(NotificationPrefsKeys.eveningReminderEnabled) ??
+      NotificationPrefsKeys.defaultEveningReminderEnabled;
+  final TodayQuestionStore store = TodayQuestionStore.instance;
+  final bool recordsLoaded = store.isInitialized;
+  final int totalRecordCount = store.value.length;
+  final Map<int, String> questions = await TodayQuestionPromptStore.instance
+      .fetchUpcomingQuestions(days: dailyQuestionPlanDays);
+  if (generation != _dailyPlanGeneration) {
+    _logNotification("skip stale daily plan generation=$generation");
+    return;
+  }
+  await _cancelDailyQuestionPlan();
+  final int activeGeneration = _dailyPlanGeneration;
   final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-  final tz.TZDateTime todayAtSelectedTime = tz.TZDateTime(
-    tz.local,
-    now.year,
-    now.month,
-    now.day,
-    hour,
-    minute,
-  );
-  final bool isSameMinuteSelection = now.hour == hour && now.minute == minute;
-  final tz.TZDateTime repeatingSchedule = nextDailyNotificationTime(
+
+  List<PlannedNotification> planned = planDailyQuestionNotifications(
     now: now,
     hour: hour,
     minute: minute,
+    dailyEnabled: true,
+    eveningEnabled: eveningEnabled,
+    answeredToday: store.hasRecordForTodayKst,
+    activeStreakDays: _activeStreakDays(store),
+    questions: questions,
+    nextAnswerHintTitle: homeNextAnswerHint(
+      characterType: HomeCharacterSelectionStore.instance
+          .resolve(totalRecordCount)
+          .characterType,
+      totalRecordCount: totalRecordCount,
+    ),
   );
+  if (!recordsLoaded) {
+    // 기록을 아직 못 불러왔으면 오늘 답했는지 모르므로 오늘 저녁 리마인드는 보류한다.
+    // 기록을 불러온 뒤 다시 예약할 때 채워진다.
+    planned = planned
+        .where(
+          (PlannedNotification item) => item.id != eveningReminderPlanBaseId,
+        )
+        .toList(growable: false);
+  }
   _logNotification(
-    "schedule daily now=$now selected=$todayAtSelectedTime next=$repeatingSchedule sameMinute=$isSameMinuteSelection",
+    "schedule daily plan now=$now time=$hour:$minute evening=$eveningEnabled "
+    "loaded=$recordsLoaded answeredToday=${store.hasRecordForTodayKst} "
+    "questions=${questions.length} planned=${planned.length}",
   );
 
-  await _zonedScheduleBestEffort(
-    id: _dailyQuestionNotificationId,
-    title: "오늘의 질문이 도착했어요!",
-    body: "내일의 나를 만날 수 있는 소중한 질문 시간!",
-    scheduledDate: repeatingSchedule,
-    matchDateTimeComponents: DateTimeComponents.time,
-  );
-
-  // If the user saved the exact current minute, send a one-time catch-up
-  // notification shortly after save so today's alert is not skipped.
-  if (isSameMinuteSelection && !todayAtSelectedTime.isAfter(now)) {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String catchupSlot =
-        "${now.year}-${now.month.toString().padLeft(2, "0")}-"
-        "${now.day.toString().padLeft(2, "0")}-"
-        "${hour.toString().padLeft(2, "0")}:"
-        "${minute.toString().padLeft(2, "0")}";
-    if (prefs.getString(_dailyQuestionCatchupSlotKey) == catchupSlot) {
-      _logNotification(
-        "skip duplicate catch-up notification for slot=$catchupSlot",
-      );
-      await _debugLogPendingNotifications("schedule daily");
+  for (final PlannedNotification item in planned) {
+    if (activeGeneration != _dailyPlanGeneration) {
+      _logNotification("stop stale daily plan generation=$activeGeneration");
       return;
     }
-    await prefs.setString(_dailyQuestionCatchupSlotKey, catchupSlot);
-    final tz.TZDateTime catchupTime = now.add(const Duration(seconds: 5));
-    _logNotification("schedule catch-up notification for $catchupTime");
+    if (item.kind == PlannedNotificationKind.dailyCatchup) {
+      final String catchupSlot =
+          "${now.year}-${now.month.toString().padLeft(2, "0")}-"
+          "${now.day.toString().padLeft(2, "0")}-"
+          "${hour.toString().padLeft(2, "0")}:"
+          "${minute.toString().padLeft(2, "0")}";
+      if (prefs.getString(_dailyQuestionCatchupSlotKey) == catchupSlot) {
+        _logNotification(
+          "skip duplicate catch-up notification for slot=$catchupSlot",
+        );
+        continue;
+      }
+      await prefs.setString(_dailyQuestionCatchupSlotKey, catchupSlot);
+    }
     await _zonedScheduleBestEffort(
-      id: _dailyQuestionCatchupNotificationId,
-      title: "오늘의 질문이 도착했어요!",
-      body: "내일의 나를 만날 수 있는 소중한 질문 시간!",
-      scheduledDate: catchupTime,
+      id: item.id,
+      title: item.title,
+      body: item.body,
+      scheduledDate: item.scheduledAt,
     );
   }
   await _debugLogPendingNotifications("schedule daily");

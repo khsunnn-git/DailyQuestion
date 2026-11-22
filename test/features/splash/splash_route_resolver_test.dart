@@ -47,5 +47,29 @@ void main() {
         SplashRouteTarget.home,
       );
     });
+
+    test("routes to character select during signup before a character is picked", () {
+      expect(
+        resolveSplashRouteTarget(
+          hasSeenOnboarding: true,
+          hasInitialConsent: true,
+          hasNickname: false,
+          hasCharacterSelection: false,
+        ),
+        SplashRouteTarget.characterSelect,
+      );
+    });
+
+    test("skips character select for users who already have a nickname", () {
+      expect(
+        resolveSplashRouteTarget(
+          hasSeenOnboarding: true,
+          hasInitialConsent: true,
+          hasNickname: true,
+          hasCharacterSelection: false,
+        ),
+        SplashRouteTarget.home,
+      );
+    });
   });
 }

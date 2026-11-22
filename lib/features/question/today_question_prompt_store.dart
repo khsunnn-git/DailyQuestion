@@ -1,6 +1,7 @@
 import "dart:convert";
 
 import "package:cloud_firestore/cloud_firestore.dart";
+import "package:firebase_core/firebase_core.dart";
 import "package:flutter/foundation.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
@@ -89,6 +90,68 @@ class TodayQuestionPromptStore extends ValueNotifier<TodayQuestionPromptState> {
     }
   }
 
+  /// 오늘(KST)부터 [days]일 동안의 질문. 키는 오늘로부터 지난 일수(0 = 오늘).
+  ///
+  /// 캐시에 있는 날은 캐시를 쓰고, 없는 날만 서버에서 받아 캐시에 저장한다.
+  /// 받지 못한 날은 결과에서 빠진다. 알림 본문에 질문을 넣을 때 쓴다.
+  Future<Map<int, String>> fetchUpcomingQuestions({
+    required int days,
+    Duration timeout = const Duration(seconds: 6),
+  }) async {
+    final SharedPreferences prefs =
+        _prefs ?? await SharedPreferences.getInstance();
+    final DateTime now = nowInKst();
+    final Map<int, String> result = <int, String>{};
+    final List<int> missingOffsets = <int>[];
+    for (int offset = 0; offset < days; offset++) {
+      final DateTime date = DateTime(now.year, now.month, now.day + offset);
+      final _CachedQuestionData? cached = _readCachedQuestionDataFrom(
+        prefs,
+        date,
+      );
+      if (cached != null) {
+        result[offset] = cached.base;
+      } else {
+        missingOffsets.add(offset);
+      }
+    }
+    if (missingOffsets.isEmpty || !_isFirebaseReady()) {
+      return Map<int, String>.of(result);
+    }
+    try {
+      await Future.wait(
+        missingOffsets.map((int offset) async {
+          final DateTime date = DateTime(now.year, now.month, now.day + offset);
+          final Map<String, dynamic>? data = await _fetchTodayQuestionData(
+            _dayOfYear(date),
+          );
+          final String base = (data?["base"] as String?)?.trim() ?? "";
+          if (base.isEmpty) {
+            return;
+          }
+          result[offset] = base;
+          await prefs.setString(
+            _questionCacheKeyForDate(date),
+            jsonEncode(<String, dynamic>{"base": base}),
+          );
+        }),
+      ).timeout(timeout);
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint("[TodayQuestionPromptStore] upcoming fetch failed: $error");
+      }
+    }
+    return Map<int, String>.of(result);
+  }
+
+  static bool _isFirebaseReady() {
+    try {
+      return Firebase.apps.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _loadForDate(DateTime date) async {
     value = value.copyWith(isLoading: true, clearError: true);
     final DateTime normalized = DateTime(date.year, date.month, date.day);
@@ -170,7 +233,18 @@ class TodayQuestionPromptStore extends ValueNotifier<TodayQuestionPromptState> {
   }
 
   _CachedQuestionData? _readCachedQuestionData(DateTime date) {
-    final String? raw = _prefs?.getString(_questionCacheKeyForDate(date));
+    final SharedPreferences? prefs = _prefs;
+    if (prefs == null) {
+      return null;
+    }
+    return _readCachedQuestionDataFrom(prefs, date);
+  }
+
+  _CachedQuestionData? _readCachedQuestionDataFrom(
+    SharedPreferences prefs,
+    DateTime date,
+  ) {
+    final String? raw = prefs.getString(_questionCacheKeyForDate(date));
     if (raw == null || raw.isEmpty) {
       return null;
     }

@@ -80,7 +80,7 @@ class WeeklyReportStore extends ValueNotifier<WeeklyReportState> {
     final WeeklyReportWindow window = currentWeeklyReportWindow();
     WeeklyAggregationSnapshot? precomputedSnapshot;
     if (!forceRefresh && cached != null && cached.slotKey == window.slotKey) {
-          precomputedSnapshot = await _aggregationService.buildWeeklySnapshot(
+      precomputedSnapshot = await _aggregationService.buildWeeklySnapshot(
         referenceDate: window.referenceDate,
       );
       if (_snapshotsEqual(cached.snapshot, precomputedSnapshot)) {

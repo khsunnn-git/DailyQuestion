@@ -108,39 +108,6 @@ class ReportAggregationService {
     "근데",
     "하지만",
   };
-  static const Set<String> _domainBoostWords = <String>{
-    "행복",
-    "기쁨",
-    "설렘",
-    "불안",
-    "우울",
-    "외로움",
-    "스트레스",
-    "안정",
-    "가족",
-    "친구",
-    "연인",
-    "엄마",
-    "아빠",
-    "동생",
-    "고양이",
-    "강아지",
-    "운동",
-    "공부",
-    "산책",
-    "여행",
-    "취업",
-    "이직",
-    "퇴사",
-    "건강",
-    "독서",
-    "기록",
-    "집",
-    "회사",
-    "학교",
-    "카페",
-    "병원",
-  };
   static const Set<String> _nonNounSuffixes = <String>{
     "하다",
     "했다",
@@ -497,7 +464,6 @@ class ReportAggregationService {
 
       final String? answerText = answer?.answer.trim();
       final int dayOfYear = _resolveDayOfYear(answer, date);
-      final List<String> entryKeywords = _keywordsFromRecord(answer, topN: 2);
       final int? satisfaction10 = _score10From5(mood);
       final int? energy10 = _score10From5(energy);
       final int? stress10 = _score10From5(stress);
@@ -513,7 +479,6 @@ class ReportAggregationService {
             satisfaction10: satisfaction10,
             energy10: energy10,
             stress10: stress10,
-            keywords: entryKeywords,
           ),
         );
       }
@@ -530,7 +495,6 @@ class ReportAggregationService {
         "day_score": dayScore,
         "question": answer?.questionText,
         "answer": answerText,
-        "keywords": entryKeywords,
         "compact_line": answerText == null
             ? null
             : _compactEntryLine(
@@ -539,7 +503,6 @@ class ReportAggregationService {
                 satisfaction10: satisfaction10,
                 energy10: energy10,
                 stress10: stress10,
-                keywords: entryKeywords,
               ),
       });
     }
@@ -560,7 +523,8 @@ class ReportAggregationService {
         )
         .length;
     final double trendDelta = _trendDelta(dayScores);
-    final List<String> topKeywords = _extractKeywords(weeklyAnswers, topN: 5);
+    // 키워드 추출은 정확도가 낮아 리포트에서 쓰지 않는다 (2026-11).
+    const List<String> topKeywords = <String>[];
     final List<String> communityRecoveryIdeas =
         await _loadCommunityRecoveryIdeas(now: normalizedEndDate);
     final _WeeklyBucketProgress bucketProgress =
@@ -634,9 +598,6 @@ class ReportAggregationService {
       days: snapshot.payload.days,
       trendDelta: snapshot.trendDelta,
     );
-    final String emotionKeywordText = snapshot.topKeywords.isEmpty
-        ? ""
-        : "반복된 키워드로는 ${snapshot.topKeywords.take(3).join(", ")}가 보여요.";
     final List<String> insights = _buildWeeklyInsights(
       snapshot: snapshot,
       bestDay: bestDay,
@@ -647,8 +608,7 @@ class ReportAggregationService {
       summary: _buildWeeklySummary(snapshot),
       emotionSummary:
           "${emotionPattern.balanceSentence} "
-          "${emotionPattern.flowSentence}"
-          "${emotionKeywordText.isEmpty ? "" : " $emotionKeywordText"}",
+          "${emotionPattern.flowSentence}",
       insights: insights,
       actions: actions.take(3).toList(growable: false),
       weeklyScore: snapshot.weeklyScore,
@@ -683,7 +643,10 @@ class ReportAggregationService {
       hardestDay: hardestDay,
     ).take(3).toList(growable: false);
     return WeeklyAiReport(
-      summary: _buildWeeklySummary(snapshot),
+      // GPT가 쓴 요약이 있으면 그대로 쓴다 (예전엔 항상 앱 문장으로 덮어썼음).
+      summary: report.isFromOpenAi && report.summary.trim().isNotEmpty
+          ? report.summary
+          : _buildWeeklySummary(snapshot),
       emotionSummary: report.emotionSummary,
       insights: report.isFromOpenAi && report.insights.isNotEmpty
           ? report.insights
@@ -702,9 +665,6 @@ class ReportAggregationService {
   ) {
     final int completionRate =
         ((snapshot.recordedDays / snapshot.targetDays) * 100).round();
-    final String keywordText = snapshot.topKeywords.isEmpty
-        ? "이번 주에는 아직 뚜렷한 키워드가 많이 쌓이지 않았어요."
-        : "지금까지 자주 나온 키워드는 ${snapshot.topKeywords.take(2).join(", ")} 입니다.";
     final _EmotionPattern emotionPattern = _emotionPattern(
       days: snapshot.payload.days,
       trendDelta: snapshot.trendDelta,
@@ -713,8 +673,7 @@ class ReportAggregationService {
     return WeeklyAiReport(
       summary:
           "이번 주는 ${snapshot.recordedDays}일 기록했어요. "
-          "아직 데이터가 많지 않아 간단한 리포트로 정리했어요. "
-          "$keywordText",
+          "아직 데이터가 많지 않아 간단한 리포트로 정리했어요.",
       emotionSummary:
           "${emotionPattern.balanceSentence} "
           "조금만 더 기록이 쌓이면 긍정 흐름과 부담 흐름을 더 자세하게 읽어드릴 수 있어요.",
@@ -832,122 +791,6 @@ class ReportAggregationService {
     return result;
   }
 
-  List<String> _extractKeywords(
-    List<TodayQuestionRecord> records, {
-    int topN = 5,
-  }) {
-    final Map<String, int> counter = <String, int>{};
-    for (final TodayQuestionRecord record in records) {
-      final Map<String, int> perRecord = <String, int>{};
-      for (final String tag in record.bucketTags) {
-        final List<String> tagNouns = _extractNouns(tag);
-        for (final String noun in tagNouns) {
-          int score = 2;
-          if (_domainBoostWords.contains(noun)) {
-            score += 1;
-          }
-          if (_lowInfoWords.contains(noun)) {
-            score -= 1;
-          }
-          _setMaxScore(perRecord, noun, score);
-        }
-      }
-      final List<String> answerNouns = _extractNouns(record.answer);
-      for (final String noun in answerNouns) {
-        int score = 1;
-        if (_domainBoostWords.contains(noun)) {
-          score += 1;
-        }
-        if (_lowInfoWords.contains(noun)) {
-          score -= 1;
-        }
-        _setMaxScore(perRecord, noun, score);
-      }
-      _applySemanticKeywords(perRecord, record.answer, score: 3);
-      for (final MapEntry<String, int> entry in perRecord.entries) {
-        _addScore(counter, entry.key, entry.value);
-      }
-    }
-    final List<MapEntry<String, int>> sorted =
-        _removeSubTokens(
-            counter,
-          ).entries.where((MapEntry<String, int> e) => e.value > 0).toList()
-          ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
-            if (b.value != a.value) {
-              return b.value.compareTo(a.value);
-            }
-            final int aWordCount = _wordCount(a.key);
-            final int bWordCount = _wordCount(b.key);
-            if (bWordCount != aWordCount) {
-              return bWordCount.compareTo(aWordCount);
-            }
-            return a.key.compareTo(b.key);
-          });
-    final List<MapEntry<String, int>> repeated = sorted
-        .where((MapEntry<String, int> e) => e.value >= 2)
-        .toList();
-    final List<MapEntry<String, int>> effective = repeated.isNotEmpty
-        ? repeated
-        : sorted;
-    return effective
-        .take(topN)
-        .map((MapEntry<String, int> e) => e.key)
-        .toList();
-  }
-
-  List<String> _keywordsFromRecord(
-    TodayQuestionRecord? record, {
-    int topN = 2,
-  }) {
-    if (record == null) {
-      return const <String>[];
-    }
-    final Map<String, int> counter = <String, int>{};
-    for (final String tag in record.bucketTags) {
-      final List<String> tagNouns = _extractNouns(tag);
-      for (final String noun in tagNouns) {
-        int score = 2;
-        if (_domainBoostWords.contains(noun)) {
-          score += 1;
-        }
-        if (_lowInfoWords.contains(noun)) {
-          score -= 1;
-        }
-        _addScore(counter, noun, score);
-      }
-    }
-
-    final List<String> answerNouns = _extractNouns(record.answer);
-    for (final String noun in answerNouns) {
-      int score = 1;
-      if (_domainBoostWords.contains(noun)) {
-        score += 1;
-      }
-      if (_lowInfoWords.contains(noun)) {
-        score -= 1;
-      }
-      _addScore(counter, noun, score);
-    }
-    _applySemanticKeywords(counter, record.answer, score: 3);
-
-    final List<MapEntry<String, int>> sorted =
-        _removeSubTokens(
-            counter,
-          ).entries.where((MapEntry<String, int> e) => e.value > 0).toList()
-          ..sort((MapEntry<String, int> a, MapEntry<String, int> b) {
-            if (b.value != a.value) {
-              return b.value.compareTo(a.value);
-            }
-            final int aWordCount = _wordCount(a.key);
-            final int bWordCount = _wordCount(b.key);
-            if (bWordCount != aWordCount) {
-              return bWordCount.compareTo(aWordCount);
-            }
-            return a.key.compareTo(b.key);
-          });
-    return sorted.take(topN).map((MapEntry<String, int> e) => e.key).toList();
-  }
-
   List<String> _extractNouns(String text) {
     final List<String> result = <String>[];
     final Iterable<String> tokens = RegExp(
@@ -961,60 +804,6 @@ class ReportAggregationService {
       result.add(noun);
     }
     return result;
-  }
-
-  Map<String, int> _removeSubTokens(Map<String, int> source) {
-    final List<MapEntry<String, int>> all = source.entries.toList();
-    final Map<String, int> result = <String, int>{};
-    for (final MapEntry<String, int> item in all) {
-      final bool remove = all.any((MapEntry<String, int> other) {
-        if (identical(item, other) || item.key == other.key) {
-          return false;
-        }
-        final bool contained =
-            other.key.length > item.key.length && other.key.contains(item.key);
-        final bool stronger =
-            other.value >= item.value && _wordCount(other.key) > 1;
-        return contained && stronger;
-      });
-      if (!remove) {
-        result[item.key] = item.value;
-      }
-    }
-    return result;
-  }
-
-  int _wordCount(String text) =>
-      text.split(" ").where((String w) => w.isNotEmpty).length;
-
-  void _addScore(Map<String, int> counter, String token, int amount) {
-    if (amount == 0) {
-      return;
-    }
-    counter[token] = (counter[token] ?? 0) + amount;
-  }
-
-  void _setMaxScore(Map<String, int> counter, String token, int amount) {
-    if (amount == 0) {
-      return;
-    }
-    final int existing = counter[token] ?? 0;
-    if (amount > existing) {
-      counter[token] = amount;
-    }
-  }
-
-  void _applySemanticKeywords(
-    Map<String, int> counter,
-    String text, {
-    required int score,
-  }) {
-    for (final String keyword in semanticKeywordsFromText(text)) {
-      _setMaxScore(counter, keyword, score);
-    }
-    for (final String artifact in artifactKeywordsForText(text)) {
-      counter.remove(artifact);
-    }
   }
 
   DateTime _kstDateOnlyFromRecord(TodayQuestionRecord record) {
@@ -1064,19 +853,6 @@ class ReportAggregationService {
     return weekdays[DateTime(year, month, day).weekday - 1];
   }
 
-  String _withObjectParticle(String word) {
-    final String value = word.trim();
-    if (value.isEmpty) {
-      return value;
-    }
-    final int codeUnit = value.runes.last;
-    final bool hasBatchim =
-        codeUnit >= 0xAC00 &&
-        codeUnit <= 0xD7A3 &&
-        (codeUnit - 0xAC00) % 28 != 0;
-    return "$value${hasBatchim ? "을" : "를"}";
-  }
-
   String _snippet(String text) {
     if (text.isEmpty) {
       return "답변이 기록되지 않았어요.";
@@ -1107,12 +883,10 @@ class ReportAggregationService {
     required int? satisfaction10,
     required int? energy10,
     required int? stress10,
-    required List<String> keywords,
   }) {
     final String scoreText =
         "${satisfaction10 ?? "-"}/${energy10 ?? "-"}/${stress10 ?? "-"}";
-    final String keywordText = keywords.isEmpty ? "없음" : keywords.join(",");
-    return "$dayOfYear) \"${_snippet(answer)}\" | $scoreText | $keywordText";
+    return "$dayOfYear) \"${_snippet(answer)}\" | $scoreText";
   }
 
   List<String> _buildNextWeekMissions({
@@ -1233,7 +1007,6 @@ class ReportAggregationService {
           .map((Map<String, Object?> day) => (day["answer"] as String?) ?? "")
           .map((String text) => text.trim())
           .where((String text) => text.isNotEmpty),
-      ...snapshot.topKeywords,
     ];
   }
 
@@ -1252,9 +1025,6 @@ class ReportAggregationService {
   }
 
   bool _mentionsKeyword(WeeklyAggregationSnapshot snapshot, String keyword) {
-    if (snapshot.topKeywords.contains(keyword)) {
-      return true;
-    }
     return _containsAnyText(
       texts: _reportTexts(snapshot),
       patterns: <String>[keyword],
@@ -1507,22 +1277,10 @@ class ReportAggregationService {
     required _DayScoreEvidence? hardestDay,
   }) {
     final List<String> insights = <String>[_averageScoreInsight(snapshot)];
-    final String? leadKeyword = snapshot.topKeywords.isEmpty
-        ? null
-        : snapshot.topKeywords.first;
     final bool mentionsHome = _mentionsKeyword(snapshot, "집");
 
     if (snapshot.hasCheckinData && bestDay != null) {
-      if (leadKeyword != null) {
-        insights.add(
-          "이번 한 주 ${bestDay.weekdayLabel}에 컨디션이 좋았고, "
-          "${_withObjectParticle(leadKeyword)} 자주 언급하셨어요.",
-        );
-      } else {
-        insights.add("이번 한 주 ${bestDay.weekdayLabel}에 컨디션이 좋았어요.");
-      }
-    } else if (leadKeyword != null) {
-      insights.add("이번 한 주에는 ${_withObjectParticle(leadKeyword)} 자주 언급하셨어요.");
+      insights.add("이번 한 주 ${bestDay.weekdayLabel}에 컨디션이 좋았어요.");
     }
 
     if (mentionsHome) {
@@ -1546,14 +1304,6 @@ class ReportAggregationService {
       } else if (bestDay != null) {
         insights.add("요일별 컨디션 차이는 비교적 고르게 유지됐어요.");
       }
-    }
-
-    if (snapshot.topKeywords.isEmpty) {
-      insights.add("최근 자주 나온 키워드는 아직 더 모이면 선명해질 거예요.");
-    } else {
-      insights.add(
-        "최근 자주 나온 키워드는 ${snapshot.topKeywords.take(3).join(", ")} 입니다.",
-      );
     }
     return insights;
   }
@@ -1588,7 +1338,6 @@ class ReportAggregationService {
                 (day["answer"] as String?)?.trim() ?? "",
           )
           .where((String answer) => answer.isNotEmpty),
-      ...snapshot.topKeywords,
     ];
     final Map<_RecoveryActionCue, int> scores = <_RecoveryActionCue, int>{};
 
@@ -1599,7 +1348,7 @@ class ReportAggregationService {
           if (!_matchesCuePattern(text: text, pattern: pattern)) {
             continue;
           }
-          score += snapshot.topKeywords.contains(pattern) ? 2 : 1;
+          score += 1;
         }
       }
       for (final String pattern in cue.patterns) {

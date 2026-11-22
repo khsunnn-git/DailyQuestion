@@ -12,7 +12,7 @@ import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
 import "../home/home_character_assets.dart";
-import "../home/home_theme_progression.dart";
+import "../home/home_character_selection_store.dart";
 import "../navigation/main_tab_shell.dart";
 import "bucket_backup_service.dart";
 import "bucket_add_screen.dart";
@@ -34,12 +34,6 @@ class BucketListScreen extends StatefulWidget {
 
 class _BucketListScreenState extends State<BucketListScreen>
     with SingleTickerProviderStateMixin {
-  static const String _emptyBucketFishAsset =
-      "assets/images/bucket/bucketlist_empty_state_note_fish.webp";
-  static const String _emptyBucketTreeAsset =
-      "assets/images/bucket/bucketlist_empty_state_note_tree.webp";
-  static const String _emptyBucketStoneAsset =
-      "assets/images/bucket/bucketlist_empty_state_note_stone.webp";
   static const List<String> _bucketHelperMessages = <String>[
     "버킷리스트 너무 어려우신가요?",
     "제가 도움을 드릴게요! 눌러보세요!",
@@ -288,14 +282,8 @@ class _BucketListScreenState extends State<BucketListScreen>
     });
   }
 
-  String _emptyBucketAssetFor(BrandScale brand) {
-    if (brand.c500 == AppBrandThemes.green.c500) {
-      return _emptyBucketTreeAsset;
-    }
-    if (brand.c500 == AppBrandThemes.brown.c500) {
-      return _emptyBucketStoneAsset;
-    }
-    return _emptyBucketFishAsset;
+  String _emptyBucketAssetFor() {
+    return HomeCharacterAssets.emptyBucketAssetFor(currentHomeCharacterType());
   }
 
   Future<void> _watchPersistedDataChanges() async {
@@ -1235,7 +1223,7 @@ class _BucketListScreenState extends State<BucketListScreen>
                       );
                     },
                     child: Image.asset(
-                      _emptyBucketAssetFor(brand),
+                      _emptyBucketAssetFor(),
                       width: 160,
                       height: 160,
                       fit: BoxFit.contain,
@@ -1505,11 +1493,8 @@ class _BucketRecommendationHelper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final HomeCharacterType characterType = resolveHomeCharacterType(brand);
-    final int growthRecordCount = homeGrowthRecordCountForCharacter(
-      characterType: characterType,
-      totalRecordCount: totalRecordCount,
-    );
+    final HomeCharacterType characterType = currentHomeCharacterType();
+    final int growthRecordCount = currentHomeGrowthRecordCount(totalRecordCount);
     final String characterAsset = HomeCharacterAssets.assetForRecordCount(
       characterType,
       growthRecordCount,

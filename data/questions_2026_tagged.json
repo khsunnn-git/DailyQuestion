@@ -3609,25 +3609,25 @@
   },
   {
     "dayOfYear": 329,
-    "base": "갑자기 10만원이 생기면 어디에 쓰나요?",
+    "base": "최악의 기억을 지울 건가요, 최고의 기억을 다시 경험할 건가요?",
     "active": true,
     "tags": [
-      "자기인식",
       "감정",
-      "성장"
+      "자기인식",
+      "회복"
     ],
-    "primaryCategory": "자기인식"
+    "primaryCategory": "감정"
   },
   {
     "dayOfYear": 330,
-    "base": "내가 좋아하는 공기 온도는?",
+    "base": "지금 어디든 갈 수 있다면, 어떤 장소로 갈 건가요? 아니면 누군가를 만나러 갈 건가요?",
     "active": true,
     "tags": [
-      "취향",
-      "건강",
-      "감정"
+      "관계",
+      "여행/경험",
+      "자기인식"
     ],
-    "primaryCategory": "취향"
+    "primaryCategory": "관계"
   },
   {
     "dayOfYear": 331,
@@ -3686,7 +3686,7 @@
   },
   {
     "dayOfYear": 336,
-    "base": "자주 사용하는 앱/서비스는 어떤건가요?",
+    "base": "과거의 나를 그리워한 적이 있나요?",
     "active": true,
     "tags": [
       "자기인식",
@@ -3719,36 +3719,36 @@
   },
   {
     "dayOfYear": 339,
-    "base": "눈오는 걸 좋아하나요?",
+    "base": "나를 가장 괴롭히는 '만약에'는 무엇인가요?",
     "active": true,
     "tags": [
       "자기인식",
-      "감정",
-      "성장"
+      "스트레스",
+      "감정"
     ],
     "primaryCategory": "자기인식"
   },
   {
     "dayOfYear": 340,
-    "base": "갖고 싶은 초능력이 있다면?",
+    "base": "지금까지 잃어버린 모든 것이 든 상자를 받는다면, 무엇을 가장 먼저 찾을 건가요?",
     "active": true,
     "tags": [
       "자기인식",
       "감정",
-      "성장"
+      "관계"
     ],
     "primaryCategory": "자기인식"
   },
   {
     "dayOfYear": 341,
-    "base": "내가 좋아하는 선물 스타일은?",
+    "base": "남들의 기대에 맞추느라 잃어버린 나의 모습은 무엇인가요?",
     "active": true,
     "tags": [
-      "취향",
-      "건강",
-      "일/학습"
+      "관계",
+      "자기인식",
+      "스트레스"
     ],
-    "primaryCategory": "취향"
+    "primaryCategory": "관계"
   },
   {
     "dayOfYear": 342,
@@ -3763,14 +3763,14 @@
   },
   {
     "dayOfYear": 343,
-    "base": "놀이동산에 가면 주로 타는 놀이기구가 있나요?",
+    "base": "삶이 하루 남았다면, 누구에게 어떤 말을 하고 싶나요?",
     "active": true,
     "tags": [
-      "여행/경험",
-      "취향",
-      "회복"
+      "관계",
+      "감정",
+      "자기인식"
     ],
-    "primaryCategory": "여행/경험"
+    "primaryCategory": "관계"
   },
   {
     "dayOfYear": 344,
@@ -3862,14 +3862,14 @@
   },
   {
     "dayOfYear": 352,
-    "base": "겨울엔 음악 취향이 바뀌나요?",
+    "base": "나와 똑같은 삶을 살게 될 아이가 있다면, 무엇을 바꾸라고 조언하고 싶나요?",
     "active": true,
     "tags": [
-      "취향",
-      "감정",
-      "회복"
+      "성장",
+      "자기인식",
+      "관계"
     ],
-    "primaryCategory": "취향"
+    "primaryCategory": "성장"
   },
   {
     "dayOfYear": 353,
@@ -3950,14 +3950,14 @@
   },
   {
     "dayOfYear": 360,
-    "base": "전기장판 위에서 내가 하는 일은?",
+    "base": "1년 후 삶이 끝난다면, 지금의 걱정 중 무엇이 사라질까요?",
     "active": true,
     "tags": [
-      "일/학습",
-      "집중",
+      "자기인식",
+      "스트레스",
       "성장"
     ],
-    "primaryCategory": "일/학습"
+    "primaryCategory": "자기인식"
   },
   {
     "dayOfYear": 361,

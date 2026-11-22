@@ -4,6 +4,7 @@ import "dart:io";
 
 import "package:flutter/foundation.dart";
 
+import "../profile/user_profile_store.dart";
 import "report_models.dart";
 
 class ReportApiClient {
@@ -103,7 +104,7 @@ class ReportApiClient {
         .postUrl(uri)
         .timeout(_timeout);
     request.headers.set(HttpHeaders.contentTypeHeader, "application/json");
-    request.add(utf8.encode(jsonEncode(payload.toJson())));
+    request.add(utf8.encode(jsonEncode(await _requestBody(payload))));
 
     final HttpClientResponse response = await request.close().timeout(_timeout);
     final String raw = await utf8.decoder.bind(response).join();
@@ -127,6 +128,22 @@ class ReportApiClient {
       );
     }
     return report;
+  }
+
+  /// 리포트에서 '혜선님'처럼 이름을 불러 줄 수 있도록 닉네임을 함께 보낸다.
+  Future<Map<String, Object?>> _requestBody(
+    ReportAnalyzePayload payload,
+  ) async {
+    final Map<String, Object?> body = Map<String, Object?>.of(payload.toJson());
+    try {
+      final String nickname = (await loadNickname())?.trim() ?? "";
+      if (nickname.isNotEmpty) {
+        body["nickname"] = nickname;
+      }
+    } catch (_) {
+      // 닉네임을 못 읽어도 리포트는 그대로 만든다.
+    }
+    return body;
   }
 
   Uri _analyzeUri(String baseUrl) {

@@ -1,6 +1,8 @@
 /* eslint-disable require-jsdoc */
 const {setGlobalOptions} = require("firebase-functions");
 const {HttpsError, onCall, onRequest} = require("firebase-functions/https");
+const {onSchedule} = require("firebase-functions/scheduler");
+const crypto = require("crypto");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 
@@ -311,17 +313,6 @@ function weekdayLabelFromKey(dateKey) {
   return weekdays[date.getDay()] || "해당 요일";
 }
 
-function withObjectParticle(word) {
-  const value = `${word || ""}`.trim();
-  if (!value) {
-    return value;
-  }
-  const lastCode = value.codePointAt(value.length - 1);
-  const isHangul = lastCode >= 0xac00 && lastCode <= 0xd7a3;
-  const hasBatchim = isHangul && (lastCode - 0xac00) % 28 !== 0;
-  return `${value}${hasBatchim ? "을" : "를"}`;
-}
-
 function pickDayEvidence(payload, pickMax) {
   const days = Array.isArray(payload && payload.days) ? payload.days : [];
   let selected = null;
@@ -353,7 +344,6 @@ function buildWeeklyInsights({
   avgMood,
   avgEnergy,
   avgStress,
-  topKeywords,
 }) {
   const insights = [];
   if (hasCheckinData) {
@@ -367,26 +357,12 @@ function buildWeeklyInsights({
 
   const bestDay = pickDayEvidence(payload, true);
   const hardestDay = pickDayEvidence(payload, false);
-  const leadKeyword = topKeywords.length > 0 ? topKeywords[0] : "";
   const periodKey = normalizedReportPeriod(payload);
 
   if (hasCheckinData && bestDay) {
-    if (leadKeyword) {
-      insights.push(
-          `${periodKey === "weekly" ? "이번 한 주" : "이 기간에는"} ` +
-          `${bestDay.weekdayLabel}에 컨디션이 좋았고, ` +
-          `${withObjectParticle(leadKeyword)} 자주 언급하셨어요.`,
-      );
-    } else {
-      insights.push(
-          `${periodKey === "weekly" ? "이번 한 주" : "이 기간에는"} ` +
-          `${bestDay.weekdayLabel}에 컨디션이 좋았어요.`,
-      );
-    }
-  } else if (leadKeyword) {
     insights.push(
-        `${periodKey === "weekly" ? "이번 한 주에는" : "이 기간에는"} ` +
-        `${withObjectParticle(leadKeyword)} 자주 언급하셨어요.`,
+        `${periodKey === "weekly" ? "이번 한 주" : "이 기간에는"} ` +
+        `${bestDay.weekdayLabel}에 컨디션이 좋았어요.`,
     );
   }
 
@@ -399,12 +375,6 @@ function buildWeeklyInsights({
     } else if (bestDay) {
       insights.push("요일별 컨디션 차이는 비교적 고르게 유지됐어요.");
     }
-  }
-
-  if (topKeywords.length > 0) {
-    insights.push(`최근 자주 나온 키워드는 ${topKeywords.slice(0, 3).join(", ")} 입니다.`);
-  } else {
-    insights.push("최근 자주 나온 키워드는 아직 더 모이면 선명해질 거예요.");
   }
 
   const cues = collectPreferredActionCues(
@@ -446,15 +416,11 @@ function collectPreferredActionCues(payload, prioritizedText = "") {
     payload.representative_answers.filter((x) => typeof x === "string") :
     [];
   const days = Array.isArray(payload && payload.days) ? payload.days : [];
-  const topKeywords = Array.isArray(payload && payload.top_keywords) ?
-    payload.top_keywords.filter((x) => typeof x === "string") :
-    [];
   const texts = [
     ...representativeAnswers,
     ...days
         .map((day) => day && typeof day.answer === "string" ? day.answer : "")
         .filter(Boolean),
-    ...topKeywords,
   ];
   const scores = [];
   for (const cue of RECOVERY_ACTION_CUES) {
@@ -464,7 +430,7 @@ function collectPreferredActionCues(payload, prioritizedText = "") {
         if (!matchesCuePattern(text, pattern)) {
           continue;
         }
-        score += topKeywords.includes(pattern) ? 2 : 1;
+        score += 1;
       }
     }
     for (const pattern of cue.patterns) {
@@ -570,9 +536,6 @@ function buildPersonalizedActions(payload, compact = false) {
   const periodReviewWindow = periodKey === "weekly" ? "이번 주" : "이 기간에";
   const cues = collectPreferredActionCues(payload, bestDayText(payload));
   const theme = hardMoodTheme(payload);
-  const topKeywords = Array.isArray(payload && payload.top_keywords) ?
-    payload.top_keywords.filter((x) => typeof x === "string") :
-    [];
   const communityIdeas = Array.isArray(
       payload && payload.community_recovery_ideas,
   ) ?
@@ -616,13 +579,6 @@ function buildPersonalizedActions(payload, compact = false) {
     }
   }
 
-  if (!compact && topKeywords.length > 0) {
-    add(
-        `${periodWindow} 자주 보인 키워드는 ${topKeywords[0]}예요. ` +
-        `${topKeywords[0]}와 연결된 작은 행동 하나를 다시 꺼내 해보세요.`,
-    );
-  }
-
   add(
       `기분이 좋지 않은 날엔 ${periodReviewWindow} 조금 괜찮았던 행동 1가지를 먼저 다시 해보세요.`,
   );
@@ -644,19 +600,13 @@ function buildCompactFallbackReport(payload) {
       0,
       Math.min(5, Math.round(asNumber(metrics.weekly_score) || 0)),
   );
-  const topKeywords = Array.isArray(payload && payload.top_keywords) ?
-    payload.top_keywords.filter((x) => typeof x === "string").slice(0, 2) :
-    [];
-  const keywordText = topKeywords.length > 0 ?
-    `지금까지 자주 나온 키워드는 ${topKeywords.join(", ")} 입니다.` :
-    "아직 뚜렷한 키워드가 많지 않아요.";
   const emotionSummary = buildEmotionSummary(payload);
 
   return {
     summary:
       `${periodIntro} ${recordedDays}일 기록했어요. ` +
       "아직 데이터가 많지 않아 간단한 " +
-      `${reportPeriodLabel(periodKey)} 리포트로 정리했어요. ${keywordText}`,
+      `${reportPeriodLabel(periodKey)} 리포트로 정리했어요.`,
     emotion_summary:
       `${emotionSummary.summary} ` +
       "조금만 더 기록이 쌓이면 긍정 흐름과 부담 흐름을 더 자세하게 읽어드릴 수 있어요.",
@@ -697,9 +647,6 @@ function buildFallbackReport(payload) {
   const completion = targetDays > 0 ?
     Math.round((recordedDays / targetDays) * 100) :
     0;
-  const topKeywords = Array.isArray(payload && payload.top_keywords) ?
-    payload.top_keywords.filter((x) => typeof x === "string").slice(0, 3) :
-    [];
   const emotionSummary = buildEmotionSummary(payload);
   const insights = buildWeeklyInsights({
     payload,
@@ -707,7 +654,6 @@ function buildFallbackReport(payload) {
     avgMood,
     avgEnergy,
     avgStress,
-    topKeywords,
   });
 
   const actions = buildPersonalizedActions(payload);
@@ -776,6 +722,532 @@ function outputTextFromResponse(data) {
   return "";
 }
 
+/**
+ * 키워드 추출은 정확도가 낮아 리포트에 쓰지 않는다.
+ * 예전 버전 앱이 보내는 top_keywords / days[].keywords /
+ * entries_compact의 키워드 칸을 GPT에 넘기기 전에 지운다.
+ * @param {object} payload
+ * @return {object}
+ */
+function withoutKeywords(payload) {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+  const cleaned = {...payload};
+  delete cleaned.top_keywords;
+  if (Array.isArray(cleaned.days)) {
+    cleaned.days = cleaned.days.map((day) => {
+      if (!day || typeof day !== "object") {
+        return day;
+      }
+      const copy = {...day};
+      delete copy.keywords;
+      if (typeof copy.compact_line === "string") {
+        copy.compact_line = stripKeywordColumn(copy.compact_line);
+      }
+      return copy;
+    });
+  }
+  if (Array.isArray(cleaned.entries_compact)) {
+    cleaned.entries_compact = cleaned.entries_compact.map((line) =>
+      typeof line === "string" ? stripKeywordColumn(line) : line,
+    );
+  }
+  return cleaned;
+}
+
+/**
+ * "12) \"답변\" | 8/6/4 | 산책,음악" → "12) \"답변\" | 8/6/4"
+ * @param {string} line
+ * @return {string}
+ */
+function stripKeywordColumn(line) {
+  return line.replace(/^(.*\|\s*[-\d]+\/[-\d]+\/[-\d]+)\s*\|[^|]*$/, "$1");
+}
+
+/* ---------- 다른 분들이 요즘 하는 활동 (공개 답변 익명 집계) ---------- */
+/* eslint-disable max-len -- 한국어 프롬프트 문장은 줄을 나누면 읽기 어려워서 */
+
+const COMMUNITY_DAILY_COLLECTION = "community_activity_daily";
+const COMMUNITY_MIN_PEOPLE = 3; // 이보다 적은 사람이 한 활동은 추천하지 않는다 (개인이 드러나지 않게).
+const COMMUNITY_WINDOW_DAYS = 30;
+const COMMUNITY_CATCHUP_DAYS = 7; // 공개 답변 보관 기간과 같게.
+const COMMUNITY_SITUATIONS = ["지칠 때", "쉬고 싶을 때", "즐거울 때", "새로 해본 것", "평소 즐기는 것"];
+
+function pad2(value) {
+  return `${value}`.padStart(2, "0");
+}
+
+function kstDateKey(date) {
+  const kst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+  return `${kst.getUTCFullYear()}${pad2(kst.getUTCMonth() + 1)}${pad2(kst.getUTCDate())}`;
+}
+
+function shiftDateKey(dateKey, days) {
+  const y = Number(dateKey.slice(0, 4));
+  const m = Number(dateKey.slice(4, 6));
+  const d = Number(dateKey.slice(6, 8));
+  const date = new Date(Date.UTC(y, m - 1, d + days));
+  return `${date.getUTCFullYear()}${pad2(date.getUTCMonth() + 1)}${pad2(date.getUTCDate())}`;
+}
+
+function personHash(value) {
+  return crypto.createHash("sha256").update(`dq-community:${value}`).digest("hex").slice(0, 12);
+}
+
+async function loadPublicAnswersForDate(dateKey) {
+  const slotRefs = await admin.firestore()
+      .collection("public_answers").doc(dateKey).collection("slots").listDocuments();
+  const answers = [];
+  for (const slotRef of slotRefs) {
+    const snapshot = await slotRef.collection("answers").get();
+    snapshot.forEach((doc) => {
+      const data = doc.data() || {};
+      if (data.moderationStatus && data.moderationStatus !== "published") {
+        return;
+      }
+      const answer = normalizedString(data.answerText);
+      if (!answer) {
+        return;
+      }
+      const person = normalizedString(data.authorUid) ||
+        normalizedString(data.deviceAnonId) || doc.id;
+      answers.push({
+        person: personHash(person),
+        question: normalizedString(data.questionText),
+        answer: answer.slice(0, 300),
+      });
+    });
+  }
+  return answers;
+}
+
+function communityExtractionSchema() {
+  return {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            i: {type: "integer"},
+            activities: {
+              type: "array",
+              maxItems: 3,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                properties: {
+                  name: {type: "string"},
+                  situation: {type: "string", enum: COMMUNITY_SITUATIONS},
+                },
+                required: ["name", "situation"],
+              },
+            },
+          },
+          required: ["i", "activities"],
+        },
+      },
+    },
+    required: ["items"],
+  };
+}
+
+const COMMUNITY_EXTRACTION_PROMPT = [
+  "너는 일기 앱 사용자들이 공개로 올린 짧은 글에서 '다른 사람도 따라 해 볼 만한 활동'을 뽑는다.",
+  "- 글쓴이가 실제로 했거나 즐겨 하는 활동만 뽑는다. 하고 싶다고만 한 것, 싫다고 한 것은 뽑지 않는다.",
+  "- name은 2~12자의 짧은 한국어 명사구로 일반화한다. 예: 한강 산책, 전시 관람, 뜨개질, 러닝, 동네 카페 탐방, 플레이리스트 듣기, 친구와 통화, 반신욕, 단풍 구경.",
+  "- 가게·회사·사람 이름, 주소처럼 글쓴이를 알 수 있는 정보는 절대 넣지 않는다. 노래·드라마 제목도 '음악 듣기', '드라마 정주행'처럼 일반화한다.",
+  "- 같은 활동은 모든 글에서 같은 name으로 쓴다.",
+  "- situation은 그 활동을 한 맥락이다: 지칠 때 / 쉬고 싶을 때 / 즐거울 때 / 새로 해본 것 / 평소 즐기는 것.",
+  "- 일·공부 자체, 먹기·자기 같은 기본 생활, 활동이 없는 글은 빈 배열로 둔다.",
+  "- 입력의 i를 그대로 돌려준다.",
+].join("\n");
+
+async function extractCommunityActivities(answers) {
+  const apiKey = `${process.env.OPENAI_API_KEY || ""}`.trim();
+  if (!apiKey || answers.length === 0) {
+    return [];
+  }
+  const results = [];
+  const chunkSize = 60;
+  for (let start = 0; start < answers.length; start += chunkSize) {
+    const chunk = answers.slice(start, start + chunkSize);
+    const response = await fetch(OPENAI_API_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json", "Authorization": `Bearer ${apiKey}`},
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        store: false,
+        input: [
+          {role: "system", content: [{type: "input_text", text: COMMUNITY_EXTRACTION_PROMPT}]},
+          {
+            role: "user",
+            content: [{
+              type: "input_text",
+              text: JSON.stringify(chunk.map((item, index) => ({i: index, q: item.question, a: item.answer}))),
+            }],
+          },
+        ],
+        text: {format: {type: "json_schema", name: "community_activities", strict: true, schema: communityExtractionSchema()}},
+        max_output_tokens: 4000,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`OpenAI community extraction failed: ${response.status} ${await response.text()}`);
+    }
+    const parsed = JSON.parse(outputTextFromResponse(await response.json()) || "{}");
+    for (const item of Array.isArray(parsed.items) ? parsed.items : []) {
+      const source = chunk[item && item.i];
+      if (!source || !Array.isArray(item.activities)) {
+        continue;
+      }
+      for (const activity of item.activities) {
+        const name = normalizedString(activity && activity.name).slice(0, 20);
+        if (name && COMMUNITY_SITUATIONS.includes(activity.situation)) {
+          results.push({person: source.person, name, situation: activity.situation});
+        }
+      }
+    }
+  }
+  return results;
+}
+
+function groupCommunityActivities(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = `${row.name}|${row.situation}`;
+    if (!groups.has(key)) {
+      groups.set(key, {name: row.name, situation: row.situation, persons: new Set()});
+    }
+    groups.get(key).persons.add(row.person);
+  }
+  return [...groups.values()].map((group) => ({
+    name: group.name,
+    situation: group.situation,
+    people: group.persons.size,
+    person_hashes: [...group.persons],
+  }));
+}
+
+/**
+ * 하루치 공개 답변을 익명 활동 집계로 바꿔 저장한다. 원문은 저장하지 않는다.
+ * 이미 처리한 날은 건너뛴다.
+ * @param {string} dateKey YYYYMMDD (KST)
+ * @return {Promise<string>} 처리 결과
+ */
+async function aggregateCommunityActivitiesForDate(dateKey) {
+  const ref = admin.firestore().collection(COMMUNITY_DAILY_COLLECTION).doc(dateKey);
+  if ((await ref.get()).exists) {
+    return `${dateKey}: already done`;
+  }
+  const answers = await loadPublicAnswersForDate(dateKey);
+  const activities = groupCommunityActivities(await extractCommunityActivities(answers));
+  await ref.set({
+    date_key: dateKey,
+    answer_count: answers.length,
+    activities,
+    processed_at: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return `${dateKey}: ${answers.length} answers → ${activities.length} activities`;
+}
+
+exports.aggregateCommunityActivities = onSchedule(
+    {schedule: "30 5 * * *", timeZone: "Asia/Seoul", timeoutSeconds: 540, memory: "512MiB"},
+    async () => {
+      const today = kstDateKey(new Date());
+      // 어제까지, 공개 답변이 남아 있는 기간 중 아직 처리 안 한 날을 채운다.
+      for (let offset = COMMUNITY_CATCHUP_DAYS; offset >= 1; offset -= 1) {
+        const dateKey = shiftDateKey(today, -offset);
+        try {
+          logger.info("community activities", await aggregateCommunityActivitiesForDate(dateKey));
+        } catch (error) {
+          logger.error(`community activities ${dateKey} failed`, error);
+        }
+      }
+    },
+);
+
+const COMMUNITY_CACHE_MS = 60 * 60 * 1000;
+const communityCache = new Map();
+
+/**
+ * 리포트 마지막 날 기준 최근 30일 동안 다른 분들이 많이 한 활동.
+ * @param {string} endDateKey YYYYMMDD
+ * @return {Promise<Array<{name: string, situation: string, people: number}>>}
+ */
+async function loadCommunityActivities(endDateKey) {
+  const cached = communityCache.get(endDateKey);
+  if (cached && Date.now() - cached.at < COMMUNITY_CACHE_MS) {
+    return cached.value;
+  }
+  let value = [];
+  try {
+    const startKey = shiftDateKey(endDateKey, -(COMMUNITY_WINDOW_DAYS - 1));
+    const snapshot = await admin.firestore().collection(COMMUNITY_DAILY_COLLECTION)
+        .where("date_key", ">=", startKey)
+        .where("date_key", "<=", endDateKey)
+        .get();
+    const groups = new Map();
+    snapshot.forEach((doc) => {
+      const activities = (doc.data() || {}).activities;
+      for (const activity of Array.isArray(activities) ? activities : []) {
+        const key = `${activity.name}|${activity.situation}`;
+        if (!groups.has(key)) {
+          groups.set(key, {name: activity.name, situation: activity.situation, persons: new Set()});
+        }
+        const persons = groups.get(key).persons;
+        (Array.isArray(activity.person_hashes) ? activity.person_hashes : []).forEach((hash) => persons.add(hash));
+      }
+    });
+    value = [...groups.values()]
+        .map((group) => ({name: group.name, situation: group.situation, people: group.persons.size}))
+        .filter((item) => item.people >= COMMUNITY_MIN_PEOPLE)
+        .sort((a, b) => b.people - a.people)
+        .slice(0, 10);
+  } catch (error) {
+    logger.warn("community activities unavailable", error);
+  }
+  communityCache.set(endDateKey, {at: Date.now(), value});
+  return value;
+}
+
+/* eslint-enable max-len */
+
+/* ---------- 인사이트용 입력 보강 ---------- */
+/* eslint-disable max-len -- 한국어 프롬프트 문장은 줄을 나누면 읽기 어려워서 */
+
+const QUESTION_TAG_CACHE_MS = 6 * 60 * 60 * 1000;
+let questionTagCache = null;
+let questionTagCacheLoadedAt = 0;
+
+function compactText(value) {
+  return normalizedString(value).replace(/\s+/g, "");
+}
+
+/**
+ * 앱에 보이는 질문(Firestore daily_questions)의 태그를 읽어 캐시한다.
+ * 실패해도 리포트는 태그 없이 계속 만든다.
+ * @return {Promise<{byDay: Map, byText: Map}>}
+ */
+async function loadQuestionTags() {
+  const now = Date.now();
+  if (questionTagCache && now - questionTagCacheLoadedAt < QUESTION_TAG_CACHE_MS) {
+    return questionTagCache;
+  }
+  try {
+    const snapshot = await admin.firestore().collection("daily_questions").get();
+    const byDay = new Map();
+    const byText = new Map();
+    snapshot.forEach((doc) => {
+      const data = doc.data() || {};
+      const tags = Array.isArray(data.tags) ?
+        data.tags.filter((tag) => typeof tag === "string") :
+        [];
+      const day = Number(data.dayOfYear || doc.id);
+      const base = normalizedString(data.base);
+      if (Number.isInteger(day)) {
+        byDay.set(day, {base, tags});
+      }
+      if (base) {
+        byText.set(compactText(base), tags);
+      }
+    });
+    questionTagCache = {byDay, byText};
+    questionTagCacheLoadedAt = now;
+  } catch (error) {
+    logger.warn("question tags unavailable", error);
+    if (!questionTagCache) {
+      questionTagCache = {byDay: new Map(), byText: new Map()};
+    }
+  }
+  return questionTagCache;
+}
+
+// 질문 태그 → 인사이트 축. '지금 마음'은 모든 답변의 분위기로 읽으므로 태그로 나누지 않는다.
+const INSIGHT_LENS_TAGS = {
+  joy: ["취향", "여행/경험", "음악", "관계"],
+  rest: ["회복", "스트레스", "에너지", "건강", "루틴"],
+  dreams_goals: ["성장", "목표", "동기", "의사결정"],
+};
+
+function lensesForTags(tags) {
+  return Object.keys(INSIGHT_LENS_TAGS)
+      .filter((lens) => INSIGHT_LENS_TAGS[lens].some((tag) => tags.includes(tag)));
+}
+
+function koreanSeason(month) {
+  if (month >= 3 && month <= 5) return "봄";
+  if (month >= 6 && month <= 8) return "여름";
+  if (month >= 9 && month <= 11) return "가을";
+  return "겨울";
+}
+
+// 달마다 한국에서 많이 하는 계절 활동. GPT는 사용자 취향과 이어지는 것만 골라 쓴다.
+// 실시간 전시·축제 이름이 아니라 '종류'만 담는다 (구체 일정은 추후 월 1회 검색으로 보강).
+const MONTHLY_SEASON_IDEAS = {
+  1: ["눈 오는 날 고궁·한옥마을 걷기", "온천·찜질방에서 몸 녹이기", "새해 다이어리·버킷리스트 쓰기", "겨울 바다 보러 가기", "미술관 겨울 기획전 보기"],
+  2: ["실내 클라이밍·볼링 같은 새 운동 체험", "북카페에서 책 한 권 끝내기", "봄맞이 방 정리·화분 들이기", "따뜻한 차 마시는 찻집 투어"],
+  3: ["매화·산수유 꽃길 걷기", "봄 신상 전시·팝업스토어 구경", "자전거 타기 시작하기", "새 취미 원데이 클래스 듣기"],
+  4: ["벚꽃길 산책·피크닉", "야외 플리마켓 구경", "가까운 수목원·식물원 가기", "봄 음악 페스티벌"],
+  5: ["한강·공원 피크닉", "야외 공연·재즈 페스티벌", "장미 정원 산책", "당일치기 근교 여행", "야구장 직관"],
+  6: ["저녁 노을 보며 산책", "수국 명소 가기", "루프탑·야외 영화 상영", "제철 과일 디저트 카페 찾기"],
+  7: ["계곡·바다 물놀이", "시원한 미술관·박물관 전시", "여름 음악 페스티벌", "야시장·밤 산책"],
+  8: ["별 보러 근교 가기", "실내 전시·영화관에서 더위 피하기", "여름 휴가 짧은 여행", "아침 일찍 걷기"],
+  9: ["선선한 저녁 한강·공원 걷기", "가을 음악 페스티벌", "책 축제·북페어", "코스모스·억새 명소 가기"],
+  10: ["단풍길 걷기·등산", "억새·핑크뮬리 명소", "가을 야외 전시·비엔날레", "캠핑·불멍", "야구 가을야구 직관"],
+  11: ["늦가을 단풍 끝물 산책", "연말 기획 전시·미술관", "온천 여행", "따뜻한 카페에서 책 읽기", "첫 겨울 옷 정리·뜨개질 같은 손 취미"],
+  12: ["크리스마스 마켓·빛 축제", "연말 공연·콘서트", "한 해 사진 정리하며 돌아보기", "따뜻한 음식 맛집 찾기", "눈 오는 날 산책"],
+};
+
+function seasonContext(payload) {
+  const raw = normalizedString(payload && payload.end_date).replace(/-/g, "");
+  const month = Number(raw.slice(4, 6));
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    return {};
+  }
+  const nextMonth = month === 12 ? 1 : month + 1;
+  // 주간 리포트는 남은 이번 달, 그 외 기간은 다음 달에 할 활동을 제안한다.
+  const ideaMonth = normalizedReportPeriod(payload) === "weekly" ? month : nextMonth;
+  return {
+    month,
+    season: koreanSeason(month),
+    next_month: nextMonth,
+    next_season: koreanSeason(nextMonth),
+    suggestion_month: ideaMonth,
+    season_ideas: MONTHLY_SEASON_IDEAS[ideaMonth] || [],
+  };
+}
+
+/**
+ * 답변마다 질문 태그와 인사이트 축(lenses)을 붙이고,
+ * 체크인 비율·계절 같은 해석용 context를 더한다.
+ * @param {object} payload 앱이 보낸 리포트 입력
+ * @return {Promise<object>}
+ */
+async function enrichPayloadForInsights(payload) {
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.days)) {
+    return payload;
+  }
+  const tagIndex = await loadQuestionTags();
+  let answeredDays = 0;
+  let checkinDays = 0;
+  const lensCounts = {joy: 0, rest: 0, dreams_goals: 0};
+  const days = payload.days.map((day) => {
+    if (!day || typeof day !== "object" || !normalizedString(day.answer)) {
+      return day;
+    }
+    answeredDays += 1;
+    if (day.mood_score != null || day.energy_score != null || day.stress_score != null) {
+      checkinDays += 1;
+    }
+    let tags = tagIndex.byText.get(compactText(day.question));
+    if (!tags) {
+      const byDay = tagIndex.byDay.get(Number(day.day_of_year));
+      // 질문 글이 없을 때만 날짜로 찾는다 (글이 다르면 다른 질문일 수 있음).
+      tags = byDay && !normalizedString(day.question) ? byDay.tags : [];
+    }
+    const lenses = lensesForTags(tags);
+    lenses.forEach((lens) => {
+      lensCounts[lens] += 1;
+    });
+    return {...day, question_tags: tags, lenses};
+  });
+  const rawIdeas = Array.isArray(payload.community_recovery_ideas) ?
+    payload.community_recovery_ideas.filter((x) => typeof x === "string") :
+    [];
+  // 월간 이상 리포트는 이 칸에 사용자 본인의 버킷리스트("카테고리|제목")를 담아 보낸다.
+  const openBucketList = rawIdeas.filter((x) => x.includes("|"))
+      .map((x) => {
+        const [category, title] = x.split("|").map((part) => part.trim());
+        return title ? `${title}${category ? ` (${category})` : ""}` : category;
+      })
+      .filter(Boolean);
+  const endKey = normalizedString(payload.end_date).replace(/-/g, "") ||
+    kstDateKey(new Date());
+  const communityActivities = await loadCommunityActivities(endKey);
+  const cleaned = {...payload};
+  delete cleaned.community_recovery_ideas;
+  return {
+    ...cleaned,
+    days,
+    open_bucket_list: openBucketList,
+    community_activities: communityActivities,
+    context: {
+      answered_days: answeredDays,
+      checkin_days: checkinDays,
+      checkin_coverage: answeredDays > 0 ?
+        Math.round((checkinDays / answeredDays) * 100) / 100 :
+        0,
+      lens_counts: lensCounts,
+      ...seasonContext(payload),
+    },
+  };
+}
+
+function insightSystemPrompt(periodKey, periodLabel) {
+  const notWeekly = periodKey !== "weekly";
+  const lengthRule = {
+    weekly: "insights 3개, actions 2~3개.",
+    monthly: "insights 3~4개, actions 3개.",
+    quarterly: "insights 4개, actions 3개. 기간 초반과 후반, 계절이 바뀌며 달라진 마음을 비교한다.",
+    yearly: "insights 4개, actions 3개. 한 해의 흐름(계절별 마음 변화, 가장 즐거웠던 순간들의 공통점, 바라던 것의 변화)을 돌아본다.",
+  }[periodKey] || "insights 3개, actions 2~3개.";
+  return [
+    `너는 사용자의 ${periodLabel} 일기를 읽고 다정하게 말을 건네는 친구다.`,
+    "목표는 사용자가 '나에 대해 새로 알게 되는 것'을 얻게 하는 것이다. 기록을 다시 요약하거나 분석 보고서처럼 쓰지 않는다.",
+    "",
+    "[입력 읽는 법]",
+    "- 핵심 재료는 days[].question과 days[].answer다. 질문은 날짜별로 정해져 있으니 질문 주제와 상관없이 답변 속 활동·사람·장소·감정 표현을 읽는다.",
+    "- days[].lenses는 질문 주제 힌트다. joy=즐거움(취향·여행·음악·관계), rest=휴식·회복(회복·스트레스·에너지·건강), dreams_goals=꿈·목표(성장·목표·동기).",
+    "- 기분 점수(mood/energy/stress)는 context.checkin_coverage 비율만큼만 있다. 0.5 미만이면 점수 평균을 말하지 말고 쓰신 글의 분위기로 마음을 읽는다.",
+    "",
+    "[말투]",
+    "- 친한 친구가 일기를 읽고 건네는 말처럼 공감하는 해요체로 쓴다. '~습니다', '~확인돼요', '~로 나타났어요' 같은 보고서 말투를 쓰지 않는다.",
+    "- payload.nickname이 있으면 전체에서 1~2번만 '닉네임님'으로 부른다(예: 혜선님). 없으면 이름 없이 쓴다.",
+    "- 날짜나 횟수를 괄호로 나열하지 않는다. 근거는 문장 속에 자연스럽게 녹인다. 날짜가 꼭 필요하면 '10월 초', '지난주 주말'처럼 넓게 말한다.",
+    "- '체크인', '답변', '데이터', '기록에서 확인' 같은 앱 내부 표현 대신 '쓰신 글', '그날'처럼 말한다.",
+    "- 한 문장은 짧게, 한 항목은 1~2문장.",
+    "",
+    "[insights] 아래 역할 순서로, 근거가 있는 것만 쓴다.",
+    "1. 지금 마음에 공감하기: 무엇 때문에 마음이 어땠는지. 예) '마감이나 회의 때문에 지친 날이 많았네요.'",
+    "2. 지난 기록을 떠올려 주며 권하기: 이 사람에게 효과가 있었던 회복 방법을 다시 꺼내 준다. 예) '지난번에 속상할 때 밤편지를 들으셨던데, 이번에도 같은 곡을 들어보시는 건 어떠세요?'",
+    "3. 새로운 발견: 여러 날의 글을 연결해야 보이는, 사용자가 스스로 몰랐을 법한 점을 '~라는 점이 발견되었어요' 형태로 쓴다. 예) '가을의 선선한 날씨와 걷기를 좋아하는 취향이 혜선님의 회복에 중요하다는 점이 발견되었어요.'",
+    "4. 즐거움이나 꿈 이야기: 좋아하는 것, 가고 싶은 곳, 바라는 변화를 짚어 준다. 예) '제주나 교토처럼 바다와 골목이 있는 곳을 자주 떠올리셨어요.'",
+    "- '일요일에 컨디션이 좋았어요', '산책을 했어요' 같은 단순 사실 나열은 쓰지 않는다.",
+    "- 예시 문장은 말투 참고용이다. 입력에 근거가 없으면 그대로 베끼지 않는다.",
+    "",
+    "[actions] 짧은 두 문장: 상황이나 계절에 대한 한마디 + 가벼운 권유. '~해보세요.' 또는 '~어떠세요?'로 끝낸다.",
+    "예) '가을 날씨가 선선해지는 것 같아요. 내장산이나 가까운 단풍 명소를 걸어보세요.'",
+    "3개면 역할을 나눈다.",
+    "(1) 이미 효과가 있었던 회복 방법을 다음에 지칠 때 다시 써 보도록 권하기.",
+    "(2) 좋아하는 활동을 한 단계 넓힌 추천. 예) 산책하며 음악 듣기 → 새 산책 코스와 플레이리스트, 카페 탐방 → 다른 동네 카페, 여행을 꿈꿈 → 짧은 근교 여행. context.season_ideas(context.suggestion_month월에 많이 하는 활동: 전시·축제·자연·여행 등) 중 취향과 맞는 게 있으면 엮어서 권한다.",
+    "(3) 지치게 한 일을 조금 덜어 줄 작은 시도.",
+    "- 장소는 사용자가 쓴 곳이나 널리 알려진 곳만, 사는 지역을 모르니 '가까운 ~'처럼 쓴다. 전시·공연 이름이나 날짜는 지어내지 않는다.",
+    "- community_activities는 같은 앱을 쓰는 다른 분들이 최근 30일 동안 공개 글에 쓴 활동이다(name=활동, situation=언제 했는지, people=몇 명). 이 사람의 취향이나 지금 마음과 이어지는 활동이 있으면 actions 중 1개를 이렇게 권한다. 예) '같은 앱을 쓰는 다른 분들은 요즘 지칠 때 한강을 달리며 기분을 푼대요. 걷기를 좋아하시니 한번 가볍게 따라 해보시는 건 어떠세요?' 인원은 '많은 분들이', '여러 분이'처럼 말하고, 정확한 숫자나 다른 사람의 글 내용은 쓰지 않는다. 이어지는 게 없으면 쓰지 않는다.",
+    "- open_bucket_list는 이 사람이 적어 둔 아직 못 한 버킷리스트다. 좋아하는 것·계절과 맞으면 '적어 두신 ~, 이번 달에 해보시는 건 어떠세요?'처럼 꺼내 준다.",
+    "- 앞에 '다음 주 미션:', '계절 제안:' 같은 라벨을 붙이지 않는다.",
+    "",
+    "[분량·형식]",
+    `- metrics.recorded_days가 3 미만이면 insights 1개(공감), actions 1개. 그 외에는 ${lengthRule}`,
+    "- summary는 2문장: 이 기간 마음을 한마디로 공감 + 가장 중요한 새로운 발견.",
+    "- emotion_summary는 내부 용도의 짧은 정리 문장.",
+    notWeekly ?
+      "- 'weekly'가 아니므로 '이번 주', '다음 주' 대신 '이번 달', '이 기간' 등 payload.period에 맞는 표현을 쓴다." :
+      "- 기간 표현은 '이번 주', '다음 주'를 쓴다.",
+    "",
+    "[금지]",
+    "- '키워드'라는 단어, 키워드 나열 문장.",
+    "- '긍정 신호 n일', '최고 컨디션 데이터', '저점 데이터 부족' 같은 메타 표현.",
+    "- 직장인·학생·부모 같은 생활 패턴 가정. '퇴근 후', '출근길' 같은 표현은 쓰신 글에 그 맥락이 있을 때만.",
+    "- 쓰신 글에 없는 활동을 '이미 잘 맞는 방식'처럼 단정하기.",
+  ].join("\n");
+}
+
+/* eslint-enable max-len */
 async function createOpenAIReport(payload) {
   const apiKey = `${process.env.OPENAI_API_KEY || ""}`.trim();
   if (!apiKey) {
@@ -800,48 +1272,7 @@ async function createOpenAIReport(payload) {
           content: [
             {
               type: "input_text",
-              text:
-                `너는 한국어 라이프 저널 ${periodLabel} 리포트 에디터다. ` +
-                "사용자가 쉽게 읽을 수 있도록 따뜻하고 간결하게 작성한다. " +
-                "payload.period를 보고 기간 표현을 정확히 맞춘다. " +
-                (periodKey === "weekly" ?
-                  "" :
-                  "weekly가 아닌 경우 '이번 주', '다음 주' 같은 표현은 " +
-                  "쓰지 말고 '이 기간' 또는 해당 기간 표현을 사용한다. ") +
-                "metrics.recorded_days가 3 미만이면 간단 리포트로 " +
-                "작성하고 insights는 최대 1개, actions는 " +
-                "최대 1개만 작성한다. " +
-                "그 외에는 insights 2~4개, actions 2~3개를 작성한다. " +
-                "summary는 2~3문장 이내로 작성한다. " +
-                "emotion_summary는 내부 용도로만 쓰일 짧은 정리 문장으로 작성한다. " +
-                "가능하면 metrics의 positive_day_count, burden_day_count, " +
-                "trend_delta, top_keywords, representative_answers를 근거로 쓴다. " +
-                "summary와 insights는 추상적이기보다 구체적으로 쓰고, " +
-                "'좋았던 순간과 힘들었던 순간이 분명하게 구분됐다' " +
-                "같은 모호한 문장은 피한다. " +
-                "metrics.checkin_recorded_days가 0이거나 avg_mood, " +
-                "avg_energy, avg_stress가 모두 0이면 " +
-                "평균 점수를 실제 0점처럼 쓰지 말고 감정 체크인 데이터가 아직 부족하다고 표현한다. " +
-                "insights는 가능하면 4개 이내로 쓰고, 첫 문장은 " +
-                "기분/에너지/스트레스 평균 점수, " +
-                "다음 문장은 컨디션이 좋았던 요일과 자주 언급한 키워드, " +
-                "그다음 문장은 상대적으로 컨디션이 저조했던 요일과 그 날의 답변 단서, " +
-                "마지막 문장은 최근 자주 나온 키워드 2~3개가 어떤 회복 행동으로 이어질 수 있는지 정리한다. " +
-                "'긍정 신호 n일/부담 신호 n일', '최고 컨디션 데이터', " +
-                "'저점 데이터 부족' 같은 메타 표현은 쓰지 않는다. " +
-                "actions는 사용자의 representative_answers와 " +
-                "top_keywords를 바탕으로 개인화한다. " +
-                "actions는 '안부를 보내라'처럼 추상적으로 끝내지 말고, " +
-                "기록에 나온 드라마, 야구, 음악, 산책, 카페, 책 같은 " +
-                "구체 활동이 있으면 다음 에피소드 보기, 야구 경기 관람 계획하기, " +
-                "플레이리스트 2곡 듣기처럼 한 단계 큰 제안으로 확장한다. " +
-                "community_recovery_ideas가 있으면 그중 1개 정도는 " +
-                "다른 사람들의 공개답변에서 보인 아이디어로 자연스럽게 녹여도 된다. " +
-                "직장인, 학생, 부모 같은 생활 패턴을 임의로 가정하지 말고, " +
-                "'퇴근 후', '출근 전', '점심시간' 같은 표현은 입력에 그런 맥락이 있을 때만 쓴다. " +
-                "기록에 직접 등장하지 않은 활동을 '이미 잘 맞는 방식'처럼 단정하지 않는다. " +
-                "actions 문장 앞에 '다음 주 미션:' 같은 라벨은 붙이지 않는다. " +
-                "actions는 모두 '~해보세요.'로 끝낸다.",
+              text: insightSystemPrompt(periodKey, periodLabel),
             },
           ],
         },
@@ -850,7 +1281,9 @@ async function createOpenAIReport(payload) {
           content: [
             {
               type: "input_text",
-              text: JSON.stringify(payload),
+              text: JSON.stringify(
+                  await enrichPayloadForInsights(withoutKeywords(payload)),
+              ),
             },
           ],
         },
@@ -863,7 +1296,8 @@ async function createOpenAIReport(payload) {
           schema: reportSchema(),
         },
       },
-      max_output_tokens: recordedDays < 3 ? 320 : 700,
+      // 한국어 JSON이 잘려 대체 리포트로 넘어가던 문제(2026-10) 때문에 여유 있게 잡는다.
+      max_output_tokens: recordedDays < 3 ? 700 : 1600,
     }),
   });
 

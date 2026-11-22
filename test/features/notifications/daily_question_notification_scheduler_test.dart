@@ -7,6 +7,7 @@ import "package:flutter_test/flutter_test.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "package:dailyquestion/features/more/notification_prefs_keys.dart";
+import "package:dailyquestion/features/notifications/daily_question_notification_plan.dart";
 import "package:dailyquestion/features/notifications/daily_question_notification_scheduler.dart";
 
 const MethodChannel _notificationsChannel = MethodChannel(
@@ -157,7 +158,66 @@ void main() {
       expect(_scheduledNotificationIds, contains(_dailyQuestionScheduleId));
     },
   );
+
+  test("schedules two weeks of dated daily notifications", () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      NotificationPrefsKeys.settingsSchemaVersion:
+          NotificationPrefsKeys.currentSettingsSchemaVersion,
+      NotificationPrefsKeys.todayQuestionEnabled: true,
+      NotificationPrefsKeys.todayQuestionHour: 9,
+      NotificationPrefsKeys.todayQuestionMinute: 0,
+    });
+
+    await refreshDailyQuestionNotificationSchedulerState();
+
+    for (int day = 1; day < dailyQuestionPlanDays; day++) {
+      expect(
+        _scheduledNotificationIds,
+        contains(dailyQuestionPlanBaseId + day),
+      );
+    }
+    expect(_scheduledNotificationIds, isNot(contains(10001)));
+  });
+
+  test("schedules evening reminders by default", () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      NotificationPrefsKeys.settingsSchemaVersion:
+          NotificationPrefsKeys.currentSettingsSchemaVersion,
+      NotificationPrefsKeys.todayQuestionEnabled: true,
+      NotificationPrefsKeys.todayQuestionHour: 9,
+      NotificationPrefsKeys.todayQuestionMinute: 0,
+    });
+
+    await refreshDailyQuestionNotificationSchedulerState();
+
+    expect(_scheduledNotificationIds, contains(_tomorrowEveningReminderId));
+  });
+
+  test("skips evening reminders when turned off", () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      NotificationPrefsKeys.settingsSchemaVersion:
+          NotificationPrefsKeys.currentSettingsSchemaVersion,
+      NotificationPrefsKeys.todayQuestionEnabled: true,
+      NotificationPrefsKeys.todayQuestionHour: 9,
+      NotificationPrefsKeys.todayQuestionMinute: 0,
+      NotificationPrefsKeys.eveningReminderEnabled: false,
+    });
+
+    await refreshDailyQuestionNotificationSchedulerState();
+
+    expect(_scheduledNotificationIds, contains(_dailyQuestionScheduleId));
+    expect(
+      _scheduledNotificationIds.where(
+        (int id) =>
+            id >= eveningReminderPlanBaseId &&
+            id < eveningReminderPlanBaseId + dailyQuestionPlanDays,
+      ),
+      isEmpty,
+    );
+  });
 }
 
-const int _dailyQuestionScheduleId = 10001;
+// 내일 오늘의 질문 알림. 오늘 알림은 테스트 시각에 따라 이미 지났을 수 있다.
+const int _dailyQuestionScheduleId = dailyQuestionPlanBaseId + 1;
+const int _tomorrowEveningReminderId = eveningReminderPlanBaseId + 1;
 const int _weeklyReportScheduleId = 10003;

@@ -8,6 +8,8 @@ import "../auth/login_screen.dart";
 import "../navigation/main_tab_shell.dart";
 import "../onboarding/onboarding_screen.dart";
 import "../profile/nickname_setup_screen.dart";
+import "../home/home_character_select_screen.dart";
+import "../home/home_character_selection_store.dart";
 import "../profile/user_profile_prefs.dart";
 import "splash_route_resolver.dart";
 
@@ -57,12 +59,16 @@ class _SplashScreenState extends State<SplashScreen> {
     final bool hasInitialConsent =
         await UserProfilePrefs.hasInitialConsentAccepted();
     final bool hasNickname = await UserProfilePrefs.hasNickname();
+    await HomeCharacterSelectionStore.instance.initialize();
+    final bool hasCharacterSelection =
+        HomeCharacterSelectionStore.instance.hasExplicitSelection;
     if (!mounted) return;
 
     final SplashRouteTarget target = resolveSplashRouteTarget(
       hasSeenOnboarding: hasSeenOnboarding,
       hasInitialConsent: hasInitialConsent,
       hasNickname: hasNickname,
+      hasCharacterSelection: hasCharacterSelection,
     );
     switch (target) {
       case SplashRouteTarget.onboarding:
@@ -75,6 +81,11 @@ class _SplashScreenState extends State<SplashScreen> {
           MaterialPageRoute<void>(
             builder: (_) => const LoginScreen(mode: LoginScreenMode.onboarding),
           ),
+        );
+        return;
+      case SplashRouteTarget.characterSelect:
+        Navigator.of(context).pushReplacement(
+          HomeCharacterSelectScreen.signupRoute(),
         );
         return;
       case SplashRouteTarget.nickname:

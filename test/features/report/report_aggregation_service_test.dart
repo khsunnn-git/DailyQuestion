@@ -61,9 +61,11 @@ void main() {
         report.insights.first,
         "기분 평균 4.2점, 에너지 평균 3.8점, 스트레스 평균 2.1점입니다.",
       );
-      expect(report.insights, contains("이번 한 주 일요일에 컨디션이 좋았고, 산책을 자주 언급하셨어요."));
+      expect(report.insights, contains("이번 한 주 일요일에 컨디션이 좋았어요."));
       expect(report.insights, contains("화요일은 상대적으로 컨디션이 저조했어요."));
-      expect(report.insights, contains("최근 자주 나온 키워드는 산책, 휴식, 친구 입니다."));
+      // 키워드 추출은 정확도가 낮아 리포트 문장에 넣지 않는다.
+      expect(report.insights.join(" "), isNot(contains("키워드")));
+      expect(report.insights.join(" "), isNot(contains("언급하셨어요")));
       expect(report.actions.first, contains("산책"));
       expect(report.actions.join(" "), isNot(contains("독서")));
       expect(report.actions.join(" "), isNot(contains("날이 느껴지는 날")));
@@ -145,8 +147,9 @@ void main() {
     expect(report.summary, isNot(contains("0/5점")));
     expect(report.summary, contains("체크인 데이터가 아직 부족"));
     expect(report.insights.first, contains("평균 점수는 집계되지 않았어요"));
-    expect(report.insights, contains("이번 한 주에는 산책을 자주 언급하셨어요."));
-    expect(report.insights, contains("최근 자주 나온 키워드는 산책, 휴식 입니다."));
+    expect(report.insights.join(" "), isNot(contains("키워드")));
+    expect(report.insights.join(" "), isNot(contains("언급하셨어요")));
+    expect(report.summary, isNot(contains("키워드")));
   });
 
   test("buildLocalFallbackReport can include community recovery idea", () {

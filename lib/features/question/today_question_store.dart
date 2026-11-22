@@ -111,6 +111,9 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
     "활발한",
   ];
 
+  /// 로컬 DB에서 기록을 한 번이라도 불러왔는지.
+  bool get isInitialized => _initialized;
+
   Future<void> initialize() async {
     if (_initialized) {
       return;
@@ -160,6 +163,18 @@ class TodayQuestionStore extends ValueNotifier<List<TodayQuestionRecord>> {
       }
     }
     return null;
+  }
+
+  /// 가장 최근 기록의 질문 날짜(시각 없이 날짜만). 기록이 없으면 null.
+  DateTime? get latestRecordDate {
+    DateTime? latest;
+    for (final TodayQuestionRecord item in value) {
+      final DateTime day = _questionDateOnly(item);
+      if (latest == null || day.isAfter(latest)) {
+        latest = day;
+      }
+    }
+    return latest;
   }
 
   int get consecutiveRecordDays {

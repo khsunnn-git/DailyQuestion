@@ -5,6 +5,7 @@ import "package:permission_handler/permission_handler.dart";
 import "package:shared_preferences/shared_preferences.dart";
 
 import "../../design_system/design_system.dart";
+import "../notifications/daily_question_notification_plan.dart";
 import "../notifications/daily_question_notification_scheduler.dart";
 import "notification_prefs_keys.dart";
 
@@ -22,6 +23,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     with WidgetsBindingObserver {
   bool _todayQuestionEnabled =
       NotificationPrefsKeys.defaultTodayQuestionEnabled;
+  bool _eveningReminderEnabled =
+      NotificationPrefsKeys.defaultEveningReminderEnabled;
   bool _bucketDdayEnabled = false;
   int _bucketDdayDaysBefore = NotificationPrefsKeys.defaultBucketDdayDaysBefore;
   bool _hasNotificationPermission = false;
@@ -575,6 +578,9 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         NotificationPrefsKeys.defaultTodayQuestionEnabled;
     final bool bucketEnabled =
         prefs.getBool(NotificationPrefsKeys.bucketDdayEnabled) ?? false;
+    final bool eveningEnabled =
+        prefs.getBool(NotificationPrefsKeys.eveningReminderEnabled) ??
+        NotificationPrefsKeys.defaultEveningReminderEnabled;
     final int hour =
         prefs.getInt(NotificationPrefsKeys.todayQuestionHour) ??
         NotificationPrefsKeys.defaultTodayQuestionHour;
@@ -597,6 +603,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
     setState(() {
       _todayQuestionEnabled = todayEnabled;
+      _eveningReminderEnabled = eveningEnabled;
       _bucketDdayEnabled = bucketEnabled;
       _todayQuestionTime = TimeOfDay(hour: hour, minute: minute);
       _bucketDdayDaysBefore = bucketDdayDaysBefore;
@@ -607,6 +614,17 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   Future<void> _saveTodayQuestionEnabled(bool value) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool(NotificationPrefsKeys.todayQuestionEnabled, value);
+  }
+
+  Future<void> _handleEveningReminderToggle(bool enabled) async {
+    _markSettingsInteraction();
+    setState(() {
+      _eveningReminderEnabled = enabled;
+    });
+    _logNotificationSettings("toggle evening reminder enabled=$enabled");
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(NotificationPrefsKeys.eveningReminderEnabled, enabled);
+    await _syncNotificationSchedules();
   }
 
   Future<void> _saveBucketDdayEnabled(bool value) async {
@@ -1184,6 +1202,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 timeLabel: _formatKoreanTime(_todayQuestionTime),
                 onTimeTap: _selectTodayQuestionTime,
                 onChanged: _handleTodayQuestionToggle,
+                eveningReminderEnabled: _eveningReminderEnabled,
+                eveningReminderDescription:
+                    _todayQuestionTime.hour >= eveningReminderLatestDailyHour
+                    ? "알림 시간이 저녁 8시 이후라 따로 보내지 않아요"
+                    : "답하지 않은 날 밤 9시에 한 번 더 알려드려요",
+                onEveningReminderChanged: _handleEveningReminderToggle,
               ),
               const SizedBox(height: AppSpacing.s16),
               _BucketDdayNotificationCard(
@@ -1587,6 +1611,9 @@ class _TodayQuestionNotificationCard extends StatelessWidget {
     required this.timeLabel,
     required this.onTimeTap,
     required this.onChanged,
+    required this.eveningReminderEnabled,
+    required this.eveningReminderDescription,
+    required this.onEveningReminderChanged,
   });
 
   final String title;
@@ -1598,6 +1625,9 @@ class _TodayQuestionNotificationCard extends StatelessWidget {
   final String timeLabel;
   final VoidCallback onTimeTap;
   final ValueChanged<bool> onChanged;
+  final bool eveningReminderEnabled;
+  final String eveningReminderDescription;
+  final ValueChanged<bool> onEveningReminderChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1675,6 +1705,35 @@ class _TodayQuestionNotificationCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: AppSpacing.s24),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        "저녁 리마인드",
+                        style: AppTypography.bodyMediumSemiBold.copyWith(
+                          color: AppNeutralColors.grey900,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.s2),
+                      Text(
+                        eveningReminderDescription,
+                        style: AppTypography.bodySmallMedium.copyWith(
+                          color: AppNeutralColors.grey500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                AppIconToggle(
+                  value: eveningReminderEnabled,
+                  onChanged: onEveningReminderChanged,
+                ),
+              ],
             ),
           ],
         ],

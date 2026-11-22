@@ -1,4 +1,3 @@
-import "package:dailyquestion/design_system/tokens/app_colors.dart";
 import "package:dailyquestion/design_system/theme/app_theme.dart";
 import "package:dailyquestion/features/home/home_character_assets.dart";
 import "package:dailyquestion/features/home/home_fish_growth.dart";
@@ -29,114 +28,52 @@ void main() {
     });
   });
 
-  group("homeGrowthRecordCountForCharacter", () {
+
+  group("legacy character growth (구버전 강제 순서 이어받기)", () {
+    int legacyGrowth(int total) {
+      return legacyHomeCharacterSelectionForTotalRecordCount(
+        total,
+      ).growthRecordCountFor(total);
+    }
+
     test("keeps fish growth on the total record count", () {
-      expect(
-        homeGrowthRecordCountForCharacter(
-          characterType: HomeCharacterType.fish,
-          totalRecordCount: 60,
-        ),
-        60,
-      );
+      expect(legacyGrowth(59), 59);
     });
 
     test("starts tree growth from level 1 at the 60th total record", () {
       expect(
-        homeGrowthRecordCountForCharacter(
-          characterType: HomeCharacterType.tree,
-          totalRecordCount: 59,
-        ),
-        0,
+        legacyHomeCharacterSelectionForTotalRecordCount(60).characterType,
+        HomeCharacterType.tree,
       );
+      expect(legacyGrowth(60), 0);
       expect(
-        homeGrowthRecordCountForCharacter(
-          characterType: HomeCharacterType.tree,
-          totalRecordCount: 60,
-        ),
-        0,
-      );
-      expect(
-        homeFishGrowthLevelForRecordCount(
-          homeGrowthRecordCountForCharacter(
-            characterType: HomeCharacterType.tree,
-            totalRecordCount: 60,
-          ),
-        ),
-        HomeFishGrowthLevel.level1,
-      );
-    });
-
-    test("uses the fish growth cadence inside the tree cycle", () {
-      expect(
-        homeFishGrowthLevelForRecordCount(
-          homeGrowthRecordCountForCharacter(
-            characterType: HomeCharacterType.tree,
-            totalRecordCount: 63,
-          ),
-        ),
+        homeFishGrowthLevelForRecordCount(legacyGrowth(63)),
         HomeFishGrowthLevel.level2,
       );
       expect(
-        homeFishGrowthLevelForRecordCount(
-          homeGrowthRecordCountForCharacter(
-            characterType: HomeCharacterType.tree,
-            totalRecordCount: 70,
-          ),
-        ),
+        homeFishGrowthLevelForRecordCount(legacyGrowth(70)),
         HomeFishGrowthLevel.level3,
       );
     });
 
     test("starts stone growth from level 1 at the 120th total record", () {
       expect(
-        homeGrowthRecordCountForCharacter(
-          characterType: HomeCharacterType.stone,
-          totalRecordCount: 119,
-        ),
-        0,
+        legacyHomeCharacterSelectionForTotalRecordCount(120).characterType,
+        HomeCharacterType.stone,
       );
+      expect(legacyGrowth(120), 0);
       expect(
-        homeGrowthRecordCountForCharacter(
-          characterType: HomeCharacterType.stone,
-          totalRecordCount: 120,
-        ),
-        0,
-      );
-      expect(
-        homeFishGrowthLevelForRecordCount(
-          homeGrowthRecordCountForCharacter(
-            characterType: HomeCharacterType.stone,
-            totalRecordCount: 123,
-          ),
-        ),
+        homeFishGrowthLevelForRecordCount(legacyGrowth(123)),
         HomeFishGrowthLevel.level2,
       );
     });
-  });
 
-  group("homeCharacterAssetForTotalRecordCount", () {
-    test("keeps the home and record report stone character in sync", () {
+    test("keeps the dog from the 180th record", () {
       expect(
-        homeCharacterAssetForTotalRecordCount(
-          characterType: HomeCharacterType.stone,
-          totalRecordCount: 120,
-        ),
-        "assets/images/home/characters/stone/level_1.webp",
+        legacyHomeCharacterSelectionForTotalRecordCount(180).characterType,
+        HomeCharacterType.dog,
       );
-      expect(
-        homeCharacterAssetForTotalRecordCount(
-          characterType: HomeCharacterType.stone,
-          totalRecordCount: 123,
-        ),
-        "assets/images/home/characters/stone/level_2.webp",
-      );
-      expect(
-        homeCharacterAssetForTotalRecordCount(
-          characterType: HomeCharacterType.stone,
-          totalRecordCount: 165,
-        ),
-        "assets/images/home/characters/stone/level_6.webp",
-      );
+      expect(legacyGrowth(240), 60);
     });
   });
 
@@ -214,296 +151,108 @@ void main() {
     expect(HomeFishGrowthLevel.level6.celebrationHeadline, "물고기가 어른이 되었어요!");
   });
 
-  group("resolveHomeBrandTheme", () {
-    test("keeps the fish theme blue through full fish growth", () {
-      expect(
-        resolveHomeBrandTheme(characterName: "물고기", totalRecordCount: 45),
-        AppBrandTheme.blue,
-      );
-      expect(
-        resolveHomeBrandTheme(characterName: "물고기", totalRecordCount: 59),
-        AppBrandTheme.blue,
-      );
+  group("HomeCharacterTypeX", () {
+    test("maps every character to a brand theme", () {
+      expect(HomeCharacterType.fish.brandTheme, AppBrandTheme.blue);
+      expect(HomeCharacterType.parrotbill.brandTheme, AppBrandTheme.blue);
+      expect(HomeCharacterType.tree.brandTheme, AppBrandTheme.green);
+      expect(HomeCharacterType.dino.brandTheme, AppBrandTheme.green);
+      expect(HomeCharacterType.stone.brandTheme, AppBrandTheme.brown);
+      expect(HomeCharacterType.cat.brandTheme, AppBrandTheme.brown);
+      expect(HomeCharacterType.dog.brandTheme, AppBrandTheme.purple);
+      expect(HomeCharacterType.axolotl.brandTheme, AppBrandTheme.purple);
     });
 
-    test(
-      "moves the fish theme to green after the next theme unlock threshold",
-      () {
+    test("lists characters in the Figma selection order", () {
+      expect(HomeCharacterType.values, <HomeCharacterType>[
+        HomeCharacterType.fish,
+        HomeCharacterType.tree,
+        HomeCharacterType.stone,
+        HomeCharacterType.dino,
+        HomeCharacterType.dog,
+        HomeCharacterType.cat,
+        HomeCharacterType.axolotl,
+        HomeCharacterType.parrotbill,
+      ]);
+    });
+
+    test("attaches the right 와/과 particle", () {
+      expect(HomeCharacterType.fish.displayNameWithAnd, "물고기와");
+      expect(HomeCharacterType.tree.displayNameWithAnd, "새싹과");
+      expect(HomeCharacterType.dino.displayNameWithAnd, "공룡과");
+      expect(HomeCharacterType.axolotl.displayNameWithAnd, "우파루파와");
+    });
+  });
+
+  group("new character assets", () {
+    test("resolves level assets from each character directory", () {
+      for (final HomeCharacterType type in <HomeCharacterType>[
+        HomeCharacterType.dino,
+        HomeCharacterType.cat,
+        HomeCharacterType.axolotl,
+        HomeCharacterType.parrotbill,
+      ]) {
         expect(
-          resolveHomeBrandTheme(characterName: "물고기", totalRecordCount: 60),
-          AppBrandTheme.green,
+          HomeCharacterAssets.assetFor(type, HomeFishGrowthLevel.level3),
+          "assets/images/home/characters/${type.name}/level_3.webp",
         );
-      },
-    );
-
-    test("moves the fish theme to brown after the stone unlock threshold", () {
-      expect(
-        resolveHomeBrandTheme(characterName: "물고기", totalRecordCount: 119),
-        AppBrandTheme.green,
-      );
-      expect(
-        resolveHomeBrandTheme(characterName: "물고기", totalRecordCount: 120),
-        AppBrandTheme.brown,
-      );
+        expect(
+          HomeCharacterAssets.recordAssetFor(type),
+          "assets/images/home/characters/${type.name}/record_${type.name}.webp",
+        );
+        expect(
+          HomeCharacterAssets.inviteBannerAssetFor(type),
+          "assets/images/home/characters/${type.name}/home_banner_invite_${type.name}.webp",
+        );
+      }
     });
 
-    test("keeps non-fish characters on their mapped theme", () {
+    test("has no blink frame on level 1", () {
       expect(
-        resolveHomeBrandTheme(characterName: "강아지", totalRecordCount: 60),
-        AppBrandTheme.purple,
-      );
-    });
-
-    test("allows forcing the green preview theme in debug mode", () {
-      expect(
-        resolveHomeBrandTheme(
-          characterName: "물고기",
-          totalRecordCount: 0,
-          debugThemeOverride: "tree",
+        HomeCharacterAssets.blinkAssetFor(
+          HomeCharacterType.cat,
+          HomeFishGrowthLevel.level1,
         ),
-        AppBrandTheme.green,
-      );
-    });
-
-    test("allows forcing the brown preview theme in debug mode", () {
-      expect(
-        resolveHomeBrandTheme(
-          characterName: "물고기",
-          totalRecordCount: 0,
-          debugThemeOverride: "stone",
-        ),
-        AppBrandTheme.brown,
-      );
-    });
-  });
-
-  group("hasUnlockedHomeGreenTheme", () {
-    test("returns false before 60 total records", () {
-      expect(hasUnlockedHomeGreenTheme(59), isFalse);
-    });
-
-    test("returns true from 60 total records", () {
-      expect(hasUnlockedHomeGreenTheme(60), isTrue);
-    });
-  });
-
-  group("hasUnlockedHomeBrownTheme", () {
-    test("returns false before 120 total records", () {
-      expect(hasUnlockedHomeBrownTheme(119), isFalse);
-    });
-
-    test("returns true from 120 total records", () {
-      expect(hasUnlockedHomeBrownTheme(120), isTrue);
-    });
-  });
-
-  group("shouldShowHomeGreenThemeComingSoonNotice", () {
-    test("returns false before the 7-day lead window", () {
-      expect(
-        shouldShowHomeGreenThemeComingSoonNotice(
-          homeGreenThemeComingSoonStartRecordCount - 1,
-        ),
-        isFalse,
-      );
-    });
-
-    test("returns true during the 53rd to 59th record window", () {
-      expect(
-        shouldShowHomeGreenThemeComingSoonNotice(
-          homeGreenThemeComingSoonStartRecordCount,
-        ),
-        isTrue,
-      );
-      expect(shouldShowHomeGreenThemeComingSoonNotice(59), isTrue);
-    });
-
-    test("returns false once the green theme is unlocked", () {
-      expect(
-        shouldShowHomeGreenThemeComingSoonNotice(
-          homeGreenThemeUnlockRecordCount,
-        ),
-        isFalse,
-      );
-    });
-
-    test("returns false when the green theme is already active", () {
-      expect(
-        shouldShowHomeGreenThemeComingSoonNotice(
-          homeGreenThemeComingSoonStartRecordCount,
-          currentCharacterType: HomeCharacterType.tree,
-        ),
-        isFalse,
-      );
-    });
-  });
-
-  group("shouldShowHomeBrownThemeComingSoonNotice", () {
-    test("returns false before the 7-day lead window", () {
-      expect(
-        shouldShowHomeBrownThemeComingSoonNotice(
-          homeBrownThemeComingSoonStartRecordCount - 1,
-        ),
-        isFalse,
-      );
-    });
-
-    test("returns true during the 113th to 119th record window", () {
-      expect(
-        shouldShowHomeBrownThemeComingSoonNotice(
-          homeBrownThemeComingSoonStartRecordCount,
-        ),
-        isTrue,
-      );
-      expect(shouldShowHomeBrownThemeComingSoonNotice(119), isTrue);
-    });
-
-    test("returns false once the brown theme is unlocked", () {
-      expect(
-        shouldShowHomeBrownThemeComingSoonNotice(
-          homeBrownThemeUnlockRecordCount,
-        ),
-        isFalse,
-      );
-    });
-
-    test("returns false unless the tree theme is active", () {
-      expect(
-        shouldShowHomeBrownThemeComingSoonNotice(
-          homeBrownThemeComingSoonStartRecordCount,
-          currentCharacterType: HomeCharacterType.fish,
-        ),
-        isFalse,
+        isNull,
       );
       expect(
-        shouldShowHomeBrownThemeComingSoonNotice(
-          homeBrownThemeComingSoonStartRecordCount,
-          currentCharacterType: HomeCharacterType.stone,
+        HomeCharacterAssets.blinkAssetFor(
+          HomeCharacterType.cat,
+          HomeFishGrowthLevel.level2,
         ),
-        isFalse,
-      );
-    });
-  });
-
-  group("shouldPresentHomeGreenThemeUnlock", () {
-    test("returns true at unlock only before the green theme is active", () {
-      expect(
-        shouldPresentHomeGreenThemeUnlock(
-          totalRecordCount: homeGreenThemeUnlockRecordCount,
-          currentCharacterType: HomeCharacterType.fish,
-          hasPresented: false,
-        ),
-        isTrue,
+        "assets/images/home/characters/cat/level_2_blink.webp",
       );
     });
 
-    test("returns true even when the green theme is already active", () {
-      expect(
-        shouldPresentHomeGreenThemeUnlock(
-          totalRecordCount: homeGreenThemeUnlockRecordCount,
-          currentCharacterType: HomeCharacterType.tree,
-          hasPresented: false,
-        ),
-        isTrue,
-      );
-    });
-
-    test("returns false after the unlock has already been presented", () {
-      expect(
-        shouldPresentHomeGreenThemeUnlock(
-          totalRecordCount: homeGreenThemeUnlockRecordCount,
-          currentCharacterType: HomeCharacterType.fish,
-          hasPresented: true,
-        ),
-        isFalse,
-      );
-    });
-
-    test("returns false once the brown theme is unlocked", () {
-      expect(
-        shouldPresentHomeGreenThemeUnlock(
-          totalRecordCount: homeBrownThemeUnlockRecordCount,
-          currentCharacterType: HomeCharacterType.tree,
-          hasPresented: false,
-        ),
-        isFalse,
-      );
-    });
-  });
-
-  group("shouldPresentHomeBrownThemeUnlock", () {
-    test("returns true at 120 total records before it is presented", () {
-      expect(
-        shouldPresentHomeBrownThemeUnlock(
-          totalRecordCount: homeBrownThemeUnlockRecordCount,
-          hasPresented: false,
-        ),
-        isTrue,
-      );
-    });
-
-    test("keeps the unlock pending after 120 until presentation starts", () {
-      expect(
-        shouldPresentHomeBrownThemeUnlock(
-          totalRecordCount: homeBrownThemeUnlockRecordCount + 1,
-          hasPresented: false,
-        ),
-        isTrue,
-      );
-    });
-
-    test("returns false after it has already been presented", () {
-      expect(
-        shouldPresentHomeBrownThemeUnlock(
-          totalRecordCount: homeBrownThemeUnlockRecordCount,
-          hasPresented: true,
-        ),
-        isFalse,
-      );
+    test("uses each character's empty bucket image", () {
+      for (final HomeCharacterType type in HomeCharacterType.values) {
+        expect(
+          HomeCharacterAssets.emptyBucketAssetFor(type),
+          "assets/images/bucket/bucketlist_empty_state_note_${type.name}.webp",
+        );
+      }
     });
   });
 
   group("resolveHomeInviteBannerAsset", () {
-    test("uses the fish invite banner for the blue theme", () {
+    test("uses the fish invite banner for the fish", () {
       expect(
-        resolveHomeInviteBannerAsset(AppBrandThemes.blue),
+        resolveHomeInviteBannerAsset(HomeCharacterType.fish),
         "assets/images/home/invite/home_banner_invite_fish_blue.webp",
       );
     });
 
-    test("uses the tree invite banner for the green theme", () {
+    test("uses the tree invite banner for the tree", () {
       expect(
-        resolveHomeInviteBannerAsset(AppBrandThemes.green),
+        resolveHomeInviteBannerAsset(HomeCharacterType.tree),
         "assets/images/home/invite/home_banner_invite_tree.webp",
       );
     });
 
-    test("uses the stone invite banner for the brown theme", () {
+    test("uses the stone invite banner for the stone", () {
       expect(
-        resolveHomeInviteBannerAsset(AppBrandThemes.brown),
+        resolveHomeInviteBannerAsset(HomeCharacterType.stone),
         "assets/images/home/characters/stone/home_banner_invite_stone.webp",
-      );
-    });
-  });
-
-  group("resolveHomeCharacterType", () {
-    test("uses the fish character for the blue theme", () {
-      expect(
-        resolveHomeCharacterType(AppBrandThemes.blue),
-        HomeCharacterType.fish,
-      );
-    });
-
-    test("uses the tree character for the green theme", () {
-      expect(
-        resolveHomeCharacterType(AppBrandThemes.green),
-        HomeCharacterType.tree,
-      );
-    });
-
-    test("uses the stone character for the brown theme", () {
-      expect(
-        resolveHomeCharacterType(AppBrandThemes.brown),
-        HomeCharacterType.stone,
       );
     });
   });

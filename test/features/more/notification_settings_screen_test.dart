@@ -9,6 +9,7 @@ import "package:shared_preferences/shared_preferences.dart";
 
 import "package:dailyquestion/design_system/design_system.dart";
 import "package:dailyquestion/features/more/notification_settings_screen.dart";
+import "package:dailyquestion/features/notifications/daily_question_notification_plan.dart";
 import "package:dailyquestion/features/more/notification_prefs_keys.dart";
 
 const MethodChannel _notificationsChannel = MethodChannel(
@@ -257,7 +258,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(_scheduledNotificationIds, contains(10001));
+      expect(_scheduledNotificationIds, contains(dailyQuestionPlanBaseId + 1));
       expect(_scheduledNotificationIds, contains(10003));
     },
   );

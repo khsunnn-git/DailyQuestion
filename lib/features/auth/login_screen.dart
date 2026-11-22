@@ -5,6 +5,8 @@ import "package:flutter_svg/flutter_svg.dart";
 import "../../design_system/design_system.dart";
 import "../navigation/main_tab_shell.dart";
 import "../profile/initial_terms_consent_screen.dart";
+import "../home/home_character_select_screen.dart";
+import "../home/home_character_selection_store.dart";
 import "../profile/nickname_setup_screen.dart";
 import "../profile/user_profile_remote_service.dart";
 import "../profile/user_profile_store.dart";
@@ -83,16 +85,25 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         case PostLoginDestination.nicknameSetup:
+          void onNicknameCompleted(BuildContext completionContext) {
+            Navigator.of(
+              completionContext,
+            ).pushReplacement(MainTabShell.route());
+          }
+          await HomeCharacterSelectionStore.instance.initialize();
+          if (!mounted) {
+            return;
+          }
+          // 회원가입 중이면 닉네임 전에 캐릭터부터 고른다.
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute<void>(
-              builder: (_) => NicknameSetupScreen(
-                onCompleted: (BuildContext completionContext) {
-                  Navigator.of(
-                    completionContext,
-                  ).pushReplacement(MainTabShell.route());
-                },
-              ),
-            ),
+            HomeCharacterSelectionStore.instance.hasExplicitSelection
+                ? MaterialPageRoute<void>(
+                    builder: (_) =>
+                        NicknameSetupScreen(onCompleted: onNicknameCompleted),
+                  )
+                : HomeCharacterSelectScreen.signupRoute(
+                    onNicknameCompleted: onNicknameCompleted,
+                  ),
           );
         case PostLoginDestination.home:
           Navigator.of(context).pushReplacement(MainTabShell.route());

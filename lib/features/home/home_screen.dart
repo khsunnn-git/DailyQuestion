@@ -11,11 +11,15 @@ import "../../core/kst_date_time.dart";
 import "../../design_system/design_system.dart";
 import "../navigation/main_tab_shell.dart";
 import "annual_record_screen.dart";
-import "green_theme_coming_soon_popup.dart";
+import "next_character_coming_soon_popup.dart";
 import "my_record_detail_screen.dart";
+import "home_bubble_messages.dart";
 import "home_character_assets.dart";
+import "home_dog_character.dart";
 import "home_fish_growth.dart";
-import "next_theme_unlock_screen.dart";
+import "home_blink_character.dart";
+import "home_character_select_screen.dart";
+import "home_character_selection_store.dart";
 import "home_theme_progression.dart";
 import "my_records_screen.dart";
 import "public_record_detail_screen.dart";
@@ -275,9 +279,7 @@ class _TopQuestionPanelState extends State<_TopQuestionPanel>
             List<TodayQuestionRecord> records,
             Widget? child,
           ) {
-            final HomeCharacterType characterType = resolveHomeCharacterType(
-              brand,
-            );
+            final HomeCharacterType characterType = currentHomeCharacterType();
             final bool isFishTheme = characterType == HomeCharacterType.fish;
             final bool isTreeTheme = characterType == HomeCharacterType.tree;
             final bool hasRecord =
@@ -403,41 +405,38 @@ class _HomeLevelUpOverlayHost extends StatefulWidget {
 
 class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     with RouteAware, WidgetsBindingObserver {
+  // 구버전(강제 순서) 캐릭터별 마지막 축하 레벨. 처음 업데이트할 때 한 번만 이어받는다.
   static const String _legacyFishCelebratedLevelPrefsKey =
       "home_last_celebrated_fish_level";
-  static const String _lastCelebratedFishLevelPrefsKey =
-      "home_last_celebrated_level_fish";
-  static const String _lastCelebratedTreeLevelPrefsKey =
-      "home_last_celebrated_level_tree";
-  static const String _lastCelebratedStoneLevelPrefsKey =
-      "home_last_celebrated_level_stone";
-  static const String _greenThemeComingSoonDismissedDatePrefsKey =
-      "home_green_theme_coming_soon_dismissed_date";
-  static const String _brownThemeComingSoonDismissedDatePrefsKey =
-      "home_brown_theme_coming_soon_dismissed_date";
-  static const String _greenThemeUnlockPresentedPrefsKey =
-      "home_green_theme_unlock_presented";
-  static const String _brownThemeUnlockPresentedPrefsKey =
-      "home_brown_theme_unlock_presented_v2";
+  static const Map<HomeCharacterType, String> _legacyCelebratedLevelPrefsKeys =
+      <HomeCharacterType, String>{
+        HomeCharacterType.fish: "home_last_celebrated_level_fish",
+        HomeCharacterType.tree: "home_last_celebrated_level_tree",
+        HomeCharacterType.stone: "home_last_celebrated_level_stone",
+        HomeCharacterType.dog: "home_last_celebrated_level_dog",
+      };
+
+  /// 마지막으로 레벨업을 축하한 캐릭터 사이클("dog@180")과 레벨.
+  static const String _celebratedCycleKeyPrefsKey = "home_celebrated_cycle_key";
+  static const String _celebratedCycleLevelPrefsKey =
+      "home_celebrated_cycle_level";
+  static const String _nextCharacterComingSoonDismissedDatePrefsKey =
+      "home_next_character_coming_soon_dismissed_date";
   static const Duration _visibleDuration = Duration(seconds: 5);
   static const Duration _fadeDuration = Duration(milliseconds: 220);
 
   SharedPreferences? _prefs;
-  final Map<HomeCharacterType, int> _lastCelebratedLevels =
-      <HomeCharacterType, int>{};
-  String? _dismissedGreenThemeComingSoonDateKey;
-  String? _dismissedBrownThemeComingSoonDateKey;
-  String? _acknowledgedGreenThemeComingSoonDateKey;
-  String? _acknowledgedBrownThemeComingSoonDateKey;
-  bool _hasPresentedGreenThemeUnlock = false;
-  bool _hasPresentedBrownThemeUnlock = false;
+  String? _celebratedCycleKey;
+  int _lastCelebratedLevelNumber = HomeFishGrowthLevel.level1.number;
+  String? _dismissedComingSoonDateKey;
+  String? _acknowledgedComingSoonDateKey;
   HomeFishGrowthLevel? _visibleLevel;
   HomeCharacterType? _visibleCharacterType;
   PageRoute<dynamic>? _pageRoute;
   bool _isOverlayVisible = false;
   bool _isRouteVisible = false;
-  bool _isPresentingGreenThemeComingSoon = false;
-  bool _isPresentingNextThemeUnlock = false;
+  bool _isPresentingComingSoon = false;
+  bool _isPresentingNextCharacterSelection = false;
   Timer? _hideTimer;
 
   @override
@@ -445,105 +444,57 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     TodayQuestionStore.instance.addListener(_handleRecordsChanged);
+    HomeCharacterSelectionStore.instance.addListener(_handleRecordsChanged);
     unawaited(_prepare());
   }
 
   Future<void> _prepare() async {
     await TodayQuestionStore.instance.initialize();
+    await HomeCharacterSelectionStore.instance.initialize();
+    await HomeCharacterSelectionStore.instance.persistLegacySelectionIfNeeded(
+      TodayQuestionStore.instance.value.length,
+    );
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final int totalRecordCount = TodayQuestionStore.instance.value.length;
-    final HomeCharacterType currentCharacterType = _currentCharacterType();
-    final int growthRecordCount = homeGrowthRecordCountForCharacter(
-      characterType: currentCharacterType,
-      totalRecordCount: totalRecordCount,
-    );
-    final HomeFishGrowthLevel currentLevel = homeFishGrowthLevelForRecordCount(
-      growthRecordCount,
-    );
-    final int storedFishLevelNumber =
-        prefs.getInt(_lastCelebratedFishLevelPrefsKey) ??
-        prefs.getInt(_legacyFishCelebratedLevelPrefsKey) ??
-        (currentCharacterType == HomeCharacterType.fish
-            ? currentLevel.number
-            : HomeFishGrowthLevel.level1.number);
-    final int storedTreeLevelNumber = _normalizedStoredLevelNumber(
-      storedLevelNumber: prefs.getInt(_lastCelebratedTreeLevelPrefsKey),
-      fallbackLevelNumber: currentCharacterType == HomeCharacterType.tree
-          ? currentLevel.number
-          : HomeFishGrowthLevel.level1.number,
-      currentLevelNumber: currentLevel.number,
-      shouldClampToCurrent: currentCharacterType == HomeCharacterType.tree,
-    );
-    final int previousStoredTreeLevelNumber =
-        prefs.getInt(_lastCelebratedTreeLevelPrefsKey) ??
-        (currentCharacterType == HomeCharacterType.tree
-            ? currentLevel.number
-            : HomeFishGrowthLevel.level1.number);
-    final int storedStoneLevelNumber = _normalizedStoredLevelNumber(
-      storedLevelNumber: prefs.getInt(_lastCelebratedStoneLevelPrefsKey),
-      fallbackLevelNumber: currentCharacterType == HomeCharacterType.stone
-          ? currentLevel.number
-          : HomeFishGrowthLevel.level1.number,
-      currentLevelNumber: currentLevel.number,
-      shouldClampToCurrent: currentCharacterType == HomeCharacterType.stone,
-    );
-    final int previousStoredStoneLevelNumber =
-        prefs.getInt(_lastCelebratedStoneLevelPrefsKey) ??
-        (currentCharacterType == HomeCharacterType.stone
-            ? currentLevel.number
-            : HomeFishGrowthLevel.level1.number);
-    final String? storedGreenThemeComingSoonDismissedDateKey = prefs.getString(
-      _greenThemeComingSoonDismissedDatePrefsKey,
-    );
-    final String? storedBrownThemeComingSoonDismissedDateKey = prefs.getString(
-      _brownThemeComingSoonDismissedDatePrefsKey,
-    );
-    final bool storedGreenThemeUnlockPresented =
-        prefs.getBool(_greenThemeUnlockPresentedPrefsKey) ?? false;
-    final bool storedBrownThemeUnlockPresented =
-        prefs.getBool(_brownThemeUnlockPresentedPrefsKey) ?? false;
-    if (!prefs.containsKey(_lastCelebratedFishLevelPrefsKey)) {
-      await prefs.setInt(
-        _lastCelebratedFishLevelPrefsKey,
-        storedFishLevelNumber,
-      );
+    final HomeCharacterSelection selection = _currentSelection();
+    final HomeFishGrowthLevel currentLevel = _currentLevelFor(selection);
+    final String? storedCycleKey = prefs.getString(_celebratedCycleKeyPrefsKey);
+    final int storedCycleLevel =
+        prefs.getInt(_celebratedCycleLevelPrefsKey) ?? currentLevel.number;
+
+    int lastLevelNumber;
+    if (storedCycleKey == selection.cycleKey) {
+      lastLevelNumber = storedCycleLevel;
+    } else if (storedCycleKey == null) {
+      // 업데이트 후 첫 실행: 구버전 캐릭터별 기록을 이어받는다.
+      final String? legacyKey =
+          _legacyCelebratedLevelPrefsKeys[selection.characterType];
+      final int? legacyLevel = legacyKey == null
+          ? null
+          : (prefs.getInt(legacyKey) ??
+                (selection.characterType == HomeCharacterType.fish
+                    ? prefs.getInt(_legacyFishCelebratedLevelPrefsKey)
+                    : null));
+      lastLevelNumber = legacyLevel ?? currentLevel.number;
+    } else {
+      // 새 캐릭터 사이클: 지금 레벨부터 축하를 시작한다.
+      lastLevelNumber = currentLevel.number;
     }
-    if (!prefs.containsKey(_lastCelebratedTreeLevelPrefsKey)) {
-      await prefs.setInt(
-        _lastCelebratedTreeLevelPrefsKey,
-        storedTreeLevelNumber,
-      );
-    } else if (storedTreeLevelNumber != previousStoredTreeLevelNumber) {
-      await prefs.setInt(
-        _lastCelebratedTreeLevelPrefsKey,
-        storedTreeLevelNumber,
-      );
+    if (lastLevelNumber > currentLevel.number) {
+      lastLevelNumber = currentLevel.number;
     }
-    if (!prefs.containsKey(_lastCelebratedStoneLevelPrefsKey)) {
-      await prefs.setInt(
-        _lastCelebratedStoneLevelPrefsKey,
-        storedStoneLevelNumber,
-      );
-    } else if (storedStoneLevelNumber != previousStoredStoneLevelNumber) {
-      await prefs.setInt(
-        _lastCelebratedStoneLevelPrefsKey,
-        storedStoneLevelNumber,
-      );
-    }
+    await prefs.setString(_celebratedCycleKeyPrefsKey, selection.cycleKey);
+    await prefs.setInt(_celebratedCycleLevelPrefsKey, lastLevelNumber);
+    final String? storedDismissedDateKey = prefs.getString(
+      _nextCharacterComingSoonDismissedDatePrefsKey,
+    );
     if (!mounted) {
       return;
     }
     setState(() {
       _prefs = prefs;
-      _lastCelebratedLevels[HomeCharacterType.fish] = storedFishLevelNumber;
-      _lastCelebratedLevels[HomeCharacterType.tree] = storedTreeLevelNumber;
-      _lastCelebratedLevels[HomeCharacterType.stone] = storedStoneLevelNumber;
-      _dismissedGreenThemeComingSoonDateKey =
-          storedGreenThemeComingSoonDismissedDateKey;
-      _dismissedBrownThemeComingSoonDateKey =
-          storedBrownThemeComingSoonDismissedDateKey;
-      _hasPresentedGreenThemeUnlock = storedGreenThemeUnlockPresented;
-      _hasPresentedBrownThemeUnlock = storedBrownThemeUnlockPresented;
+      _celebratedCycleKey = selection.cycleKey;
+      _lastCelebratedLevelNumber = lastLevelNumber;
+      _dismissedComingSoonDateKey = storedDismissedDateKey;
     });
     _evaluatePendingCelebration();
   }
@@ -552,17 +503,31 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     _evaluatePendingCelebration();
   }
 
-  int _normalizedStoredLevelNumber({
-    required int? storedLevelNumber,
-    required int fallbackLevelNumber,
-    required int currentLevelNumber,
-    required bool shouldClampToCurrent,
-  }) {
-    final int levelNumber = storedLevelNumber ?? fallbackLevelNumber;
-    if (shouldClampToCurrent && levelNumber > currentLevelNumber) {
-      return currentLevelNumber;
+  HomeCharacterSelection _currentSelection() {
+    return HomeCharacterSelectionStore.instance.current;
+  }
+
+  HomeFishGrowthLevel _currentLevelFor(HomeCharacterSelection selection) {
+    return homeFishGrowthLevelForRecordCount(
+      selection.growthRecordCountFor(TodayQuestionStore.instance.value.length),
+    );
+  }
+
+  /// 캐릭터를 새로 골랐으면 축하 기록을 그 사이클 기준으로 새로 시작한다.
+  void _syncCelebratedCycle(
+    SharedPreferences prefs,
+    HomeCharacterSelection selection,
+    HomeFishGrowthLevel currentLevel,
+  ) {
+    if (_celebratedCycleKey == selection.cycleKey) {
+      return;
     }
-    return levelNumber;
+    _celebratedCycleKey = selection.cycleKey;
+    _lastCelebratedLevelNumber = currentLevel.number;
+    unawaited(prefs.setString(_celebratedCycleKeyPrefsKey, selection.cycleKey));
+    unawaited(
+      prefs.setInt(_celebratedCycleLevelPrefsKey, _lastCelebratedLevelNumber),
+    );
   }
 
   void _evaluatePendingCelebration() {
@@ -574,81 +539,49 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
       return;
     }
     final int totalRecordCount = TodayQuestionStore.instance.value.length;
-    final HomeCharacterType currentCharacterType = _currentCharacterType();
-    final int growthRecordCount = homeGrowthRecordCountForCharacter(
-      characterType: currentCharacterType,
-      totalRecordCount: totalRecordCount,
-    );
-    final int? lastCelebratedLevelNumber =
-        _lastCelebratedLevels[currentCharacterType];
-    if (lastCelebratedLevelNumber == null) {
+    final HomeCharacterSelection selection = _currentSelection();
+    final HomeFishGrowthLevel currentLevel = _currentLevelFor(selection);
+    _syncCelebratedCycle(prefs, selection, currentLevel);
+
+    // 1) 레벨업 축하가 남아 있으면 먼저 보여준다. (6레벨 축하 → 다음 캐릭터 선택 순)
+    if (currentLevel.canCelebrate &&
+        currentLevel.number > _lastCelebratedLevelNumber) {
+      _lastCelebratedLevelNumber = currentLevel.number;
+      unawaited(
+        prefs.setInt(_celebratedCycleLevelPrefsKey, currentLevel.number),
+      );
+      _showOverlay(selection.characterType, currentLevel);
       return;
     }
-    if (shouldPresentHomeBrownThemeUnlock(
+    if (_isOverlayVisible) {
+      return;
+    }
+
+    // 2) 60회를 다 채웠으면 다음 캐릭터를 고른다.
+    if (shouldPresentHomeNextCharacterSelection(
+      selection: selection,
       totalRecordCount: totalRecordCount,
-      hasPresented: _hasPresentedBrownThemeUnlock,
     )) {
-      unawaited(_presentNextThemeUnlockScreen(HomeCharacterType.stone));
+      unawaited(_presentNextCharacterSelection());
       return;
     }
-    if (shouldPresentHomeGreenThemeUnlock(
-      totalRecordCount: totalRecordCount,
-      currentCharacterType: currentCharacterType,
-      hasPresented: _hasPresentedGreenThemeUnlock,
-    )) {
-      unawaited(_presentNextThemeUnlockScreen(HomeCharacterType.tree));
-      return;
-    }
+
+    // 3) 사이클이 거의 끝나가면 하루 한 번 미리 안내한다.
     final String todayDateKey = kstDateKeyNow();
-    if (shouldShowHomeBrownThemeComingSoonNotice(
-          totalRecordCount,
-          currentCharacterType: currentCharacterType,
+    if (shouldShowHomeNextCharacterComingSoonNotice(
+          selection: selection,
+          totalRecordCount: totalRecordCount,
         ) &&
-        _dismissedBrownThemeComingSoonDateKey != todayDateKey &&
-        _acknowledgedBrownThemeComingSoonDateKey != todayDateKey) {
+        _dismissedComingSoonDateKey != todayDateKey &&
+        _acknowledgedComingSoonDateKey != todayDateKey) {
       unawaited(
-        _presentThemeComingSoonNotice(todayDateKey, HomeCharacterType.stone),
-      );
-      return;
-    }
-    if (shouldShowHomeGreenThemeComingSoonNotice(
+        _presentNextCharacterComingSoonNotice(
+          todayDateKey,
+          selection,
           totalRecordCount,
-          currentCharacterType: currentCharacterType,
-        ) &&
-        _dismissedGreenThemeComingSoonDateKey != todayDateKey &&
-        _acknowledgedGreenThemeComingSoonDateKey != todayDateKey) {
-      unawaited(
-        _presentThemeComingSoonNotice(todayDateKey, HomeCharacterType.tree),
+        ),
       );
-      return;
     }
-    final HomeFishGrowthLevel currentLevel = homeFishGrowthLevelForRecordCount(
-      growthRecordCount,
-    );
-    if (!currentLevel.canCelebrate ||
-        currentLevel.number <= lastCelebratedLevelNumber) {
-      return;
-    }
-    _lastCelebratedLevels[currentCharacterType] = currentLevel.number;
-    unawaited(
-      prefs.setInt(
-        _prefsKeyForCharacterType(currentCharacterType),
-        currentLevel.number,
-      ),
-    );
-    _showOverlay(currentCharacterType, currentLevel);
-  }
-
-  HomeCharacterType _currentCharacterType() {
-    return resolveHomeCharacterType(context.appBrandScale);
-  }
-
-  String _prefsKeyForCharacterType(HomeCharacterType type) {
-    return switch (type) {
-      HomeCharacterType.fish => _lastCelebratedFishLevelPrefsKey,
-      HomeCharacterType.tree => _lastCelebratedTreeLevelPrefsKey,
-      HomeCharacterType.stone => _lastCelebratedStoneLevelPrefsKey,
-    };
   }
 
   @override
@@ -733,36 +666,18 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
           _visibleLevel = null;
           _visibleCharacterType = null;
         });
+        _evaluatePendingCelebration();
       });
     });
   }
 
-  Future<void> _presentNextThemeUnlockScreen(
-    HomeCharacterType unlockedCharacterType,
-  ) async {
-    if (_isPresentingGreenThemeComingSoon ||
-        _isPresentingNextThemeUnlock ||
+  Future<void> _presentNextCharacterSelection() async {
+    if (_isPresentingComingSoon ||
+        _isPresentingNextCharacterSelection ||
         !mounted) {
       return;
     }
-    _isPresentingNextThemeUnlock = true;
-    final SharedPreferences? prefs = _prefs;
-    switch (unlockedCharacterType) {
-      case HomeCharacterType.tree:
-        _hasPresentedGreenThemeUnlock = true;
-        if (prefs != null) {
-          unawaited(prefs.setBool(_greenThemeUnlockPresentedPrefsKey, true));
-        }
-        break;
-      case HomeCharacterType.stone:
-        _hasPresentedBrownThemeUnlock = true;
-        if (prefs != null) {
-          unawaited(prefs.setBool(_brownThemeUnlockPresentedPrefsKey, true));
-        }
-        break;
-      case HomeCharacterType.fish:
-        break;
-    }
+    _isPresentingNextCharacterSelection = true;
     _hideTimer?.cancel();
     if (_visibleLevel != null || _isOverlayVisible) {
       setState(() {
@@ -774,76 +689,66 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     try {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => NextThemeUnlockScreen(
-            unlockedCharacterType: unlockedCharacterType,
+          builder: (_) => const HomeCharacterSelectScreen(
+            mode: HomeCharacterSelectMode.nextCycle,
           ),
         ),
       );
     } finally {
-      _isPresentingNextThemeUnlock = false;
+      _isPresentingNextCharacterSelection = false;
       if (mounted) {
         _evaluatePendingCelebration();
       }
     }
   }
 
-  Future<void> _presentThemeComingSoonNotice(
+  Future<void> _presentNextCharacterComingSoonNotice(
     String todayDateKey,
-    HomeCharacterType targetCharacterType,
+    HomeCharacterSelection selection,
+    int totalRecordCount,
   ) async {
-    if (_isPresentingGreenThemeComingSoon ||
-        _isPresentingNextThemeUnlock ||
+    if (_isPresentingComingSoon ||
+        _isPresentingNextCharacterSelection ||
         !mounted) {
       return;
     }
-    _isPresentingGreenThemeComingSoon = true;
+    _isPresentingComingSoon = true;
     final bool? dismissForToday = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       barrierColor: AppPopupTokens.dimmed,
       builder: (BuildContext dialogContext) {
         return Center(
-          child: GreenThemeComingSoonPopup(
-            targetCharacterType: targetCharacterType,
-            onCloseForToday: () => Navigator.of(dialogContext).pop(true),
-            onConfirm: () => Navigator.of(dialogContext).pop(false),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.s24),
+            child: NextCharacterComingSoonPopup(
+            currentCharacterType: selection.characterType,
+            remainingRecordCount: homeRecordsUntilNextCharacterSelection(
+              selection: selection,
+              totalRecordCount: totalRecordCount,
+            ),
+              onCloseForToday: () => Navigator.of(dialogContext).pop(true),
+              onConfirm: () => Navigator.of(dialogContext).pop(false),
+            ),
           ),
         );
       },
     );
-    _isPresentingGreenThemeComingSoon = false;
+    _isPresentingComingSoon = false;
     if (dismissForToday == null || !mounted) {
       return;
     }
-    switch (targetCharacterType) {
-      case HomeCharacterType.tree:
-        _acknowledgedGreenThemeComingSoonDateKey = todayDateKey;
-        break;
-      case HomeCharacterType.stone:
-        _acknowledgedBrownThemeComingSoonDateKey = todayDateKey;
-        break;
-      case HomeCharacterType.fish:
-        break;
-    }
+    _acknowledgedComingSoonDateKey = todayDateKey;
     if (dismissForToday) {
-      final String prefsKey = switch (targetCharacterType) {
-        HomeCharacterType.tree => _greenThemeComingSoonDismissedDatePrefsKey,
-        HomeCharacterType.stone => _brownThemeComingSoonDismissedDatePrefsKey,
-        HomeCharacterType.fish => _greenThemeComingSoonDismissedDatePrefsKey,
-      };
-      switch (targetCharacterType) {
-        case HomeCharacterType.tree:
-          _dismissedGreenThemeComingSoonDateKey = todayDateKey;
-          break;
-        case HomeCharacterType.stone:
-          _dismissedBrownThemeComingSoonDateKey = todayDateKey;
-          break;
-        case HomeCharacterType.fish:
-          break;
-      }
+      _dismissedComingSoonDateKey = todayDateKey;
       final SharedPreferences? prefs = _prefs;
       if (prefs != null) {
-        unawaited(prefs.setString(prefsKey, todayDateKey));
+        unawaited(
+          prefs.setString(
+            _nextCharacterComingSoonDismissedDatePrefsKey,
+            todayDateKey,
+          ),
+        );
       }
     }
     _evaluatePendingCelebration();
@@ -854,6 +759,7 @@ class _HomeLevelUpOverlayHostState extends State<_HomeLevelUpOverlayHost>
     _hideTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     TodayQuestionStore.instance.removeListener(_handleRecordsChanged);
+    HomeCharacterSelectionStore.instance.removeListener(_handleRecordsChanged);
     if (_pageRoute != null) {
       appRouteObserver.unsubscribe(this);
     }
@@ -889,9 +795,6 @@ class _HomeLevelUpOverlay extends StatelessWidget {
   final HomeFishGrowthLevel level;
 
   static const Color _scrimColor = Color(0xB8000000);
-  static final Color _fishAccentColor = AppBrandThemes.blue.c300;
-  static final Color _treeAccentColor = AppBrandThemes.green.c300;
-  static final Color _stoneAccentColor = AppBrandThemes.brown.c300;
 
   String get _headline {
     return switch (characterType) {
@@ -912,16 +815,30 @@ class _HomeLevelUpOverlay extends StatelessWidget {
         HomeFishGrowthLevel.level5 => "무럭무럭 자랐어요!",
         HomeFishGrowthLevel.level6 => "숲의 일원이 되었어요!",
       },
+      HomeCharacterType.dog => switch (level) {
+        HomeFishGrowthLevel.level1 => "백구와 첫 만남이에요!",
+        HomeFishGrowthLevel.level2 => "아기 강아지로 자라났어요!",
+        HomeFishGrowthLevel.level3 => "제법 자라났어요!",
+        HomeFishGrowthLevel.level4 => "더 크게 자라났어요!",
+        HomeFishGrowthLevel.level5 => "무럭무럭 자랐어요!",
+        HomeFishGrowthLevel.level6 => "멋진 백구로 성장했어요!",
+      },
+      HomeCharacterType.dino ||
+      HomeCharacterType.cat ||
+      HomeCharacterType.axolotl ||
+      HomeCharacterType.parrotbill => switch (level) {
+        HomeFishGrowthLevel.level1 =>
+          "${characterType.displayNameWithAnd} 첫 만남이에요!",
+        HomeFishGrowthLevel.level2 => "조금씩 자라나고 있어요!",
+        HomeFishGrowthLevel.level3 => "제법 자라났어요!",
+        HomeFishGrowthLevel.level4 => "더 크게 자라났어요!",
+        HomeFishGrowthLevel.level5 => "무럭무럭 자랐어요!",
+        HomeFishGrowthLevel.level6 => "멋지게 성장했어요!",
+      },
     };
   }
 
-  Color get _accentColor {
-    return switch (characterType) {
-      HomeCharacterType.fish => _fishAccentColor,
-      HomeCharacterType.tree => _treeAccentColor,
-      HomeCharacterType.stone => _stoneAccentColor,
-    };
-  }
+  Color get _accentColor => characterType.brandScale.c300;
 
   _HomeLevelUpOverlayDecorLayout get _decorLayout {
     return switch (level) {
@@ -1030,14 +947,13 @@ class _HomeLevelUpOverlay extends StatelessWidget {
                           fit: BoxFit.contain,
                           errorBuilder: (_, error, stackTrace) {
                             return Center(
-                              child: AppEmojiText(switch (characterType) {
-                                HomeCharacterType.fish => "🐟",
-                                HomeCharacterType.tree =>
-                                  level == HomeFishGrowthLevel.level6
-                                      ? "🌳"
-                                      : "🌱",
-                                HomeCharacterType.stone => "🪨",
-                              }, style: const TextStyle(fontSize: 80)),
+                              child: AppEmojiText(
+                                characterType == HomeCharacterType.tree &&
+                                        level == HomeFishGrowthLevel.level6
+                                    ? "🌳"
+                                    : characterType.fallbackEmoji,
+                                style: const TextStyle(fontSize: 80),
+                              ),
                             );
                           },
                         ),
@@ -1097,6 +1013,25 @@ class _HomeHeroFishImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (characterType == HomeCharacterType.dog) {
+      return HomeDogCharacter(
+        growthLevel: growthLevel,
+        size: size,
+        fallbackFontSize: fallbackFontSize,
+      );
+    }
+    if (characterType.hasBlinkFrames) {
+      return HomeBlinkCharacter(
+        characterType: characterType,
+        growthLevel: growthLevel,
+        size: size,
+        fallbackFontSize: fallbackFontSize,
+      );
+    }
+    // 원본(1024px)을 화면에 보이는 크기로 줄여 읽어 메모리를 아낀다.
+    final int decodeWidth = (size * MediaQuery.devicePixelRatioOf(context))
+        .ceil()
+        .clamp(1, 1024);
     final _SplitTreeAssetConfig? splitTreeConfig = switch (growthLevel) {
       HomeFishGrowthLevel.level1 when characterType == HomeCharacterType.tree =>
         _SplitTreeAssetConfig(
@@ -1171,6 +1106,7 @@ class _HomeHeroFishImage extends StatelessWidget {
           children: <Widget>[
             Image.asset(
               splitTreeConfig.baseAssetPath,
+              cacheWidth: decodeWidth,
               fit: BoxFit.contain,
               errorBuilder: (_, error, stackTrace) {
                 return const SizedBox.shrink();
@@ -1186,6 +1122,7 @@ class _HomeHeroFishImage extends StatelessWidget {
                   angle: treeLeafAngle,
                   child: Image.asset(
                     splitTreeConfig.leafAssetPath,
+                    cacheWidth: decodeWidth,
                     fit: BoxFit.contain,
                     errorBuilder: (_, error, stackTrace) {
                       return Center(
@@ -1213,14 +1150,14 @@ class _HomeHeroFishImage extends StatelessWidget {
         height: size,
         child: Image.asset(
           assetPath,
+          cacheWidth: decodeWidth,
           fit: BoxFit.contain,
           errorBuilder: (_, error, stackTrace) {
             return Center(
-              child: AppEmojiText(switch (characterType) {
-                HomeCharacterType.fish => "🐟",
-                HomeCharacterType.tree => "🌱",
-                HomeCharacterType.stone => "🪨",
-              }, style: TextStyle(fontSize: fallbackFontSize)),
+              child: AppEmojiText(
+                characterType.fallbackEmoji,
+                style: TextStyle(fontSize: fallbackFontSize),
+              ),
             );
           },
         ),
@@ -1287,6 +1224,20 @@ double _homeTreeLeafScaleForLevel(HomeFishGrowthLevel level, double swayValue) {
   return 1 + ((maxScale - 1) * easedPhase);
 }
 
+/// 마지막 기록일로부터 오늘(KST)까지 지난 일수. 기록이 없으면 null.
+int? _homeDaysSinceLastRecord() {
+  final DateTime? latest = TodayQuestionStore.instance.latestRecordDate;
+  if (latest == null) {
+    return null;
+  }
+  final DateTime today = kstDateOnly(DateTime.now());
+  return DateTime.utc(
+    today.year,
+    today.month,
+    today.day,
+  ).difference(DateTime.utc(latest.year, latest.month, latest.day)).inDays;
+}
+
 class _QuestionBeforeRecordCard extends StatefulWidget {
   const _QuestionBeforeRecordCard({required this.recordCount});
 
@@ -1299,10 +1250,6 @@ class _QuestionBeforeRecordCard extends StatefulWidget {
 
 class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
     with TickerProviderStateMixin {
-  static const List<String> _messages = <String>[
-    "오늘은 아직 답변하지 않았어요",
-    "무엇이든 가볍게 적어보세요",
-  ];
   int _messageIndex = 0;
   Timer? _messageTimer;
   late final AnimationController _fishController;
@@ -1335,7 +1282,7 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
     _messageTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!mounted) return;
       setState(() {
-        _messageIndex = (_messageIndex + 1) % _messages.length;
+        _messageIndex += 1;
       });
     });
   }
@@ -1351,16 +1298,13 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final HomeCharacterType characterType = resolveHomeCharacterType(brand);
-    final int growthRecordCount = homeGrowthRecordCountForCharacter(
-      characterType: characterType,
-      totalRecordCount: widget.recordCount,
-    );
+    final HomeCharacterType characterType = currentHomeCharacterType();
+    final int growthRecordCount = currentHomeGrowthRecordCount(widget.recordCount);
     final HomeFishGrowthLevel growthLevel = homeFishGrowthLevelForRecordCount(
       growthRecordCount,
     );
     final bool isTreeCharacter = characterType == HomeCharacterType.tree;
-    final bool isStoneCharacter = characterType == HomeCharacterType.stone;
+    final bool isStoneCharacter = characterType.usesFixedCanvasArt;
     final bool useTreeLeafPulse =
         isTreeCharacter && _homeTreeUsesLeafPulse(growthLevel);
     final String characterAssetPath = homeCharacterAssetForTotalRecordCount(
@@ -1370,6 +1314,14 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
     final double fishVisualSize = isStoneCharacter
         ? 150
         : _homeFishVisualSizeForRecordCount(growthRecordCount, 212);
+    final List<String> bubbleMessages = homeUnansweredBubbleMessages(
+      characterType: characterType,
+      totalRecordCount: widget.recordCount,
+      streakDays: TodayQuestionStore.instance.consecutiveRecordDays,
+      daysSinceLastRecord: _homeDaysSinceLastRecord(),
+    );
+    final String bubbleText =
+        bubbleMessages[_messageIndex % bubbleMessages.length];
     return ValueListenableBuilder<TodayQuestionPromptState>(
       valueListenable: TodayQuestionPromptStore.instance,
       builder:
@@ -1409,7 +1361,7 @@ class _QuestionBeforeRecordCardState extends State<_QuestionBeforeRecordCard>
                 Transform.translate(
                   offset: const Offset(0, -20),
                   child: _QuestionWrittenSpeechBubble(
-                    text: _messages[_messageIndex],
+                    text: bubbleText,
                     color: AppNeutralColors.white,
                     tailDirection: _SpeechTailDirection.down,
                   ),
@@ -2353,11 +2305,6 @@ class _TopCharacterDecorations extends StatefulWidget {
 
 class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
     with TickerProviderStateMixin {
-  static const List<String> _messages = <String>[
-    "오늘의 답변을 작성했어요!",
-    "소중한 하루가 쌓였어요!",
-    "꾸준한 당신을 칭찬해요!",
-  ];
   static const double _fishFrameSize = 128;
   static const double _baseFishVisualSize = 172;
   static const double _treeDecorHeight = 110;
@@ -2386,7 +2333,7 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
         return;
       }
       setState(() {
-        _messageIndex = (_messageIndex + 1) % _messages.length;
+        _messageIndex += 1;
       });
     });
   }
@@ -2400,18 +2347,13 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
 
   @override
   Widget build(BuildContext context) {
-    final HomeCharacterType characterType = resolveHomeCharacterType(
-      context.appBrandScale,
-    );
-    final int growthRecordCount = homeGrowthRecordCountForCharacter(
-      characterType: characterType,
-      totalRecordCount: widget.recordCount,
-    );
+    final HomeCharacterType characterType = currentHomeCharacterType();
+    final int growthRecordCount = currentHomeGrowthRecordCount(widget.recordCount);
     final HomeFishGrowthLevel growthLevel = homeFishGrowthLevelForRecordCount(
       growthRecordCount,
     );
     final bool isTreeCharacter = characterType == HomeCharacterType.tree;
-    final bool isStoneCharacter = characterType == HomeCharacterType.stone;
+    final bool isStoneCharacter = characterType.usesFixedCanvasArt;
     final bool isFishCharacter = characterType == HomeCharacterType.fish;
     final bool useTreeLeafPulse =
         isTreeCharacter && _homeTreeUsesLeafPulse(growthLevel);
@@ -2426,6 +2368,13 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
             _baseFishVisualSize,
           );
     final double decorHeight = isFishCharacter ? 152 : _treeDecorHeight;
+    final List<String> bubbleMessages = homeAnsweredBubbleMessages(
+      characterType: characterType,
+      totalRecordCount: widget.recordCount,
+      streakDays: TodayQuestionStore.instance.consecutiveRecordDays,
+    );
+    final String bubbleText =
+        bubbleMessages[_messageIndex % bubbleMessages.length];
     return SizedBox(
       width: 350,
       height: decorHeight,
@@ -2465,7 +2414,7 @@ class _TopCharacterDecorationsState extends State<_TopCharacterDecorations>
             right: isFishCharacter ? 108 : null,
             top: isFishCharacter ? 26 : 58,
             child: _QuestionWrittenSpeechBubble(
-              text: _messages[_messageIndex],
+              text: bubbleText,
               color: widget.bubbleColor,
             ),
           ),
@@ -2988,18 +2937,15 @@ class _TodayRecordEmptyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    final HomeCharacterType characterType = resolveHomeCharacterType(brand);
-    final int growthRecordCount = homeGrowthRecordCountForCharacter(
-      characterType: characterType,
-      totalRecordCount: recordCount,
-    );
-    final bool isStoneCharacter = characterType == HomeCharacterType.stone;
-    final String characterAssetPath = isStoneCharacter
-        ? HomeCharacterAssets.stoneRecord
-        : HomeCharacterAssets.assetForRecordCount(
-            characterType,
-            growthRecordCount,
-          );
+    final HomeCharacterType characterType = currentHomeCharacterType();
+    final int growthRecordCount = currentHomeGrowthRecordCount(recordCount);
+    final bool isStoneCharacter = characterType.usesFixedCanvasArt;
+    final String characterAssetPath =
+        HomeCharacterAssets.recordAssetFor(characterType) ??
+        HomeCharacterAssets.assetForRecordCount(
+          characterType,
+          growthRecordCount,
+        );
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -3022,11 +2968,12 @@ class _TodayRecordEmptyCard extends StatelessWidget {
                 height: isStoneCharacter ? 85 : 64,
                 fit: BoxFit.contain,
                 errorBuilder: (_, error, stackTrace) {
-                  return AppEmojiText(switch (characterType) {
-                    HomeCharacterType.fish => "🐟",
-                    HomeCharacterType.tree => "🌳",
-                    HomeCharacterType.stone => "🪨",
-                  }, style: TextStyle(fontSize: 32));
+                  return AppEmojiText(
+                    characterType == HomeCharacterType.tree
+                        ? "🌳"
+                        : characterType.fallbackEmoji,
+                    style: TextStyle(fontSize: 32),
+                  );
                 },
               ),
               const SizedBox(height: AppSpacing.s8),
@@ -4030,13 +3977,14 @@ class _InviteFriendsBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
     final bool canCopyInviteLink = _inviteStoreUrl(context) != null;
-    final String inviteBannerAsset = resolveHomeInviteBannerAsset(brand);
-    final HomeCharacterType characterType = resolveHomeCharacterType(brand);
-    final String inviteBannerFallbackEmoji = switch (characterType) {
-      HomeCharacterType.fish => "🐟",
-      HomeCharacterType.tree => "🌳",
-      HomeCharacterType.stone => "🪨",
-    };
+    final HomeCharacterType characterType = currentHomeCharacterType();
+    final String inviteBannerAsset = resolveHomeInviteBannerAsset(
+      characterType,
+    );
+    final String inviteBannerFallbackEmoji =
+        characterType == HomeCharacterType.tree
+        ? "🌳"
+        : characterType.fallbackEmoji;
     return Material(
       color: Colors.transparent,
       child: InkWell(

@@ -2,7 +2,7 @@ import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
 import "../home/home_character_assets.dart";
-import "../home/home_theme_progression.dart";
+import "../home/home_character_selection_store.dart";
 import "../question/today_question_store.dart";
 
 class CurrentProfileCharacterAvatar extends StatelessWidget {
@@ -13,17 +13,17 @@ class CurrentProfileCharacterAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final BrandScale brand = context.appBrandScale;
-    return ValueListenableBuilder<List<TodayQuestionRecord>>(
-      valueListenable: TodayQuestionStore.instance,
+    return ListenableBuilder(
+      listenable: Listenable.merge(<Listenable>[
+        TodayQuestionStore.instance,
+        HomeCharacterSelectionStore.instance,
+      ]),
       builder:
-          (BuildContext context, List<TodayQuestionRecord> records, Widget? _) {
-            final HomeCharacterType characterType = resolveHomeCharacterType(
-              brand,
-            );
-            final int growthRecordCount = homeGrowthRecordCountForCharacter(
-              characterType: characterType,
-              totalRecordCount: records.length,
-            );
+          (BuildContext context, Widget? _) {
+            final List<TodayQuestionRecord> records =
+                TodayQuestionStore.instance.value;
+            final HomeCharacterType characterType = currentHomeCharacterType();
+            final int growthRecordCount = currentHomeGrowthRecordCount(records.length);
             final String assetPath = HomeCharacterAssets.assetForRecordCount(
               characterType,
               growthRecordCount,
@@ -41,7 +41,7 @@ class CurrentProfileCharacterAvatar extends StatelessWidget {
                 size * 0.09375,
                 size * 0.03125,
               ),
-              HomeCharacterType.stone => EdgeInsets.fromLTRB(
+              _ => EdgeInsets.fromLTRB(
                 size * 0.09375,
                 size * 0.09375,
                 size * 0.09375,
@@ -51,7 +51,7 @@ class CurrentProfileCharacterAvatar extends StatelessWidget {
             final Offset imageOffset = switch (characterType) {
               HomeCharacterType.tree => Offset(0, size * 0.03125),
               HomeCharacterType.fish => Offset(0, size * 0.015625),
-              HomeCharacterType.stone => Offset(0, size * 0.015625),
+              _ => Offset(0, size * 0.015625),
             };
 
             return SizedBox(

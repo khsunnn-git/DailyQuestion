@@ -15,6 +15,9 @@ import "features/auth/login_screen.dart";
 import "features/bucket/bucket_backup_service.dart";
 import "features/bucket/bucket_list_screen.dart";
 import "features/home/daily_checkin_backup_service.dart";
+import "features/home/home_character_assets.dart";
+import "features/home/home_character_select_screen.dart";
+import "features/home/home_character_selection_store.dart";
 import "features/home/home_theme_progression.dart";
 import "features/home/home_screen.dart";
 import "features/home/next_theme_unlock_screen.dart";
@@ -33,6 +36,14 @@ const String _debugPreviewScreenEnv = String.fromEnvironment(
   "DEBUG_PREVIEW_SCREEN",
   defaultValue: "",
 );
+const String _debugPreviewThemeEnv = String.fromEnvironment(
+  "DEBUG_PREVIEW_THEME",
+  defaultValue: "",
+);
+const String _debugPreviewCharacterEnv = String.fromEnvironment(
+  "DEBUG_PREVIEW_CHARACTER",
+  defaultValue: "",
+);
 const String _debugPreviewRecordCountEnv = String.fromEnvironment(
   "DEBUG_PREVIEW_RECORD_COUNT",
   defaultValue: "",
@@ -42,6 +53,21 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _initializeFirebaseSafely();
   await _initializeAppDependenciesSafely();
+  await HomeCharacterSelectionStore.instance.initialize();
+  HomeCharacterSelectionStore.instance.setDebugOverride(
+    kDebugMode ? parseHomeCharacterType(_debugPreviewThemeEnv) : null,
+  );
+  final HomeCharacterType? debugPreviewCharacter = kDebugMode
+      ? parseHomeCharacterType(_debugPreviewCharacterEnv)
+      : null;
+  if (debugPreviewCharacter != null) {
+    HomeCharacterSelectionStore.instance.debugSeedSelection(
+      debugPreviewCharacter,
+    );
+  } else if (kDebugMode &&
+      _debugPreviewCharacterEnv.trim().toLowerCase() == "legacy") {
+    HomeCharacterSelectionStore.instance.debugUseLegacySelection();
+  }
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -102,12 +128,7 @@ class DailyQuestionApp extends StatefulWidget {
     "DEBUG_PREVIEW_NICKNAME",
     defaultValue: "혜선",
   );
-  static const String _debugPreviewTheme = String.fromEnvironment(
-    "DEBUG_PREVIEW_THEME",
-    defaultValue: "",
-  );
   static const String _debugPreviewRecordCount = _debugPreviewRecordCountEnv;
-  static const String _selectedCharacterName = "물고기";
   static const SystemUiOverlayStyle _systemUiStyle = SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     systemNavigationBarColor: Colors.transparent,
@@ -222,19 +243,15 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
   @override
   Widget build(BuildContext context) {
     final Widget initialScreen = _buildInitialScreen();
-    return ValueListenableBuilder<List<TodayQuestionRecord>>(
-      valueListenable: TodayQuestionStore.instance,
+    return ListenableBuilder(
+      listenable: Listenable.merge(<Listenable>[
+        TodayQuestionStore.instance,
+        HomeCharacterSelectionStore.instance,
+      ]),
       child: initialScreen,
-      builder:
-          (
-            BuildContext context,
-            List<TodayQuestionRecord> records,
-            Widget? child,
-          ) {
+      builder: (BuildContext context, Widget? child) {
             final AppBrandTheme brandTheme = resolveHomeBrandTheme(
-              characterName: DailyQuestionApp._selectedCharacterName,
-              totalRecordCount: records.length,
-              debugThemeOverride: DailyQuestionApp._debugPreviewTheme,
+              characterType: currentHomeCharacterType(),
             );
             return MaterialApp(
               debugShowCheckedModeBanner: false,
@@ -274,6 +291,8 @@ class _DailyQuestionAppState extends State<DailyQuestionApp>
         return const LoginScreen(mode: LoginScreenMode.onboarding);
       case _DebugPreviewScreen.onboarding:
         return const OnboardingScreen();
+      case _DebugPreviewScreen.characterSelect:
+        return const HomeCharacterSelectScreen();
       case _DebugPreviewScreen.termsConsent:
         return const InitialTermsConsentScreen();
       case _DebugPreviewScreen.nicknameSetup:
@@ -301,6 +320,7 @@ enum _DebugPreviewScreen {
   login,
   onboarding,
   termsConsent,
+  characterSelect,
   nicknameSetup,
   nicknameComplete,
 }
@@ -322,6 +342,9 @@ _DebugPreviewScreen _resolveDebugPreviewScreen(String raw) {
     case "terms":
     case "terms_consent":
       return _DebugPreviewScreen.termsConsent;
+    case "character_select":
+    case "theme_select":
+      return _DebugPreviewScreen.characterSelect;
     case "nickname_setup":
       return _DebugPreviewScreen.nicknameSetup;
     case "nickname_complete":

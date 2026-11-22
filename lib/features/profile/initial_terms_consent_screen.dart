@@ -3,7 +3,7 @@ import "package:url_launcher/url_launcher.dart";
 
 import "../../design_system/design_system.dart";
 import "../auth/login_screen.dart";
-import "nickname_setup_screen.dart";
+import "../home/home_character_select_screen.dart";
 import "user_profile_prefs.dart";
 
 class InitialTermsConsentScreen extends StatefulWidget {
@@ -53,7 +53,7 @@ class _InitialTermsConsentScreenState extends State<InitialTermsConsentScreen> {
       return;
     }
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const NicknameSetupScreen()),
+      HomeCharacterSelectScreen.signupRoute(),
     );
   }
 

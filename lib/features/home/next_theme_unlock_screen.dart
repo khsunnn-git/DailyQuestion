@@ -30,25 +30,13 @@ class NextThemeUnlockScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final BrandScale brand = switch (unlockedCharacterType) {
-      HomeCharacterType.tree => AppBrandThemes.green,
-      HomeCharacterType.stone => AppBrandThemes.brown,
-      HomeCharacterType.fish => AppBrandThemes.blue,
-    };
+    final BrandScale brand = unlockedCharacterType.brandScale;
     final String assetPath = HomeCharacterAssets.assetFor(
       unlockedCharacterType,
       HomeFishGrowthLevel.level1,
     );
-    final String themeName = switch (unlockedCharacterType) {
-      HomeCharacterType.tree => "새싹",
-      HomeCharacterType.stone => "돌맹이",
-      HomeCharacterType.fish => "물고기",
-    };
-    final String fallbackEmoji = switch (unlockedCharacterType) {
-      HomeCharacterType.tree => "🌱",
-      HomeCharacterType.stone => "🪨",
-      HomeCharacterType.fish => "🐟",
-    };
+    final String themeName = unlockedCharacterType.displayName;
+    final String fallbackEmoji = unlockedCharacterType.fallbackEmoji;
 
     return Scaffold(
       backgroundColor: AppNeutralColors.white,

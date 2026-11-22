@@ -14,9 +14,11 @@ import "../navigation/main_tab_shell.dart";
 import "../profile/user_profile_events.dart";
 import "../profile/user_profile_prefs.dart";
 import "home_character_assets.dart";
+import "home_dog_character.dart";
 import "home_fish_growth.dart";
 import "home_screen.dart";
-import "home_theme_progression.dart";
+import "home_blink_character.dart";
+import "home_character_selection_store.dart";
 import "../more/more_settings_screen.dart";
 import "../question/today_question_answer_screen.dart";
 import "../question/today_question_store.dart";
@@ -592,7 +594,7 @@ class _TopMainPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isBrownTheme = brand.c500 == AppBrandThemes.brown.c500;
+    final bool isBrownTheme = currentHomeCharacterType().usesFixedCanvasArt;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1681,8 +1683,10 @@ class _RecordHeroDecorState extends State<_RecordHeroDecor>
   late final AnimationController _treeController;
   late final Animation<double> _treeSway;
 
-  bool get _isGreenTheme => widget.brand.c500 == AppBrandThemes.green.c500;
-  bool get _isBrownTheme => widget.brand.c500 == AppBrandThemes.brown.c500;
+  HomeCharacterType get _characterType => currentHomeCharacterType();
+  bool get _isGreenTheme => _characterType == HomeCharacterType.tree;
+  bool get _isBrownTheme => _characterType.usesFixedCanvasArt;
+  HomeCharacterType get _fixedSizeCharacterType => _characterType;
 
   @override
   void initState() {
@@ -1714,14 +1718,11 @@ class _RecordHeroDecorState extends State<_RecordHeroDecor>
               Widget? _,
             ) {
               final int totalRecordCount = records.length;
-              final int growthRecordCount = homeGrowthRecordCountForCharacter(
-                characterType: HomeCharacterType.stone,
-                totalRecordCount: totalRecordCount,
-              );
+              final int growthRecordCount = currentHomeGrowthRecordCount(totalRecordCount);
               final HomeFishGrowthLevel growthLevel =
                   homeFishGrowthLevelForRecordCount(growthRecordCount);
               final String assetPath = homeCharacterAssetForTotalRecordCount(
-                characterType: HomeCharacterType.stone,
+                characterType: _fixedSizeCharacterType,
                 totalRecordCount: totalRecordCount,
               );
 
@@ -1732,22 +1733,41 @@ class _RecordHeroDecorState extends State<_RecordHeroDecor>
                   child: SizedBox(
                     width: 150,
                     height: 206,
-                    child: Image.asset(
-                      assetPath,
-                      key: ValueKey<String>(
-                        "record-hero-stone-${growthLevel.name}",
-                      ),
-                      fit: BoxFit.contain,
-                      alignment: Alignment.bottomCenter,
-                      errorBuilder: (_, error, stackTrace) {
-                        return const Center(
-                          child: AppEmojiText(
-                            "🪨",
-                            style: TextStyle(fontSize: 52),
+                    child: _fixedSizeCharacterType == HomeCharacterType.dog
+                        ? Align(
+                            alignment: Alignment.bottomCenter,
+                            child: HomeDogCharacter(
+                              growthLevel: growthLevel,
+                              size: 150,
+                              fallbackFontSize: 52,
+                            ),
+                          )
+                        : _fixedSizeCharacterType.hasBlinkFrames
+                        ? Align(
+                            alignment: Alignment.bottomCenter,
+                            child: HomeBlinkCharacter(
+                              characterType: _fixedSizeCharacterType,
+                              growthLevel: growthLevel,
+                              size: 150,
+                              fallbackFontSize: 52,
+                            ),
+                          )
+                        : Image.asset(
+                            assetPath,
+                            key: ValueKey<String>(
+                              "record-hero-${_fixedSizeCharacterType.name}-${growthLevel.name}",
+                            ),
+                            fit: BoxFit.contain,
+                            alignment: Alignment.bottomCenter,
+                            errorBuilder: (_, error, stackTrace) {
+                              return Center(
+                                child: AppEmojiText(
+                                  _fixedSizeCharacterType.fallbackEmoji,
+                                  style: const TextStyle(fontSize: 52),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ),
               );
@@ -1783,10 +1803,7 @@ class _RecordHeroDecorState extends State<_RecordHeroDecor>
       builder:
           (BuildContext context, List<TodayQuestionRecord> records, Widget? _) {
             final int recordCount = records.length;
-            final int growthRecordCount = homeGrowthRecordCountForCharacter(
-              characterType: HomeCharacterType.tree,
-              totalRecordCount: recordCount,
-            );
+            final int growthRecordCount = currentHomeGrowthRecordCount(recordCount);
             final HomeFishGrowthLevel growthLevel =
                 homeFishGrowthLevelForRecordCount(growthRecordCount);
             final bool useTreeLeafPulse = _recordHeroTreeUsesLeafPulse(

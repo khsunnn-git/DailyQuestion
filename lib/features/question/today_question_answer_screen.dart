@@ -9,6 +9,7 @@ import "../../core/kst_date_time.dart";
 import "../../data/local_db/entities/bucket_item_entity.dart";
 import "../../data/local_db/local_database.dart";
 import "../../design_system/design_system.dart";
+import "../notifications/daily_question_notification_scheduler.dart";
 import "polish_draft_store.dart";
 import "streak_completion_screen.dart";
 import "today_question_prompt_store.dart";
@@ -215,6 +216,9 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
         return;
       }
 
+      // 오늘 답했으면 오늘 남은 알림(오늘의 질문, 저녁 리마인드)을 빼고 다시 예약한다.
+      unawaited(_refreshNotificationsAfterAnswer());
+
       final DateTime now = nowInKst();
       final DateTime resolvedDate = widget.initialDate ?? now;
       final bool isTodayTarget = isSameKstDate(resolvedDate, now);
@@ -241,6 +245,12 @@ class _TodayQuestionAnswerScreenState extends State<TodayQuestionAnswerScreen> {
     } catch (_) {
       _showBucketToastMessage("저장 중 오류가 발생했어요. 다시 시도해주세요.");
     }
+  }
+
+  Future<void> _refreshNotificationsAfterAnswer() async {
+    try {
+      await refreshDailyQuestionNotificationSchedulerState();
+    } catch (_) {}
   }
 
   int _resolveQuestionSlot() {

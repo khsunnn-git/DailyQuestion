@@ -7,10 +7,13 @@ abstract final class NotificationPrefsKeys {
       "notification_today_question_minute";
   static const String bucketDdayDaysBefore =
       "notification_bucket_dday_days_before";
+  static const String eveningReminderEnabled =
+      "notification_evening_reminder_enabled";
   static const String settingsSchemaVersion =
       "notification_settings_schema_version";
 
   static const bool defaultTodayQuestionEnabled = true;
+  static const bool defaultEveningReminderEnabled = true;
   static const int defaultTodayQuestionHour = 15;
   static const int defaultTodayQuestionMinute = 0;
   static const int defaultBucketDdayDaysBefore = 7;

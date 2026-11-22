@@ -3,7 +3,8 @@ import "dart:async";
 import "package:flutter/material.dart";
 
 import "../../design_system/design_system.dart";
-import "initial_terms_consent_screen.dart";
+import "../home/home_character_selection_store.dart";
+import "../home/home_character_select_screen.dart";
 import "nickname_complete_screen.dart";
 import "profile_character_avatar.dart";
 import "nickname_rules.dart";
@@ -203,8 +204,10 @@ class _NicknameSetupScreenState extends State<NicknameSetupScreen> {
       return;
     }
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => const InitialTermsConsentScreen(),
+      HomeCharacterSelectScreen.signupRoute(
+        onNicknameCompleted: widget.onCompleted,
+        initialCharacterType: HomeCharacterSelectionStore.instance.value
+            ?.characterType,
       ),
       (Route<dynamic> route) => false,
     );
